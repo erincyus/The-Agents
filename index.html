@@ -351,13 +351,15 @@ const EMAILJS_PUBLIC_KEY = 'spOtRgEpGSmXvAyUw';
 if(window.emailjs){
   try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); }catch(e){ console.warn('EmailJS başlatılamadı', e); }
 }
+const LOGO_RAW_URL = 'https://raw.githubusercontent.com/erincyus/The-Agents/main/agents-logo.png';
 function sendWelcomeEmail(toEmail, toName, password){
   if(!window.emailjs){ return Promise.reject(new Error('EmailJS yüklenemedi')); }
   return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
     to_email: toEmail,
     to_name: toName || toEmail,
     password: password,
-    login_link: window.location.origin + '/#ogretmen'
+    login_link: window.location.origin + '/#ogretmen',
+    logo_html: '<br><img src="'+LOGO_RAW_URL+'" width="180" alt="The Agents MEV">'
   });
 }
 
