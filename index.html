@@ -269,7 +269,7 @@ function isTeacherAuthed(){ return teacherAuthState === 'authed'; }
 function isCurrentUserAdmin(){ return !!(currentTeacherRecord && currentTeacherRecord.isAdmin); }
 
 function ensureCurrentClassIndexed(){
-  if(!currentTeacherUid || !db) return;
+  if(!currentTeacherUid || !db || currentTeacherUid === ADMIN_UID) return;
   const code = ACTIVE_CLASS_CODE;
   db.ref('admin/classes/'+code).once('value').then(function(snap){
     if(!snap.exists()){
@@ -490,7 +490,7 @@ function viewAdminPanel(){
   attachAdminListeners();
   const teachers = AdminState.teachers || {};
   const presence = AdminState.presence || {};
-  const teacherEntries = Object.entries(teachers);
+  const teacherEntries = Object.entries(teachers).filter(function([uid, t]){ return uid !== ADMIN_UID && t && t.email; });
 
   const rows = teacherEntries.map(function([uid, t]){
     const isOnline = !!(presence[uid] && presence[uid].online);
@@ -1782,7 +1782,9 @@ function createNewClass(){
   const code = generateClassCode();
   if(currentTeacherUid && db){
     db.ref('admin/classes/'+code).set({ teacherUid: currentTeacherUid, createdAt: Date.now() });
-    db.ref('admin/teachers/'+currentTeacherUid+'/classCodes/'+code).set(true);
+    if(currentTeacherUid !== ADMIN_UID){
+      db.ref('admin/teachers/'+currentTeacherUid+'/classCodes/'+code).set(true);
+    }
   }
   switchToClass(code);
 }
