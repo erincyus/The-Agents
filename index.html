@@ -191,16 +191,16 @@ const BOARD_ICON_DATA_URI = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/
 <!-- ================= FIREBASE / DEPOLAMA / KİMLİK ================= -->
 <script>
 const firebaseConfig = {
-  apiKey: "BURAYA_API_KEY",
-  authDomain: "BURAYA_PROJE.firebaseapp.com",
-  databaseURL: "https://BURAYA_PROJE-default-rtdb.firebaseio.com",
-  projectId: "BURAYA_PROJE",
-  storageBucket: "BURAYA_PROJE.appspot.com",
-  messagingSenderId: "0000000000",
-  appId: "BURAYA_APP_ID"
+  apiKey: "AIzaSyBxBzCkrJ9D8Uf9EcVGC80WcD116BtoUI4",
+  authDomain: "the-agents-69182.firebaseapp.com",
+  databaseURL: "https://the-agents-69182-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "the-agents-69182",
+  storageBucket: "the-agents-69182.firebasestorage.app",
+  messagingSenderId: "516259979836",
+  appId: "1:516259979836:web:868a36a1551cb2e9d61939"
 };
 
-const USE_LOCAL_STORAGE = true;
+const USE_LOCAL_STORAGE = false;
 
 let db = null;
 let firebaseReady = false;
@@ -503,6 +503,16 @@ function saveMeta(patch){
   }
   ref('meta').update(patch);
 }
+function commitState(){
+  if(USE_LOCAL_STORAGE || !firebaseReady){
+    persistLocalState();
+    render();
+    return;
+  }
+  ref('meta').set(State.meta);
+  ref('students').set(State.students);
+  render();
+}
 function addStudentDb(name, password){
   const id = uid();
   const data = { name, role:'unassigned', status:'active', weekly:{}, passwordHash: password ? simpleHash(password) : null, eliminatedAtWeek: null };
@@ -628,7 +638,8 @@ function viewGiris(){
         <b style="color:var(--gold)">Geliştirme modu — Yerel Depolama aktif.</b>
         <span class="text-[var(--ink-dim)]"> Tüm veriler yalnızca bu tarayıcıda saklanıyor, cihazlar arası senkronize olmuyor.</span>
       </div>`:''}
-  </div>`;
+  </div>
+  ${appFooterHtml()}`;
 }
 </script>
 
@@ -653,7 +664,8 @@ function viewOgretmenGiris(){
       <button class="btn btn-gold w-full py-2" onclick="loginTeacher()">Giriş Yap</button>
       <button class="btn btn-ghost w-full py-2 mt-2 text-xs" onclick="if(confirm('Şifreyi sıfırlamak istediğinize emin misiniz?')) resetTeacherPassword()">Şifremi unuttum / sıfırla</button>
     `}
-  </div>`;
+  </div>
+  ${appFooterHtml()}`;
 }
 function registerTeacher(){
   const p1 = document.getElementById('teacherPw1').value;
@@ -1215,12 +1227,9 @@ function setRole(id, role){ saveStudent(id, {role}); }
 
 function setStatus(id, status){
   const patch = { status, eliminatedAtWeek: status==='shadow' ? State.meta.currentWeek : null };
-  if(USE_LOCAL_STORAGE || !firebaseReady){
-    State.students[id] = Object.assign({}, State.students[id], patch);
-    checkGameEndConditions();
-    persistLocalState(); render(); return;
-  }
-  ref(`students/${id}`).update(patch);
+  State.students[id] = Object.assign({}, State.students[id], patch);
+  checkGameEndConditions();
+  commitState();
 }
 
 function changeViewWeek(delta){
@@ -1261,8 +1270,7 @@ function resolveSabotage(){
   applySabotageMoves();
   State.meta = Object.assign({}, State.meta, { sabotage: { active:false, week:sab.week, moves:sab.moves||{}, resolved:true } });
   checkGameEndConditions();
-  persistLocalState();
-  render();
+  commitState();
 }
 
 function startCouncil(){
@@ -1304,8 +1312,7 @@ function endCouncil(){
   });
   State.teacherViewWeek = newWeek;
   checkGameEndConditions();
-  persistLocalState();
-  render();
+  commitState();
 }
 
 function requestEndGame(){
@@ -1451,8 +1458,7 @@ function startNewGame(){
   State.awaitingWinnerChoice = false;
   State.lastLotteryShown = null;
   State.lotteryRevealed = [];
-  persistLocalState();
-  render();
+  commitState();
 }
 
 function copyClassCode(){
@@ -1842,7 +1848,8 @@ function viewTahtaSetupNeeded(){
   <div class="max-w-sm mx-auto px-6 py-20 text-center">
     <div class="text-xs mono text-[var(--ink-dim)] mb-2">KURULUM GEREKİYOR</div>
     <p class="text-sm text-[var(--ink-dim)]">Akıllı tahta ekranı için öğretmen henüz bir şifre belirlemedi.</p>
-  </div>`;
+  </div>
+  ${appFooterHtml()}`;
 }
 function viewTahtaGiris(){
   return `
@@ -1853,7 +1860,8 @@ function viewTahtaGiris(){
     <input id="boardPw" type="password" placeholder="Şifre" class="w-full px-3 py-2 mb-3" onkeydown="if(event.key==='Enter') boardLogin();">
     <div id="boardLoginError" class="text-xs mb-2" style="color:var(--danger)"></div>
     <button class="btn btn-gold w-full py-2" onclick="boardLogin()">Giriş Yap</button>
-  </div>`;
+  </div>
+  ${appFooterHtml()}`;
 }
 function boardLogin(){
   const pw = document.getElementById('boardPw').value;
