@@ -22,6 +22,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Bungee&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -344,6 +345,22 @@ function logoutTeacher(){
 // ================= ADMIN PANELİ =================
 const AdminState = { teachers: {}, presence: {}, listenersAttached: false, expandedTeacher: null, editingTeacher: null };
 
+const EMAILJS_SERVICE_ID = 'service_agents';
+const EMAILJS_TEMPLATE_ID = 'template_hpqov1o';
+const EMAILJS_PUBLIC_KEY = 'spOtRgEpGSmXvAyUw';
+if(window.emailjs){
+  try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); }catch(e){ console.warn('EmailJS başlatılamadı', e); }
+}
+function sendWelcomeEmail(toEmail, toName, password){
+  if(!window.emailjs){ return Promise.reject(new Error('EmailJS yüklenemedi')); }
+  return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+    to_email: toEmail,
+    to_name: toName || toEmail,
+    password: password,
+    login_link: window.location.origin + '/#ogretmen'
+  });
+}
+
 function getSecondaryAuth(){
   let secondaryApp;
   try{ secondaryApp = firebase.app('Secondary'); }
@@ -385,7 +402,11 @@ function adminCreateTeacherSubmit(){
     });
   }).then(function(){
     emailEl.value=''; nameEl.value=''; pwEl.value='';
-    alert('Öğretmen hesabı oluşturuldu: '+email);
+    sendWelcomeEmail(email, name, pw).then(function(){
+      alert('Öğretmen hesabı oluşturuldu ve hoş geldiniz e-postası gönderildi: '+email);
+    }).catch(function(emailErr){
+      alert('Öğretmen hesabı oluşturuldu, ancak hoş geldiniz e-postası gönderilemedi.\n\nHata: '+(emailErr && (emailErr.text||emailErr.message) || emailErr));
+    });
   }).catch(function(e){
     if(err) err.textContent = 'Hata: '+(e.message||e);
   });
