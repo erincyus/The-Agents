@@ -20,6 +20,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -255,16 +256,259 @@ function simpleHash(str){
   return h.toString(36);
 }
 
-// Öğretmen girişi TARAYICI/CİHAZ genelinde tektir — sınıf değiştirince tekrar şifre istenmez.
-const TEACHER_PASS_KEY = `${APP_PREFIX}:ogretmen-sifre`;
-const TEACHER_SESSION_KEY = `${APP_PREFIX}:ogretmen-oturum`;
-function hasTeacherPassword(){ return !!safeGet(localStorage, TEACHER_PASS_KEY); }
-function setTeacherPassword(pw){ safeSet(localStorage, TEACHER_PASS_KEY, simpleHash(pw)); }
-function checkTeacherPassword(pw){ return safeGet(localStorage, TEACHER_PASS_KEY) === simpleHash(pw); }
-function isTeacherAuthed(){ return safeGet(sessionStorage, TEACHER_SESSION_KEY) === '1'; }
-function setTeacherAuthed(v){
-  if(v) safeSet(sessionStorage, TEACHER_SESSION_KEY, '1');
-  else safeRemove(sessionStorage, TEACHER_SESSION_KEY);
+// Öğretmen/Admin girişi artık Firebase Authentication ile yapılır (e-posta + şifre).
+// Hesaplar SADECE admin panelinden oluşturulur; kendi kendine kayıt YOKTUR.
+const ADMIN_UID = "eDTGhzccveNDugVZ9z0e2HmEhqr2";
+let auth = (!USE_LOCAL_STORAGE && firebaseReady) ? firebase.auth() : null;
+let teacherAuthState = auth ? 'pending' : 'guest'; // 'pending' | 'authed' | 'guest'
+let currentTeacherUid = null;
+let currentTeacherRecord = null; // {email, isAdmin, suspended, ...}
+
+function isTeacherAuthed(){ return teacherAuthState === 'authed'; }
+function isCurrentUserAdmin(){ return !!(currentTeacherRecord && currentTeacherRecord.isAdmin); }
+
+function ensureCurrentClassIndexed(){
+  if(!currentTeacherUid || !db) return;
+  const code = ACTIVE_CLASS_CODE;
+  db.ref('admin/classes/'+code).once('value').then(function(snap){
+    if(!snap.exists()){
+      db.ref('admin/classes/'+code).set({ teacherUid: currentTeacherUid, createdAt: Date.now() });
+      db.ref('admin/teachers/'+currentTeacherUid+'/classCodes/'+code).set(true);
+    }
+  }).catch(function(){});
+}
+
+function setupPresence(uid){
+  if(!db) return;
+  const myConnRef = db.ref('presence/'+uid);
+  db.ref('.info/connected').on('value', function(snap){
+    if(snap.val()===true){
+      myConnRef.onDisconnect().set({ online:false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+      myConnRef.set({ online:true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+    }
+  });
+}
+
+if(auth){
+  auth.onAuthStateChanged(function(user){
+    if(!user){
+      teacherAuthState = 'guest';
+      currentTeacherUid = null;
+      currentTeacherRecord = null;
+      render();
+      return;
+    }
+    currentTeacherUid = user.uid;
+    if(user.uid === ADMIN_UID){
+      currentTeacherRecord = { email: user.email, isAdmin: true, suspended:false };
+      teacherAuthState = 'authed';
+      ensureCurrentClassIndexed();
+      setupPresence(user.uid);
+      render();
+      return;
+    }
+    db.ref('admin/teachers/'+user.uid).once('value').then(function(snap){
+      const rec = snap.val();
+      if(!rec || rec.suspended){
+        teacherAuthState = 'guest';
+        currentTeacherUid = null;
+        currentTeacherRecord = null;
+        auth.signOut();
+        render();
+        return;
+      }
+      currentTeacherRecord = Object.assign({isAdmin:false}, rec);
+      teacherAuthState = 'authed';
+      ensureCurrentClassIndexed();
+      setupPresence(user.uid);
+      render();
+    });
+  });
+}
+
+function loginTeacher(){
+  const email = (document.getElementById('teacherEmail')||{}).value?.trim();
+  const pw = (document.getElementById('teacherPw')||{}).value;
+  const err = document.getElementById('teacherAuthError');
+  if(err) err.textContent = '';
+  if(!auth){ if(err) err.textContent = 'Bağlantı hazır değil, sayfayı yenileyin.'; return; }
+  if(!email || !pw){ if(err) err.textContent = 'E-posta ve şifre girin.'; return; }
+  auth.signInWithEmailAndPassword(email, pw).catch(function(e){
+    if(err) err.textContent = 'E-posta veya şifre hatalı.';
+  });
+}
+function logoutTeacher(){
+  if(auth) auth.signOut();
+}
+
+// ================= ADMIN PANELİ =================
+const AdminState = { teachers: {}, presence: {}, listenersAttached: false, expandedTeacher: null };
+
+function getSecondaryAuth(){
+  let secondaryApp;
+  try{ secondaryApp = firebase.app('Secondary'); }
+  catch(e){ secondaryApp = firebase.initializeApp(firebaseConfig, 'Secondary'); }
+  return secondaryApp.auth();
+}
+
+function attachAdminListeners(){
+  if(AdminState.listenersAttached || !db) return;
+  AdminState.listenersAttached = true;
+  db.ref('admin/teachers').on('value', function(snap){
+    AdminState.teachers = snap.val() || {};
+    render();
+  });
+  db.ref('presence').on('value', function(snap){
+    AdminState.presence = snap.val() || {};
+    render();
+  });
+}
+
+function adminCreateTeacherSubmit(){
+  const emailEl = document.getElementById('newTeacherEmail');
+  const nameEl = document.getElementById('newTeacherName');
+  const pwEl = document.getElementById('newTeacherPw');
+  const err = document.getElementById('adminCreateError');
+  if(err) err.textContent = '';
+  const email = emailEl.value.trim();
+  const name = nameEl.value.trim();
+  const pw = pwEl.value;
+  if(!email || !pw){ if(err) err.textContent = 'E-posta ve şifre zorunlu.'; return; }
+  if(pw.length < 6){ if(err) err.textContent = 'Şifre en az 6 karakter olmalı.'; return; }
+  const secAuth = getSecondaryAuth();
+  secAuth.createUserWithEmailAndPassword(email, pw).then(function(cred){
+    const newUid = cred.user.uid;
+    return secAuth.signOut().then(function(){
+      return db.ref('admin/teachers/'+newUid).set({
+        email, displayName: name || email, suspended:false, createdAt: Date.now(), classCodes:{}
+      });
+    });
+  }).then(function(){
+    emailEl.value=''; nameEl.value=''; pwEl.value='';
+    alert('Öğretmen hesabı oluşturuldu: '+email);
+  }).catch(function(e){
+    if(err) err.textContent = 'Hata: '+(e.message||e);
+  });
+}
+
+function adminToggleSuspend(uid, suspend){
+  if(!db) return;
+  db.ref('admin/teachers/'+uid+'/suspended').set(!!suspend);
+}
+
+function adminDeleteTeacher(uid, email){
+  if(!confirm(email+' hesabını sistemden kaldırmak istediğinize emin misiniz?\n\nNot: Bu, hesabın uygulamaya erişimini tamamen keser. E-posta/şifre kaydının Firebase tarafında da tamamen silinmesi için Firebase konsolu → Authentication → Users bölümünden elle silmeniz gerekir.')) return;
+  if(!db) return;
+  db.ref('admin/teachers/'+uid).remove();
+}
+
+function adminInspectClass(code){
+  if(!db) return;
+  db.ref(code+'/students').once('value').then(function(snap){
+    const students = snap.val() || {};
+    const names = Object.values(students).map(function(s){ return s.name; });
+    return db.ref(code+'/meta/currentWeek').once('value').then(function(wkSnap){
+      const week = wkSnap.val() || 1;
+      alert('Sınıf: '+code+'\nHafta: '+week+'\nÖğrenci sayısı: '+names.length+(names.length?('\n\n'+names.join(', ')):''));
+    });
+  }).catch(function(e){ alert('Veri alınamadı: '+(e.message||e)); });
+}
+
+function viewAdminGiris(){
+  if(teacherAuthState==='pending'){
+    return `${navBar('giris')}<div class="max-w-sm mx-auto px-6 py-20 text-center"><div class="text-xs mono text-[var(--ink-dim)]">Yükleniyor...</div></div>${appFooterHtml()}`;
+  }
+  if(teacherAuthState==='authed' && !isCurrentUserAdmin()){
+    return `
+    ${navBar('giris')}
+    <div class="max-w-sm mx-auto px-6 py-20 text-center">
+      <div class="text-xs mono" style="color:var(--danger)">YETKİSİZ ERİŞİM</div>
+      <p class="text-sm text-[var(--ink-dim)] mt-2">Bu hesabın admin paneline erişim yetkisi yok.</p>
+      <button class="btn btn-ghost mt-4 px-4 py-2 text-sm" onclick="logoutTeacher()">Çıkış Yap</button>
+    </div>
+    ${appFooterHtml()}`;
+  }
+  return `
+  ${navBar('giris')}
+  <div class="max-w-sm mx-auto px-6 py-20">
+    <div class="text-xs mono text-[var(--ink-dim)] mb-2">YÖNETİCİ GİRİŞİ</div>
+    <h2 class="text-2xl font-semibold mb-4">Admin Paneli</h2>
+    <input id="teacherEmail" type="email" placeholder="E-posta" class="w-full px-3 py-2 mb-2" onkeydown="if(event.key==='Enter') document.getElementById('teacherPw').focus();">
+    <input id="teacherPw" type="password" placeholder="Şifre" class="w-full px-3 py-2 mb-3" onkeydown="if(event.key==='Enter') loginTeacher();">
+    <div id="teacherAuthError" class="text-xs mb-2" style="color:var(--danger)"></div>
+    <button class="btn btn-gold w-full py-2" onclick="loginTeacher()">Giriş Yap</button>
+  </div>
+  ${appFooterHtml()}`;
+}
+
+function viewAdminPanel(){
+  attachAdminListeners();
+  const teachers = AdminState.teachers || {};
+  const presence = AdminState.presence || {};
+  const teacherEntries = Object.entries(teachers);
+
+  const rows = teacherEntries.map(function([uid, t]){
+    const isOnline = !!(presence[uid] && presence[uid].online);
+    const classCodes = Object.keys(t.classCodes||{});
+    const expanded = AdminState.expandedTeacher === uid;
+    return `
+    <div class="card p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-2 h-2 rounded-full" style="background:${isOnline?'var(--cyber)':'rgba(255,255,255,0.25)'}"></span>
+          <div>
+            <div class="font-medium">${t.displayName || t.email}</div>
+            <div class="text-xs mono text-[var(--ink-dim)]">${t.email} ${isOnline?' · <span style="color:var(--cyber)">ÇEVRİMİÇİ</span>':''}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="tag ${t.suspended?'tag-shadow':'tag-active'}">${t.suspended?'ASKIYA ALINDI':'AKTİF'}</span>
+          <button class="btn btn-ghost px-2 py-1 text-xs" onclick="adminToggleSuspend('${uid}', ${!t.suspended})">${t.suspended?'Aktif Et':'Askıya Al'}</button>
+          <button class="btn btn-danger px-2 py-1 text-xs" onclick="adminDeleteTeacher('${uid}', '${(t.email||'').replace(/'/g,"")}')">Sil</button>
+        </div>
+      </div>
+      <div class="mt-2">
+        <button class="btn btn-ghost px-2 py-1 text-xs" onclick="AdminState.expandedTeacher = AdminState.expandedTeacher==='${uid}' ? null : '${uid}'; render();">
+          ${classCodes.length} sınıf ${expanded?'▲':'▼'}
+        </button>
+        ${expanded ? `
+        <div class="mt-2 space-y-1">
+          ${classCodes.length ? classCodes.map(function(code){
+            return `<div class="flex items-center justify-between text-xs mono px-2 py-1 rounded" style="background:rgba(255,255,255,0.04)">
+              <span>${code}</span>
+              <button class="btn btn-ghost px-2 py-1" onclick="adminInspectClass('${code}')">İncele</button>
+            </div>`;
+          }).join('') : `<div class="text-xs text-[var(--ink-dim)]">Henüz sınıf yok.</div>`}
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  ${navBar('giris')}
+  <div class="max-w-4xl mx-auto px-4 py-8 space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-semibold">🛡️ Admin Paneli</h2>
+      <button class="btn btn-ghost px-3 py-1 text-xs" onclick="logoutTeacher()">Çıkış Yap</button>
+    </div>
+
+    <div class="card p-5">
+      <div class="font-medium mb-3">Yeni Öğretmen Ekle</div>
+      <div class="grid sm:grid-cols-3 gap-2">
+        <input id="newTeacherEmail" type="email" placeholder="E-posta" class="px-3 py-2 text-sm">
+        <input id="newTeacherName" type="text" placeholder="Ad Soyad (opsiyonel)" class="px-3 py-2 text-sm">
+        <input id="newTeacherPw" type="text" placeholder="Şifre (en az 6 karakter)" class="px-3 py-2 text-sm">
+      </div>
+      <div id="adminCreateError" class="text-xs mt-2" style="color:var(--danger)"></div>
+      <button class="btn btn-gold px-4 py-2 mt-2" onclick="adminCreateTeacherSubmit()">Öğretmen Hesabı Oluştur</button>
+    </div>
+
+    <div class="space-y-3">
+      <div class="font-medium">Öğretmenler (${teacherEntries.length})</div>
+      ${rows || `<div class="text-sm text-[var(--ink-dim)]">Henüz öğretmen eklenmedi.</div>`}
+    </div>
+  </div>
+  ${appFooterHtml()}`;
 }
 
 // Akıllı tahta şifresi HER SINIF için ayrıdır (LOCAL_KEY'e bağlı, sınıf değişince fonksiyonlar güncel anahtarı kullanır).
@@ -646,53 +890,26 @@ function viewGiris(){
 <!-- ================= VIEW: ÖĞRETMEN GİRİŞİ ================= -->
 <script>
 function viewOgretmenGiris(){
-  const registering = !hasTeacherPassword();
+  if(teacherAuthState==='pending'){
+    return `
+    ${navBar('ogretmen')}
+    <div class="max-w-sm mx-auto px-6 py-20 text-center">
+      <div class="text-xs mono text-[var(--ink-dim)]">Yükleniyor...</div>
+    </div>
+    ${appFooterHtml()}`;
+  }
   return `
   ${navBar('ogretmen')}
   <div class="max-w-sm mx-auto px-6 py-20">
-    <div class="text-xs mono text-[var(--ink-dim)] mb-2">${registering?'İLK KURULUM':'YETKİLİ GİRİŞİ'}</div>
-    <h2 class="text-2xl font-semibold mb-4">${registering?'Öğretmen Şifresi Oluşturun':'Öğretmen Girişi'}</h2>
-    ${registering ? `
-      <p class="text-sm text-[var(--ink-dim)] mb-4">Bu tarayıcı için henüz bir öğretmen şifresi belirlenmemiş. Bir şifre oluşturun; sonraki girişlerde bu şifreyi kullanacaksınız.</p>
-      <input id="teacherPw1" type="password" placeholder="Yeni şifre" class="w-full px-3 py-2 mb-2">
-      <input id="teacherPw2" type="password" placeholder="Şifre (tekrar)" class="w-full px-3 py-2 mb-3">
-      <div id="teacherAuthError" class="text-xs mb-2" style="color:var(--danger)"></div>
-      <button class="btn btn-gold w-full py-2" onclick="registerTeacher()">Şifreyi Oluştur ve Giriş Yap</button>
-    ` : `
-      <input id="teacherPw" type="password" placeholder="Şifre" class="w-full px-3 py-2 mb-3" onkeydown="if(event.key==='Enter') loginTeacher();">
-      <div id="teacherAuthError" class="text-xs mb-2" style="color:var(--danger)"></div>
-      <button class="btn btn-gold w-full py-2" onclick="loginTeacher()">Giriş Yap</button>
-      <button class="btn btn-ghost w-full py-2 mt-2 text-xs" onclick="if(confirm('Şifreyi sıfırlamak istediğinize emin misiniz?')) resetTeacherPassword()">Şifremi unuttum / sıfırla</button>
-    `}
+    <div class="text-xs mono text-[var(--ink-dim)] mb-2">YETKİLİ GİRİŞİ</div>
+    <h2 class="text-2xl font-semibold mb-4">Öğretmen Girişi</h2>
+    <input id="teacherEmail" type="email" placeholder="E-posta" class="w-full px-3 py-2 mb-2" onkeydown="if(event.key==='Enter') document.getElementById('teacherPw').focus();">
+    <input id="teacherPw" type="password" placeholder="Şifre" class="w-full px-3 py-2 mb-3" onkeydown="if(event.key==='Enter') loginTeacher();">
+    <div id="teacherAuthError" class="text-xs mb-2" style="color:var(--danger)"></div>
+    <button class="btn btn-gold w-full py-2" onclick="loginTeacher()">Giriş Yap</button>
+    <div class="text-xs text-[var(--ink-dim)] mt-3">Hesabınız yoksa yöneticinizden (sistem admini) bir hesap oluşturmasını isteyin.</div>
   </div>
   ${appFooterHtml()}`;
-}
-function registerTeacher(){
-  const p1 = document.getElementById('teacherPw1').value;
-  const p2 = document.getElementById('teacherPw2').value;
-  const err = document.getElementById('teacherAuthError');
-  if(p1.length < 4){ err.textContent = 'Şifre en az 4 karakter olmalı.'; return; }
-  if(p1 !== p2){ err.textContent = 'Şifreler eşleşmiyor.'; return; }
-  setTeacherPassword(p1);
-  setTeacherAuthed(true);
-  location.hash = '#ogretmen';
-  render();
-}
-function loginTeacher(){
-  const p = document.getElementById('teacherPw').value;
-  const err = document.getElementById('teacherAuthError');
-  if(checkTeacherPassword(p)){ setTeacherAuthed(true); render(); }
-  else { err.textContent = 'Şifre hatalı.'; }
-}
-function resetTeacherPassword(){
-  safeRemove(localStorage, TEACHER_PASS_KEY);
-  setTeacherAuthed(false);
-  render();
-}
-function logoutTeacher(){
-  setTeacherAuthed(false);
-  location.hash = '#giris';
-  render();
 }
 </script>
 
@@ -1317,9 +1534,6 @@ function endCouncil(){
 
 function requestEndGame(){
   if(!confirm('Oyunu bitirmek istediğinize emin misiniz? Bu işlem dönemi sonlandırır.')) return;
-  const pw = prompt('Onaylamak için öğretmen şifrenizi girin:');
-  if(pw===null) return;
-  if(!checkTeacherPassword(pw)){ alert('Şifre hatalı. İşlem iptal edildi.'); return; }
   State.awaitingWinnerChoice = true;
   render();
 }
@@ -1503,8 +1717,11 @@ function joinClassAsStudent(){
 
 function createNewClass(){
   if(!confirm('Yeni bir sınıf/oyun oluşturmak istediğinize emin misiniz? Mevcut sınıfın verileri saklı kalır; şimdi boş yeni bir sınıfa geçeceksiniz.')) return;
-  let code;
-  do { code = generateClassCode(); } while(safeGet(localStorage, `${APP_PREFIX}:class:${code}`));
+  const code = generateClassCode();
+  if(currentTeacherUid && db){
+    db.ref('admin/classes/'+code).set({ teacherUid: currentTeacherUid, createdAt: Date.now() });
+    db.ref('admin/teachers/'+currentTeacherUid+'/classCodes/'+code).set(true);
+  }
   switchToClass(code);
 }
 
@@ -2016,6 +2233,7 @@ function render(){
     const route = currentRoute();
     let html = '';
     if(route==='ogretmen') html = isTeacherAuthed() ? viewOgretmen() : viewOgretmenGiris();
+    else if(route==='admin') html = (isTeacherAuthed() && isCurrentUserAdmin()) ? viewAdminPanel() : viewAdminGiris();
     else if(route==='ogrenci') html = viewOgrenci();
     else if(route==='tahta'){
       html = !hasBoardPassword() ? viewTahtaSetupNeeded() : (!isBoardAuthed() ? viewTahtaGiris() : viewTahta());
