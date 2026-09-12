@@ -75,6 +75,26 @@
     border-radius:2px;
   }
   .gold-line{border-color:rgba(212,175,55,0.35);}
+  input[type="text"], input[type="email"], input[type="password"], input[type="file"],
+  input[type="number"], input:not([type]), select, textarea{
+    background:#F3F4F6;
+    color:#111827;
+    border:1px solid rgba(212,175,55,0.3);
+    border-radius:2px;
+  }
+  input[type="text"]::placeholder, input[type="email"]::placeholder,
+  input[type="password"]::placeholder, textarea::placeholder{
+    color:#6B7280;
+  }
+  select option{
+    background:#F3F4F6;
+    color:#111827;
+  }
+  input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus,
+  select:focus, textarea:focus{
+    outline:none;
+    border-color:var(--gold);
+  }
   .btn{
     font-family:'Oswald',sans-serif;
     letter-spacing:0.03em;
@@ -268,17 +288,6 @@ let currentTeacherRecord = null; // {email, isAdmin, suspended, ...}
 function isTeacherAuthed(){ return teacherAuthState === 'authed'; }
 function isCurrentUserAdmin(){ return !!(currentTeacherRecord && currentTeacherRecord.isAdmin); }
 
-function ensureCurrentClassIndexed(){
-  if(!currentTeacherUid || !db || currentTeacherUid === ADMIN_UID) return;
-  const code = ACTIVE_CLASS_CODE;
-  db.ref('admin/classes/'+code).once('value').then(function(snap){
-    if(!snap.exists()){
-      db.ref('admin/classes/'+code).set({ teacherUid: currentTeacherUid, createdAt: Date.now() });
-      db.ref('admin/teachers/'+currentTeacherUid+'/classCodes/'+code).set(true);
-    }
-  }).catch(function(){});
-}
-
 function setupPresence(uid){
   if(!db) return;
   const myConnRef = db.ref('presence/'+uid);
@@ -300,17 +309,10 @@ if(auth){
       return;
     }
     currentTeacherUid = user.uid;
-    if(user.uid === ADMIN_UID){
-      currentTeacherRecord = { email: user.email, isAdmin: true, suspended:false };
-      teacherAuthState = 'authed';
-      ensureCurrentClassIndexed();
-      setupPresence(user.uid);
-      render();
-      return;
-    }
+    const isAdmin = (user.uid === ADMIN_UID);
     db.ref('admin/teachers/'+user.uid).once('value').then(function(snap){
       const rec = snap.val();
-      if(!rec || rec.suspended){
+      if(!isAdmin && (!rec || rec.suspended)){
         teacherAuthState = 'guest';
         currentTeacherUid = null;
         currentTeacherRecord = null;
@@ -318,13 +320,25 @@ if(auth){
         render();
         return;
       }
-      currentTeacherRecord = Object.assign({isAdmin:false}, rec);
+      currentTeacherRecord = isAdmin ? { email: user.email, isAdmin:true, suspended:false } : Object.assign({isAdmin:false}, rec);
       teacherAuthState = 'authed';
-      ensureCurrentClassIndexed();
+      resolveAndActivateOwnedClass(user.uid, rec||{});
       setupPresence(user.uid);
       render();
     });
   });
+}
+
+// Giriş yapan öğretmeni HER ZAMAN kendi sahip olduğu sınıfa yönlendirir —
+// tarayıcıda kalıntı bir kod olsa bile başka bir öğretmenin sınıfına asla girilmez.
+function resolveAndActivateOwnedClass(uid, rec){
+  const codes = Object.keys(rec.classCodes || {});
+  const targetCode = (rec.activeClassCode && codes.includes(rec.activeClassCode)) ? rec.activeClassCode : codes[0];
+  if(targetCode){
+    activateClass(targetCode);
+    return;
+  }
+  provisionUniqueClass(uid, false);
 }
 
 function loginTeacher(){
@@ -1760,15 +1774,20 @@ function resetInMemoryStateForClassSwitch(){
   State.lotteryRevealed = [];
 }
 
-function switchToClass(code, targetHash){
+function activateClass(code){
   ACTIVE_CLASS_CODE = code;
   LOCAL_KEY = `${APP_PREFIX}:class:${code}`;
   ROOT = code;
   safeSet(localStorage, CURRENT_CLASS_STORAGE_KEY, code);
   resetInMemoryStateForClassSwitch();
-  location.hash = targetHash || 'ogretmen';
   initSync();
 }
+
+function switchToClass(code, targetHash){
+  activateClass(code);
+  location.hash = targetHash || 'ogretmen';
+}
+
 function joinClassAsStudent(){
   const input = document.getElementById('studentClassCode');
   const code = (input ? input.value : '').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
@@ -1777,25 +1796,44 @@ function joinClassAsStudent(){
   switchToClass(code, 'ogrenci');
 }
 
-function createNewClass(){
-  if(!confirm('Yeni bir sınıf/oyun oluşturmak istediğinize emin misiniz? Mevcut sınıfın verileri saklı kalır; şimdi boş yeni bir sınıfa geçeceksiniz.')) return;
+// Benzersiz bir sınıf kodu üretip (Firebase'de çakışma kontrolü yaparak) o öğretmene kaydeder.
+function provisionUniqueClass(uid, andNavigate, triesLeft){
+  triesLeft = triesLeft==null ? 6 : triesLeft;
+  if(!db){ alert('Bağlantı hazır değil, sayfayı yenileyin.'); return; }
   const code = generateClassCode();
-  if(currentTeacherUid && db){
-    db.ref('admin/classes/'+code).set({ teacherUid: currentTeacherUid, createdAt: Date.now() });
-    if(currentTeacherUid !== ADMIN_UID){
-      db.ref('admin/teachers/'+currentTeacherUid+'/classCodes/'+code).set(true);
+  db.ref('admin/classes/'+code).once('value').then(function(snap){
+    if(snap.exists()){
+      if(triesLeft>0){ provisionUniqueClass(uid, andNavigate, triesLeft-1); return; }
+      alert('Benzersiz bir sınıf kodu oluşturulamadı, lütfen tekrar deneyin.');
+      return;
     }
-  }
-  switchToClass(code);
+    db.ref('admin/classes/'+code).set({ teacherUid: uid, createdAt: Date.now() });
+    db.ref('admin/teachers/'+uid+'/classCodes/'+code).set(true);
+    db.ref('admin/teachers/'+uid+'/activeClassCode').set(code);
+    if(andNavigate) switchToClass(code); else activateClass(code);
+  });
 }
 
+function createNewClass(){
+  if(!confirm('Yeni bir sınıf/oyun oluşturmak istediğinize emin misiniz? Mevcut sınıfın verileri saklı kalır; şimdi boş yeni bir sınıfa geçeceksiniz.')) return;
+  if(!currentTeacherUid){ alert('Bağlantı hazır değil.'); return; }
+  provisionUniqueClass(currentTeacherUid, true);
+}
+
+// Öğretmen SADECE kendi sahip olduğu sınıflar arasında geçiş yapabilir — başka bir
+// öğretmenin sınıfına asla erişemez.
 function switchClassPrompt(){
-  const input = prompt('Geçmek istediğiniz sınıfın oyun kodunu girin:', '');
-  if(!input) return;
-  const code = input.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(!code){ alert('Geçersiz kod.'); return; }
-  if(code === ACTIVE_CLASS_CODE) return;
-  switchToClass(code);
+  if(!currentTeacherUid || !db){ alert('Bağlantı hazır değil.'); return; }
+  db.ref('admin/teachers/'+currentTeacherUid+'/classCodes').once('value').then(function(snap){
+    const codes = Object.keys(snap.val()||{}).filter(function(c){ return c !== ACTIVE_CLASS_CODE; });
+    if(codes.length===0){ alert('Başka bir sınıfınız yok. Yeni bir sınıf oluşturmak için "Yeni Sınıf Ekle" butonunu kullanabilirsiniz.'); return; }
+    const choice = prompt('Geçmek istediğiniz sınıfın kodunu yazın:\n\nSınıflarınız:\n'+codes.join('\n'), codes[0]);
+    if(!choice) return;
+    const code = choice.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(!codes.includes(code)){ alert('Bu kod sizin sınıflarınız arasında bulunmuyor.'); return; }
+    db.ref('admin/teachers/'+currentTeacherUid+'/activeClassCode').set(code);
+    switchToClass(code);
+  });
 }
 
 function renameClassCode(){
@@ -1804,18 +1842,38 @@ function renameClassCode(){
   const newCode = input.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(newCode.length<3 || newCode.length>12){ alert('Kod 3-12 karakter arasında olmalı.'); return; }
   if(newCode === ACTIVE_CLASS_CODE) return;
-  const oldKey = LOCAL_KEY;
-  const newKey = `${APP_PREFIX}:class:${newCode}`;
-  if(safeGet(localStorage, newKey)){ alert('Bu kod zaten kullanımda, başka bir kod deneyin.'); return; }
-  const raw = safeGet(localStorage, oldKey);
-  if(raw){ safeSet(localStorage, newKey, raw); safeRemove(localStorage, oldKey); }
-  const oldBoardPass = safeGet(localStorage, `${oldKey}:tahta-sifre`);
-  if(oldBoardPass){ safeSet(localStorage, `${newKey}:tahta-sifre`, oldBoardPass); safeRemove(localStorage, `${oldKey}:tahta-sifre`); }
-  ACTIVE_CLASS_CODE = newCode;
-  LOCAL_KEY = newKey;
-  ROOT = newCode;
-  safeSet(localStorage, CURRENT_CLASS_STORAGE_KEY, newCode);
-  render();
+  if(!db){ alert('Bağlantı hazır değil.'); return; }
+  const oldCode = ACTIVE_CLASS_CODE;
+  db.ref('admin/classes/'+newCode).once('value').then(function(snap){
+    if(snap.exists()){
+      alert('Bu kod zaten başka bir sınıf tarafından kullanılıyor. Lütfen farklı bir kod deneyin.');
+      return Promise.reject('handled');
+    }
+    return db.ref(oldCode).once('value');
+  }).then(function(dataSnap){
+    if(!dataSnap) return;
+    const data = dataSnap.val();
+    return db.ref(newCode).set(data)
+      .then(function(){ return db.ref('admin/classes/'+newCode).set({ teacherUid: currentTeacherUid, createdAt: Date.now() }); })
+      .then(function(){
+        if(!currentTeacherUid) return;
+        return db.ref('admin/teachers/'+currentTeacherUid+'/classCodes/'+newCode).set(true)
+          .then(function(){ return db.ref('admin/teachers/'+currentTeacherUid+'/classCodes/'+oldCode).remove(); })
+          .then(function(){ return db.ref('admin/teachers/'+currentTeacherUid+'/activeClassCode').set(newCode); });
+      })
+      .then(function(){ return db.ref(oldCode).remove(); })
+      .then(function(){
+        const oldBoardPass = safeGet(localStorage, `${APP_PREFIX}:class:${oldCode}:tahta-sifre`);
+        if(oldBoardPass){
+          safeSet(localStorage, `${APP_PREFIX}:class:${newCode}:tahta-sifre`, oldBoardPass);
+          safeRemove(localStorage, `${APP_PREFIX}:class:${oldCode}:tahta-sifre`);
+        }
+        switchToClass(newCode);
+      });
+  }).catch(function(e){
+    if(e === 'handled') return;
+    alert('Hata: '+(e.message||e));
+  });
 }
 </script>
 
@@ -1870,7 +1928,7 @@ function viewOgrenci(){
     <div class="envelope" onclick="openEnvelope('${selectedId}')">
       <img src="${ENVELOPE_DATA_URI}" alt="Görev Ataması Zarfı" class="w-full h-full object-contain">
     </div>
-    <div class="text-center text-xs mono text-[var(--ink-dim)] mt-3">Zarfa dokunarak aç (bilgi yalnızca 15 saniye görünür kalacak)</div>
+    <div class="text-center text-xs mono text-[var(--ink-dim)] mt-3">Zarfa dokunarak aç</div>
     `;
   } else {
     const elapsed = Date.now() - s.envelopeOpenedAt;
@@ -1879,7 +1937,6 @@ function viewOgrenci(){
       <div class="card p-5 letter-reveal max-w-md mx-auto" style="border-color:${s.role==='ajan'?'var(--danger)':'var(--cyber)'}">
         <div class="text-xs mono mb-2" style="color:${s.role==='ajan'?'var(--danger)':'var(--cyber)'}">${s.role==='ajan'?'AJAN DOSYASI':'ARAŞTIRMACI DOSYASI'}</div>
         <p class="text-sm leading-relaxed">${letterText}</p>
-        <div class="text-xs mono text-[var(--ink-dim)] mt-2">Bu bilgi ${Math.max(1,Math.ceil((ENVELOPE_REVEAL_MS-elapsed)/1000))} saniye içinde ekrandan kalkacak...</div>
       </div>`;
       scheduleEnvelopeHide(ENVELOPE_REVEAL_MS - elapsed);
     } else {
