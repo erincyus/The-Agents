@@ -1956,7 +1956,7 @@ function viewOgrenci(){
 
   const councilNotice = s.pendingCouncilNotice ? `
     <div class="card p-4" style="border-color:var(--danger)">
-      <div class="text-sm leading-relaxed">Üzülerek bildiriyorum! Bilim Konseyinin yaptığı oylama sonucunda görevden uzaklaştırıldınız ve ${s.role==='ajan' ? 'Gölge Ajan' : 'Gölge Araştırmacı'} oldunuz.${s.role==='arastirmaci' ? ' Fakat üzülmeyin! Görevleri tamamlayarak ekibe geri dönebilirsiniz.' : ''}</div>
+      <div class="text-sm leading-relaxed">Üzülerek bildiriyorum! Bilim Konseyinin yaptığı oylama sonucunda görevden uzaklaştırıldınız ve ${s.role==='ajan' ? 'Gölge Ajan' : 'Gölge Araştırmacı'} oldunuz.${s.role==='arastirmaci' ? ' Fakat üzülmeyin! Görevleri tamamlayarak ekibe geri dönebilirsiniz.' : ' Oyunu kazanma şansın hala bitmedi. Ödev ve Gizli Görevleri tamamlayarak bilet kazanmaya devam et ve oyun sonu çekilişinde şansını artır!'}</div>
       <button class="btn btn-ghost px-3 py-1 text-xs mt-2" onclick="dismissCouncilNotice('${selectedId}')">Anladım</button>
     </div>` : '';
 
