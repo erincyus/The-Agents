@@ -942,13 +942,13 @@ function navBar(active){
   ];
   return `
   <nav class="flex items-center justify-between px-4 py-3 border-b gold-line">
-    <div class="flex gap-1 flex-wrap">
+    <div class="flex gap-1 flex-wrap items-center">
       ${items.map(it=>`
         <a href="#${it.id}" onclick="goTo('${it.id}'); return false;" class="btn ${active===it.id?'btn-gold':'btn-ghost'} px-3 py-2">${it.label}</a>
       `).join('')}
+      ${installButtonHtml()}
     </div>
     <div class="flex items-center gap-1">
-      ${installButtonHtml()}
       <a href="#ogretmen" onclick="goTo('ogretmen'); return false;" title="Öğretmen Girişi" class="btn btn-ghost px-3 py-2 text-sm opacity-60 hover:opacity-100">🔐</a>
     </div>
   </nav>

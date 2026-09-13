@@ -6,6 +6,8 @@
 <title>TheGamifyClass.com | Educational Gamification</title>
 <meta name="description" content="Educational Gamification – The Agents & ClassClans. Sınıfın için hazırlanmış iki oyunlaştırma dünyası: The Agents ve ClassClans.">
 <link rel="icon" href="assets/site_logo.png" type="image/png">
+<link rel="apple-touch-icon" id="appleTouchIconLink" href="assets/site_logo.png">
+<link rel="manifest" id="manifestLink" href="">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
@@ -308,6 +310,7 @@
     <nav class="nav-links">
       <a class="nav-link" href="iletisim.html">İletişim</a>
       <a class="nav-link" href="uyelik-hakkinda.html">Üyelik Hakkında</a>
+      <button id="pwaInstallBtn" class="nav-link" style="display:none;background:none;font-family:inherit;cursor:pointer;" onclick="triggerPwaInstall()">📱 Uygulamayı Yükle</button>
     </nav>
   </header>
 
@@ -346,5 +349,58 @@
     <p>© 2026 Erincyus. Tüm hakları saklıdır.<br>Designed &amp; Developed by Erinç Tuncay</p>
   </footer>
 
+
+<!-- ================= PWA: MANIFEST + SERVICE WORKER + YÜKLEME BUTONU ================= -->
+<script>
+const pwaManifest = {
+  name: "TheGamifyClass.com",
+  short_name: "GamifyClass",
+  description: "Eğitimde oyunlaştırma portalı: The Agents ve ClassClans",
+  start_url: "./index.html",
+  scope: "./",
+  display: "standalone",
+  background_color: "#0a0a0c",
+  theme_color: "#0a0a0c",
+  icons: [
+    { src: "assets/site_logo.png", sizes: "640x640", type: "image/png", purpose: "any" }
+  ]
+};
+const pwaManifestBlob = new Blob([JSON.stringify(pwaManifest)], { type: "application/manifest+json" });
+document.getElementById("manifestLink").href = URL.createObjectURL(pwaManifestBlob);
+
+const PWA_SW_SOURCE = "// TheGamifyClass.com — Service Worker\nconst CACHE_VERSION = 'v1';\nconst CACHE_NAME = `gamifyclass-home-cache-${CACHE_VERSION}`;\nconst APP_SHELL = ['./', './index.html'];\nself.addEventListener('install', (event) => {\n  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {}));\n  self.skipWaiting();\n});\nself.addEventListener('activate', (event) => {\n  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))));\n  self.clients.claim();\n});\nself.addEventListener('fetch', (event) => {\n  if (event.request.method !== 'GET') return;\n  event.respondWith(\n    caches.match(event.request).then((cached) => {\n      const network = fetch(event.request).then((res) => {\n        if (res && res.status === 200) {\n          const clone = res.clone();\n          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));\n        }\n        return res;\n      }).catch(() => cached);\n      return cached || network;\n    })\n  );\n});";
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function(){
+    const swBlob = new Blob([PWA_SW_SOURCE], { type: "application/javascript" });
+    const swUrl = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl).catch(function(err){ console.warn("SW kaydı başarısız:", err); });
+  });
+}
+
+let deferredPwaPrompt = null;
+function refreshInstallButtons(){
+  const btn = document.getElementById("pwaInstallBtn");
+  if (!btn) return;
+  btn.style.display = deferredPwaPrompt ? "inline-block" : "none";
+}
+window.addEventListener("beforeinstallprompt", function(e){
+  e.preventDefault();
+  deferredPwaPrompt = e;
+  refreshInstallButtons();
+});
+window.addEventListener("appinstalled", function(){
+  deferredPwaPrompt = null;
+  refreshInstallButtons();
+});
+function triggerPwaInstall(){
+  if (!deferredPwaPrompt) return;
+  deferredPwaPrompt.prompt();
+  deferredPwaPrompt.userChoice.finally(function(){
+    deferredPwaPrompt = null;
+    refreshInstallButtons();
+  });
+}
+</script>
 </body>
 </html>

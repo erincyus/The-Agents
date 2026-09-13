@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Klanlar Savaşı</title>
+<link rel="apple-touch-icon" id="appleTouchIconLink" href="assets/classclans_logo.png">
+<link rel="manifest" id="manifestLink" href="">
 <!-- ===== FIREBASE KURULUMU =====
      1) https://console.firebase.google.com adresinden ücretsiz bir proje oluşturun.
      2) Proje içinde Firestore Database'i (production mode) ve Storage'ı etkinleştirin.
@@ -211,7 +213,10 @@ footer.site-footer b{color:#4a3216;}
     <img src="assets/classclans_logo.png" alt="ClassClans logosu" style="height:86px;width:auto;display:block;margin-bottom:1px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5));">
     <h1>ClassClans</h1>
     <span id="brandSubtitle" class="brand-subtitle" style="display:none;"></span>
-    <a href="index.html" class="ghost-btn small-btn" style="align-self:flex-start;margin-top:8px;text-decoration:none;display:inline-block;">&larr; Ana Sayfa</a>
+    <div style="align-self:flex-start;margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="index.html" class="ghost-btn small-btn" style="text-decoration:none;display:inline-block;">&larr; Ana Sayfa</a>
+      <button id="pwaInstallBtn" class="ghost-btn small-btn" style="display:none;font-family:inherit;cursor:pointer;" onclick="triggerPwaInstall()">📱 Uygulamayı Yükle</button>
+    </div>
   </div>
   <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
     <div style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-right:60px;">
@@ -2904,6 +2909,59 @@ async function init(){
   document.getElementById('authGate').style.display='block';
 }
 init();
+</script>
+
+<!-- ================= PWA: MANIFEST + SERVICE WORKER + YÜKLEME BUTONU ================= -->
+<script>
+const pwaManifest = {
+  name: "ClassClans",
+  short_name: "ClassClans",
+  description: "Aztek, İnka, Maya ve Navajo klanlarıyla eğitici oyunlaştırma",
+  start_url: "./ClassClans.html",
+  scope: "./",
+  display: "standalone",
+  background_color: "#0a0912",
+  theme_color: "#0d0a1c",
+  icons: [
+    { src: "assets/classclans_logo.png", sizes: "640x640", type: "image/png", purpose: "any" }
+  ]
+};
+const pwaManifestBlob = new Blob([JSON.stringify(pwaManifest)], { type: "application/manifest+json" });
+document.getElementById("manifestLink").href = URL.createObjectURL(pwaManifestBlob);
+
+const PWA_SW_SOURCE = "// ClassClans — Service Worker\nconst CACHE_VERSION = 'v1';\nconst CACHE_NAME = `classclans-cache-${CACHE_VERSION}`;\nconst APP_SHELL = ['./ClassClans.html'];\nself.addEventListener('install', (event) => {\n  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {}));\n  self.skipWaiting();\n});\nself.addEventListener('activate', (event) => {\n  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))));\n  self.clients.claim();\n});\nself.addEventListener('fetch', (event) => {\n  if (event.request.method !== 'GET') return;\n  event.respondWith(\n    caches.match(event.request).then((cached) => {\n      const network = fetch(event.request).then((res) => {\n        if (res && res.status === 200) {\n          const clone = res.clone();\n          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));\n        }\n        return res;\n      }).catch(() => cached);\n      return cached || network;\n    })\n  );\n});";
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function(){
+    const swBlob = new Blob([PWA_SW_SOURCE], { type: "application/javascript" });
+    const swUrl = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl).catch(function(err){ console.warn("SW kaydı başarısız:", err); });
+  });
+}
+
+let deferredPwaPrompt = null;
+function refreshInstallButtons(){
+  const btn = document.getElementById("pwaInstallBtn");
+  if (!btn) return;
+  btn.style.display = deferredPwaPrompt ? "inline-block" : "none";
+}
+window.addEventListener("beforeinstallprompt", function(e){
+  e.preventDefault();
+  deferredPwaPrompt = e;
+  refreshInstallButtons();
+});
+window.addEventListener("appinstalled", function(){
+  deferredPwaPrompt = null;
+  refreshInstallButtons();
+});
+function triggerPwaInstall(){
+  if (!deferredPwaPrompt) return;
+  deferredPwaPrompt.prompt();
+  deferredPwaPrompt.userChoice.finally(function(){
+    deferredPwaPrompt = null;
+    refreshInstallButtons();
+  });
+}
 </script>
 </body>
 </html>
