@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Üyelik Hakkında | GamifyClass.com</title>
+<link rel="icon" href="assets/site_logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --neutral-bg:#0a0a0c;
+    --card-bg:#131318;
+    --neutral-text:#e9e9ec;
+    --neutral-muted:#9a9aa1;
+    --brand-red:#e43550;
+    --brand-cyan:#38d9e0;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--neutral-bg);
+    color:var(--neutral-text);
+    font-family:'Inter', system-ui, sans-serif;
+    line-height:1.6;
+  }
+  a{ text-decoration:none; color:inherit; }
+  a:focus-visible{ outline:3px solid var(--brand-cyan); outline-offset:2px; }
+
+  .site-header{
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    gap:14px; padding:16px 28px; border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+  .wordmark{
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1.15rem;
+    background:linear-gradient(90deg, var(--brand-red), var(--brand-cyan));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .tagline{ font-size:0.8rem; color:var(--neutral-muted); margin-top:2px; }
+  .nav-links{ display:flex; gap:10px; flex-wrap:wrap; }
+  .nav-link{
+    padding:9px 18px; border-radius:999px; border:1px solid rgba(255,255,255,0.18);
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.85rem;
+    transition:background 0.15s ease, border-color 0.15s ease;
+  }
+  .nav-link:hover{ background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.35); }
+
+  main{ max-width:640px; margin:0 auto; padding:48px 24px 60px; }
+  .page-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:clamp(1.6rem,4vw,2.2rem); margin:0 0 30px; text-align:center; }
+
+  .info-card{ background:var(--card-bg); border:1px solid rgba(255,255,255,0.07); border-radius:18px; padding:34px; }
+  .info-card h2{ font-family:'Space Grotesk', sans-serif; font-size:1.2rem; color:var(--brand-cyan); margin:28px 0 10px; }
+  .info-card h2:first-child{ margin-top:0; }
+  .info-card p{ color:var(--neutral-muted); margin:0 0 14px; font-size:0.97rem; }
+  .info-card ol{ color:var(--neutral-muted); font-size:0.97rem; padding-left:22px; margin:0 0 14px; display:flex; flex-direction:column; gap:10px; }
+  .info-card ol li strong{ color:var(--neutral-text); }
+  .closing{ text-align:center; margin-top:30px; font-weight:600; }
+  .closing .signoff{ color:var(--brand-cyan); font-family:'Space Grotesk', sans-serif; font-size:1.05rem; margin-top:6px; }
+
+  .cta-row{ text-align:center; margin-top:34px; }
+  .cta-btn{
+    display:inline-block; padding:13px 32px; border-radius:999px;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:0.95rem;
+    background:linear-gradient(90deg, var(--brand-red), var(--brand-cyan)); color:#0a0a0c;
+    transition:transform 0.15s ease;
+  }
+  .cta-btn:hover{ transform:translateY(-2px); }
+
+  .site-footer{ padding:22px 28px 28px; text-align:left; }
+  .site-footer p{ margin:0; font-size:0.78rem; color:var(--neutral-muted); line-height:1.5; }
+</style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div>
+      <div class="wordmark">GamifyClass.com</div>
+      <div class="tagline">Eğitimde Oyunlaştırma</div>
+    </div>
+    <nav class="nav-links">
+      <a class="nav-link" href="index.html">Ana Sayfa</a>
+      <a class="nav-link" href="iletisim.html">İletişim</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1 class="page-title">Üyelik Hakkında</h1>
+
+    <div class="info-card">
+      <h2>Üyelik Süreci</h2>
+      <p><strong>Sitemize Nasıl Üye Olunur?</strong></p>
+      <p>Platformumuzda doğrudan web sitesi üzerinden üyelik kaydı alınmamaktadır. Öğretmen üyeliği oluşturmak için aşağıdaki adımları takip edebilirsiniz:</p>
+      <ol>
+        <li><strong>İletişim Talebi:</strong> Web sitemizin İletişim sayfası üzerinden üyelik talebinizi ve iletişim bilgilerinizi bize iletin.</li>
+        <li><strong>Hesap Tanımlama:</strong> Teknik ekibimiz, ilettiğiniz e-posta adresine özel, öğretmen hesabınızı tanımlayacaktır.</li>
+        <li><strong>Sisteme Giriş:</strong> Tarafınıza iletilen şifre ve e-posta adresinizle giriş yaparak hemen kendi sınıflarınızı oluşturmaya ve platformu kullanmaya başlayabilirsiniz.</li>
+      </ol>
+
+      <h2>Üyelik Ücretli mi?</h2>
+      <p>Platformumuz şu an için tüm öğretmenlerimize ücretsiz olarak sunulmaktadır. İlerleyen dönemlerde sistemin sürdürülebilirliğini sağlamak amacıyla bireysel ve kurumsal yıllık üyelik planlarına geçiş yapılması planlanmaktadır. Ancak mevcut dönemde tüm özelliklerden bedelsiz olarak yararlanabilirsiniz.</p>
+
+      <p>Eğitimi oyunlaştırdığımız bu yolculukta aramıza katılmanızdan mutluluk duyarız.</p>
+
+      <div class="closing">
+        <div>Sitemizi ziyaret ettiğiniz için teşekkür ederiz.</div>
+        <div class="signoff">Oyunla kalın!</div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <a class="cta-btn" href="iletisim.html">Üyelik Talebi Gönder</a>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Erincyus. Tüm hakları saklıdır.<br>Designed &amp; Developed by Erinç Tuncay</p>
+  </footer>
+
+</body>
+</html>

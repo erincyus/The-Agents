@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>İletişim | GamifyClass.com</title>
+<link rel="icon" href="assets/site_logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --neutral-bg:#0a0a0c;
+    --card-bg:#131318;
+    --neutral-text:#e9e9ec;
+    --neutral-muted:#9a9aa1;
+    --brand-red:#e43550;
+    --brand-cyan:#38d9e0;
+    --field-bg:#1a1a20;
+    --field-border:#2c2c34;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--neutral-bg);
+    color:var(--neutral-text);
+    font-family:'Inter', system-ui, sans-serif;
+    line-height:1.5;
+  }
+  a{ text-decoration:none; color:inherit; }
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
+    outline:3px solid var(--brand-cyan);
+    outline-offset:2px;
+  }
+
+  .site-header{
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    gap:14px; padding:16px 28px; border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+  .wordmark{
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1.15rem;
+    background:linear-gradient(90deg, var(--brand-red), var(--brand-cyan));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .tagline{ font-size:0.8rem; color:var(--neutral-muted); margin-top:2px; }
+  .nav-links{ display:flex; gap:10px; flex-wrap:wrap; }
+  .nav-link{
+    padding:9px 18px; border-radius:999px; border:1px solid rgba(255,255,255,0.18);
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.85rem;
+    transition:background 0.15s ease, border-color 0.15s ease;
+  }
+  .nav-link:hover{ background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.35); }
+
+  main{ max-width:640px; margin:0 auto; padding:48px 24px 60px; }
+  .page-title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:clamp(1.6rem,4vw,2.2rem); margin:0 0 10px; text-align:center; }
+  .page-intro{ color:var(--neutral-muted); text-align:center; max-width:520px; margin:0 auto 36px; font-size:0.98rem; }
+
+  form{ background:var(--card-bg); border:1px solid rgba(255,255,255,0.07); border-radius:18px; padding:32px; display:flex; flex-direction:column; gap:20px; }
+  .field{ display:flex; flex-direction:column; gap:7px; }
+  .field label{ font-size:0.88rem; font-weight:600; }
+  .field .hint{ font-size:0.76rem; color:var(--neutral-muted); font-weight:400; }
+  .field input[type="text"], .field input[type="email"], .field input[type="tel"], .field select, .field textarea{
+    background:var(--field-bg); border:1px solid var(--field-border); border-radius:10px;
+    padding:11px 13px; color:var(--neutral-text); font-family:'Inter', sans-serif; font-size:0.95rem;
+  }
+  .field textarea{ resize:vertical; min-height:110px; }
+  .row-2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:560px){ .row-2{ grid-template-columns:1fr; } }
+
+  .file-drop{
+    background:var(--field-bg); border:1.5px dashed var(--field-border); border-radius:10px;
+    padding:18px; text-align:center; cursor:pointer; transition:border-color 0.15s ease;
+  }
+  .file-drop:hover{ border-color:var(--brand-cyan); }
+  .file-drop input{ display:none; }
+  .file-drop .file-label{ font-size:0.9rem; font-weight:600; }
+  .file-drop .file-name{ margin-top:6px; font-size:0.82rem; color:var(--brand-cyan); word-break:break-all; }
+
+  .consent{ display:flex; align-items:flex-start; gap:10px; font-size:0.82rem; color:var(--neutral-muted); }
+  .consent input{ margin-top:3px; flex-shrink:0; width:16px; height:16px; }
+
+  .submit-btn{
+    align-self:center; padding:13px 36px; border-radius:999px; border:none; cursor:pointer;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:0.98rem;
+    background:linear-gradient(90deg, var(--brand-red), var(--brand-cyan)); color:#0a0a0c;
+    transition:transform 0.15s ease, opacity 0.15s ease;
+  }
+  .submit-btn:hover{ transform:translateY(-2px); }
+  .submit-btn:disabled{ opacity:0.6; cursor:not-allowed; transform:none; }
+
+  .form-status{ text-align:center; font-size:0.9rem; font-weight:600; min-height:1.2em; }
+  .form-status.success{ color:#69ffb2; }
+  .form-status.error{ color:#ff7a7a; }
+
+  .site-footer{ padding:22px 28px 28px; text-align:left; }
+  .site-footer p{ margin:0; font-size:0.78rem; color:var(--neutral-muted); line-height:1.5; }
+</style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div>
+      <div class="wordmark">GamifyClass.com</div>
+      <div class="tagline">Eğitimde Oyunlaştırma</div>
+    </div>
+    <nav class="nav-links">
+      <a class="nav-link" href="index.html">Ana Sayfa</a>
+      <a class="nav-link" href="uyelik-hakkinda.html">Üyelik Hakkında</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1 class="page-title">İletişim</h1>
+    <p class="page-intro">Üyelik talebin, sorun veya önerin mi var? Aşağıdaki formu doldur, en kısa sürede sana dönüş yapalım.</p>
+
+    <form id="contactForm">
+      <input type="hidden" name="_subject" value="GamifyClass.com – Yeni İletişim Formu">
+      <input type="hidden" name="_template" value="table">
+      <input type="hidden" name="_captcha" value="false">
+
+      <div class="row-2">
+        <div class="field">
+          <label for="fullName">Ad Soyad *</label>
+          <input type="text" id="fullName" name="Ad Soyad" required>
+        </div>
+        <div class="field">
+          <label for="email">E-posta *</label>
+          <input type="email" id="email" name="E-posta" required>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="school">Okul / Kurum Adı</label>
+          <input type="text" id="school" name="Okul-Kurum">
+        </div>
+        <div class="field">
+          <label for="branch">Branş / Ders</label>
+          <input type="text" id="branch" name="Branş">
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="country">Ülke *</label>
+          <select id="country" name="Ülke" required>
+            <option value="">Seçiniz</option>
+            <option>Türkiye</option>
+            <option>Almanya</option>
+            <option>Amerika Birleşik Devletleri</option>
+            <option>Arnavutluk</option>
+            <option>Avustralya</option>
+            <option>Avusturya</option>
+            <option>Azerbaycan</option>
+            <option>Belçika</option>
+            <option>Bosna Hersek</option>
+            <option>Bulgaristan</option>
+            <option>Cezayir</option>
+            <option>Çin</option>
+            <option>Danimarka</option>
+            <option>Endonezya</option>
+            <option>Estonya</option>
+            <option>Fas</option>
+            <option>Finlandiya</option>
+            <option>Fransa</option>
+            <option>Gürcistan</option>
+            <option>Güney Kore</option>
+            <option>Hindistan</option>
+            <option>Hollanda</option>
+            <option>Irak</option>
+            <option>İngiltere (Birleşik Krallık)</option>
+            <option>İran</option>
+            <option>İrlanda</option>
+            <option>İspanya</option>
+            <option>İsrail</option>
+            <option>İsveç</option>
+            <option>İsviçre</option>
+            <option>İtalya</option>
+            <option>Japonya</option>
+            <option>Kanada</option>
+            <option>Karadağ</option>
+            <option>Katar</option>
+            <option>Kazakistan</option>
+            <option>Kıbrıs (KKTC)</option>
+            <option>Kırgızistan</option>
+            <option>Kosova</option>
+            <option>Kuveyt</option>
+            <option>Letonya</option>
+            <option>Litvanya</option>
+            <option>Lübnan</option>
+            <option>Macaristan</option>
+            <option>Kuzey Makedonya</option>
+            <option>Mısır</option>
+            <option>Moldova</option>
+            <option>Norveç</option>
+            <option>Özbekistan</option>
+            <option>Pakistan</option>
+            <option>Polonya</option>
+            <option>Portekiz</option>
+            <option>Romanya</option>
+            <option>Rusya</option>
+            <option>Sırbistan</option>
+            <option>Slovakya</option>
+            <option>Slovenya</option>
+            <option>Suudi Arabistan</option>
+            <option>Suriye</option>
+            <option>Tacikistan</option>
+            <option>Tunus</option>
+            <option>Türkmenistan</option>
+            <option>Ukrayna</option>
+            <option>Ürdün</option>
+            <option>Yunanistan</option>
+            <option>Diğer</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="phone">Telefon</label>
+          <input type="tel" id="phone" name="Telefon" placeholder="05xx xxx xx xx">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Öğretmen Kimlik Kartı *</label>
+        <span class="hint">Öğretmen kimliğinizi doğrulamak için kullanılır, üçüncü kişilerle paylaşılmaz. JPG/PNG, en fazla 5MB.</span>
+        <label class="file-drop" id="fileDropLabel">
+          <input type="file" id="teacherId" name="Öğretmen Kimlik Kartı" accept="image/*" required>
+          <span class="file-label">📎 Dosya seçmek için tıkla</span>
+          <div class="file-name" id="fileNameDisplay"></div>
+        </label>
+      </div>
+
+      <div class="field">
+        <label for="message">Mesajınız *</label>
+        <textarea id="message" name="Mesaj" required placeholder="Üyelik talebini ya da sorunu kısaca anlat..."></textarea>
+      </div>
+
+      <label class="consent">
+        <input type="checkbox" required>
+        Kişisel verilerimin bu form aracılığıyla yalnızca iletişim ve üyelik değerlendirme amacıyla işlenmesini kabul ediyorum.
+      </label>
+
+      <button type="submit" class="submit-btn" id="submitBtn">Gönder</button>
+      <div class="form-status" id="formStatus"></div>
+    </form>
+  </main>
+
+  <footer class="site-footer">
+    <p>© 2026 Erincyus. Tüm hakları saklıdır.<br>Designed &amp; Developed by Erinç Tuncay</p>
+  </footer>
+
+  <script>
+    const form = document.getElementById('contactForm');
+    const fileInput = document.getElementById('teacherId');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    fileInput.addEventListener('change', () => {
+      fileNameDisplay.textContent = fileInput.files.length ? '✓ ' + fileInput.files[0].name : '';
+    });
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const status = document.getElementById('formStatus');
+      btn.disabled = true;
+      btn.textContent = 'Gönderiliyor...';
+      status.textContent = '';
+      status.className = 'form-status';
+
+      try{
+        const response = await fetch('https://formsubmit.co/ajax/gamifyclass.info@gmail.com', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' },
+          body: new FormData(form)
+        });
+        if(!response.ok) throw new Error('İstek başarısız');
+        status.textContent = '✓ Mesajınız gönderildi! En kısa sürede size dönüş yapacağız.';
+        status.className = 'form-status success';
+        form.reset();
+        fileNameDisplay.textContent = '';
+        btn.textContent = 'Gönderildi ✓';
+      }catch(err){
+        status.textContent = 'Bir sorun oluştu. Lütfen tekrar deneyin.';
+        status.className = 'form-status error';
+        btn.disabled = false;
+        btn.textContent = 'Gönder';
+      }
+    });
+  </script>
+
+</body>
+</html>

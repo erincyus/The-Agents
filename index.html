@@ -55,14 +55,30 @@
   .site-header{
     display:flex;
     align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
     gap:14px;
-    padding:18px 28px;
+    padding:16px 28px;
     border-bottom:1px solid rgba(255,255,255,0.06);
   }
-  .site-header img{
-    width:66px;
-    height:66px;
-    object-fit:contain;
+  .site-header .nav-links{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .nav-link{
+    padding:9px 18px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,0.18);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:0.85rem;
+    color:var(--neutral-text);
+    transition:background 0.15s ease, border-color 0.15s ease;
+  }
+  .nav-link:hover, .nav-link:focus-visible{
+    background:rgba(255,255,255,0.08);
+    border-color:rgba(255,255,255,0.35);
   }
   .site-header .wordmark{
     font-family:'Space Grotesk', sans-serif;
@@ -90,6 +106,12 @@
   @keyframes fade-up{
     from{ opacity:0; transform:translateY(10px); }
     to{ opacity:1; transform:translateY(0); }
+  }
+  .hero-logo{
+    width:150px;
+    height:150px;
+    object-fit:contain;
+    margin:0 auto 20px;
   }
   .hero h1{
     font-family:'Space Grotesk', sans-serif;
@@ -223,21 +245,6 @@
     box-shadow:0 8px 24px rgba(217,164,65,0.18);
   }
 
-  /* Seam badge */
-  .seam-badge{
-    position:absolute;
-    top:50%; left:50%;
-    transform:translate(-50%, -50%);
-    width:190px; height:190px;
-    border-radius:50%;
-    background:var(--neutral-bg);
-    border:3px solid rgba(255,255,255,0.14);
-    display:flex; align-items:center; justify-content:center;
-    z-index:3;
-    box-shadow:0 0 0 8px rgba(0,0,0,0.35), 0 0 44px rgba(56,217,224,0.3);
-  }
-  .seam-badge img{ width:132px; height:132px; object-fit:contain; }
-
   /* ---------- Footer ---------- */
   .site-footer{
     padding:22px 28px 28px;
@@ -256,31 +263,30 @@
     .panel{ padding:56px 26px; }
     .panel--agents{ clip-path:polygon(0 0, 100% 0, 100% 92%, 0 100%); }
     .panel--clans{ clip-path:polygon(0 8%, 100% 0, 100% 100%, 0 100%); margin-left:0; margin-top:-6%; }
-    .seam-badge{ top:auto; left:50%; bottom:0; width:150px; height:150px; }
-    .seam-badge img{ width:104px; height:104px; }
-    .panel--clans .seam-badge{ display:none; }
   }
   @media (max-width: 480px){
     .site-header{ padding:14px 18px; }
-    .site-header img{ width:54px; height:54px; }
     .hero{ padding:40px 18px 28px; }
     .panel-logo{ width:120px; height:120px; }
-    .seam-badge{ width:120px; height:120px; }
-    .seam-badge img{ width:84px; height:84px; }
+    .hero-logo{ width:110px; height:110px; }
   }
 </style>
 </head>
 <body>
 
   <header class="site-header">
-    <img src="assets/site_logo.png" alt="GamifyClass.com logosu">
     <div>
       <div class="wordmark">GamifyClass.com</div>
       <div class="tagline">Eğitimde Oyunlaştırma</div>
     </div>
+    <nav class="nav-links">
+      <a class="nav-link" href="iletisim.html">İletişim</a>
+      <a class="nav-link" href="uyelik-hakkinda.html">Üyelik Hakkında</a>
+    </nav>
   </header>
 
   <section class="hero">
+    <img class="hero-logo" src="assets/site_logo.png" alt="GamifyClass.com logosu">
     <h1>Hangi göreve çıkıyorsun?</h1>
     <p>Sınıfın için hazırlanan iki farklı oyunlaştırma dünyasından birini seç. İkisi de haftalık görevler, puanlar ve sürprizlerle dolu.</p>
   </section>
@@ -306,7 +312,6 @@
       </div>
     </a>
 
-    <div class="seam-badge"><img src="assets/site_logo.png" alt=""></div>
   </section>
 
   <footer class="site-footer">
