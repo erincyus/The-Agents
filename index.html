@@ -107,10 +107,37 @@
   }
 
   /* ---------- Hero ---------- */
+  .hero-band{
+    position:relative;
+    overflow:hidden;
+    padding:56px 24px 40px;
+  }
+  .hero-band::before{
+    content:"";
+    position:absolute;
+    inset:-60px;
+    background:
+      radial-gradient(480px 480px at 6% 12%, rgba(228,53,80,0.11), transparent 70%),
+      radial-gradient(480px 480px at 94% 88%, rgba(56,217,224,0.10), transparent 70%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 30px),
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.022) 0 1px, transparent 1px 30px);
+    pointer-events:none;
+  }
+  .hero-band::after{
+    content:"";
+    position:absolute;
+    width:280px; height:280px;
+    border:1px solid rgba(56,217,224,0.14);
+    border-radius:50%;
+    top:-90px; right:-70px;
+    transform:rotate(-12deg);
+    pointer-events:none;
+  }
   .hero{
+    position:relative;
+    z-index:1;
     max-width:780px;
     margin:0 auto;
-    padding:56px 24px 40px;
     text-align:center;
     animation:fade-up 0.6s ease-out both;
   }
@@ -278,7 +305,7 @@
   @media (max-width: 480px){
     .site-header{ padding:14px 18px; }
     .site-header img{ width:57px; height:57px; }
-    .hero{ padding:40px 18px 28px; }
+    .hero-band{ padding:40px 18px 28px; }
     .panel-logo{ width:162px; height:162px; }
     .hero-logo{ width:149px; height:149px; }
   }
@@ -300,10 +327,12 @@
     </nav>
   </header>
 
-  <section class="hero">
-    <img class="hero-logo" src="assets/site_logo.png" alt="GamifyClass.com logosu">
-    <h1>Hangi göreve çıkıyorsun?</h1>
-    <p>Sınıfın için hazırlanan iki farklı oyunlaştırma dünyasından birini seç. İkisi de haftalık görevler, puanlar ve sürprizlerle dolu.</p>
+  <section class="hero-band">
+    <div class="hero">
+      <img class="hero-logo" src="assets/site_logo.png" alt="GamifyClass.com logosu">
+      <h1>Hangi göreve çıkıyorsun?</h1>
+      <p>Sınıfın için hazırlanan iki farklı oyunlaştırma dünyasından birini seç. İkisi de haftalık görevler, puanlar ve sürprizlerle dolu.</p>
+    </div>
   </section>
 
   <section class="panels">
