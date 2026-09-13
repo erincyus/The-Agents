@@ -204,7 +204,6 @@ footer.site-footer b{color:#4a3216;}
 </style>
 </head>
 <body>
-<a href="index.html" style="position:fixed;top:14px;left:14px;z-index:999999;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(10,10,12,0.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#ffffff;font-family:system-ui,-apple-system,sans-serif;font-weight:600;font-size:0.85rem;text-decoration:none;border:1px solid rgba(255,255,255,0.2);box-shadow:0 6px 18px rgba(0,0,0,0.35);transition:background 0.15s ease;" onmouseover="this.style.background='rgba(35,35,40,0.9)'" onmouseout="this.style.background='rgba(10,10,12,0.78)'">&larr; Ana Sayfa</a>
 
 
 <div class="topbar">
@@ -212,6 +211,7 @@ footer.site-footer b{color:#4a3216;}
     <img src="assets/classclans_logo.png" alt="ClassClans logosu" style="height:64px;width:auto;display:block;margin-bottom:1px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5));">
     <h1>ClassClans</h1>
     <span id="brandSubtitle" class="brand-subtitle" style="display:none;"></span>
+    <a href="index.html" class="ghost-btn small-btn" style="align-self:flex-start;margin-top:8px;text-decoration:none;display:inline-block;">&larr; Ana Sayfa</a>
   </div>
   <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
     <div style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-right:60px;">
@@ -240,7 +240,7 @@ footer.site-footer b{color:#4a3216;}
     <div class="auth-toggle">
       <button id="authTabLogin" class="active">🔑 Öğrenci Girişi</button>
       <button id="authTabTeacher">👨‍🏫 Öğretmen Girişi</button>
-      <button id="authTabAdmin">🛠️ Yönetici Girişi</button>
+      <button id="authTabAdmin" style="display:none;">🛠️ Yönetici Girişi</button>
     </div>
 
     <div id="authPanelLogin">
@@ -351,7 +351,6 @@ footer.site-footer b{color:#4a3216;}
 
     <div class="danger-zone" style="margin-top:24px;">
       <h3 style="color:var(--ink);">🔑 Yönetici Şifremi Değiştir</h3>
-      <p class="note">Sistemi ilk kez kullanıyorsanız varsayılan şifreyi (admin123) hemen değiştirin.</p>
       <div class="form-grid">
         <div><label>Yeni Yönetici Şifresi</label><input id="newAdminPassword" type="password"></div>
       </div>
@@ -2609,6 +2608,7 @@ async function enterGameAsTeacher(gid){
 document.getElementById('authTabLogin').addEventListener('click', ()=>setAuthTab('login'));
 document.getElementById('authTabTeacher').addEventListener('click', ()=>setAuthTab('teacher'));
 document.getElementById('authTabAdmin').addEventListener('click', ()=>setAuthTab('admin'));
+if(location.hash === '#admin'){ setAuthTab('admin'); }
 
 document.getElementById('btnTeacherLogin').addEventListener('click', async ()=>{
   const btn = document.getElementById('btnTeacherLogin');

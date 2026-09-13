@@ -198,7 +198,6 @@
 </style>
 </head>
 <body>
-<a href="index.html" style="position:fixed;top:14px;left:14px;z-index:999999;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(10,10,12,0.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#ffffff;font-family:system-ui,-apple-system,sans-serif;font-weight:600;font-size:0.85rem;text-decoration:none;border:1px solid rgba(255,255,255,0.2);box-shadow:0 6px 18px rgba(0,0,0,0.35);transition:background 0.15s ease;" onmouseover="this.style.background='rgba(35,35,40,0.9)'" onmouseout="this.style.background='rgba(10,10,12,0.78)'">&larr; Ana Sayfa</a>
 
 
 <div id="app"></div>
@@ -952,7 +951,10 @@ function navBar(active){
       ${installButtonHtml()}
       <a href="#ogretmen" onclick="goTo('ogretmen'); return false;" title="Öğretmen Girişi" class="btn btn-ghost px-3 py-2 text-sm opacity-60 hover:opacity-100">🔐</a>
     </div>
-  </nav>`;
+  </nav>
+  <div class="px-4 pt-2">
+    <a href="index.html" class="btn btn-ghost px-3 py-2 text-sm inline-block">&larr; Ana Sayfa</a>
+  </div>`;
 }
 
 function appFooterHtml(){

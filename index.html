@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GamifyClass.com | Görevini Seç</title>
+<title>GamifyClass.com | Educational Gamification</title>
+<meta name="description" content="Educational Gamification – The Agents & ClassClans. Sınıfın için hazırlanmış iki oyunlaştırma dünyası: The Agents ve ClassClans.">
 <link rel="icon" href="assets/site_logo.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,6 +61,16 @@
     gap:14px;
     padding:16px 28px;
     border-bottom:1px solid rgba(255,255,255,0.06);
+  }
+  .site-header .brand-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .site-header img{
+    width:52px;
+    height:52px;
+    object-fit:contain;
   }
   .site-header .nav-links{
     display:flex;
@@ -266,6 +277,7 @@
   }
   @media (max-width: 480px){
     .site-header{ padding:14px 18px; }
+    .site-header img{ width:42px; height:42px; }
     .hero{ padding:40px 18px 28px; }
     .panel-logo{ width:120px; height:120px; }
     .hero-logo{ width:110px; height:110px; }
@@ -275,9 +287,12 @@
 <body>
 
   <header class="site-header">
-    <div>
-      <div class="wordmark">GamifyClass.com</div>
-      <div class="tagline">Eğitimde Oyunlaştırma</div>
+    <div class="brand-row">
+      <img src="assets/site_logo.png" alt="GamifyClass.com logosu">
+      <div>
+        <div class="wordmark">GamifyClass.com</div>
+        <div class="tagline">Educational Gamification</div>
+      </div>
     </div>
     <nav class="nav-links">
       <a class="nav-link" href="iletisim.html">İletişim</a>
@@ -297,7 +312,7 @@
         <img class="panel-logo" src="assets/the_agents_logo.png" alt="The Agents oyun logosu">
         <h2>The Agents</h2>
         <h3>Bilim İnsanları ve Ajanlar</h3>
-        <p class="panel-desc">Aranızda gizlenmiş ajanları bulmaya çalışırken haftalık görevlerini tamamla. Kimseye tam olarak güvenme; her oturum yeni bir ipucu getirir.</p>
+        <p class="panel-desc">Aranızda gizlenmiş ajanları bulmaya çalışırken haftalık görevlerini tamamla, sana gönderilen soruları doğru cevapla. Puanları topla ki görevden uzaklaştırılma! Kimseye tam olarak güvenme; her hafta yeni bir ipucu getirir.</p>
         <span class="panel-cta">Operasyona Katıl</span>
       </div>
     </a>
@@ -307,7 +322,7 @@
         <img class="panel-logo" src="assets/classclans_logo.png" alt="ClassClans oyun logosu">
         <h2>ClassClans</h2>
         <h3>Aztek, İnka, Maya ve Navajo mirası</h3>
-        <p class="panel-desc">Klanını seç, topraklarını genişlet, ittifaklar kur. Kadim uygarlıkların rekabetini sınıfının içinde yeniden canlandır.</p>
+        <p class="panel-desc">Klanını seç, topraklarını genişlet, soruları çöz ve puanları topla. Kadim uygarlıkların rekabetini sınıfının içinde yeniden canlandır.</p>
         <span class="panel-cta">Klanına Katıl</span>
       </div>
     </a>
