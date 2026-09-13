@@ -198,6 +198,8 @@
 </style>
 </head>
 <body>
+<a href="index.html" style="position:fixed;top:14px;left:14px;z-index:999999;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:rgba(10,10,12,0.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#ffffff;font-family:system-ui,-apple-system,sans-serif;font-weight:600;font-size:0.85rem;text-decoration:none;border:1px solid rgba(255,255,255,0.2);box-shadow:0 6px 18px rgba(0,0,0,0.35);transition:background 0.15s ease;" onmouseover="this.style.background='rgba(35,35,40,0.9)'" onmouseout="this.style.background='rgba(10,10,12,0.78)'">&larr; Ana Sayfa</a>
+
 
 <div id="app"></div>
 
@@ -401,23 +403,30 @@ function adminCreateTeacherSubmit(){
   const emailEl = document.getElementById('newTeacherEmail');
   const nameEl = document.getElementById('newTeacherName');
   const pwEl = document.getElementById('newTeacherPw');
+  const maxClassesEl = document.getElementById('newTeacherMaxClasses');
   const err = document.getElementById('adminCreateError');
   if(err) err.textContent = '';
   const email = emailEl.value.trim();
   const name = nameEl.value.trim();
   const pw = pwEl.value;
+  const maxClassesRaw = maxClassesEl ? maxClassesEl.value.trim() : '';
   if(!email || !pw){ if(err) err.textContent = 'E-posta ve şifre zorunlu.'; return; }
   if(pw.length < 6){ if(err) err.textContent = 'Şifre en az 6 karakter olmalı.'; return; }
+  let maxClasses = null;
+  if(maxClassesRaw !== ''){
+    maxClasses = parseInt(maxClassesRaw, 10);
+    if(!Number.isInteger(maxClasses) || maxClasses < 1){ if(err) err.textContent = 'İzin verilecek sınıf sayısı 1 veya daha büyük bir tam sayı olmalı (boş bırakılırsa sınırsız olur).'; return; }
+  }
   const secAuth = getSecondaryAuth();
   secAuth.createUserWithEmailAndPassword(email, pw).then(function(cred){
     const newUid = cred.user.uid;
     return secAuth.signOut().then(function(){
-      return db.ref('admin/teachers/'+newUid).set({
-        email, displayName: name || email, suspended:false, createdAt: Date.now(), classCodes:{}
-      });
+      const record = { email, displayName: name || email, suspended:false, createdAt: Date.now(), classCodes:{} };
+      if(maxClasses !== null) record.maxClasses = maxClasses;
+      return db.ref('admin/teachers/'+newUid).set(record);
     });
   }).then(function(){
-    emailEl.value=''; nameEl.value=''; pwEl.value='';
+    emailEl.value=''; nameEl.value=''; pwEl.value=''; if(maxClassesEl) maxClassesEl.value='';
     sendWelcomeEmail(email, name, pw).then(function(){
       alert('Öğretmen hesabı oluşturuldu ve hoş geldiniz e-postası gönderildi: '+email);
     }).catch(function(emailErr){
@@ -426,6 +435,19 @@ function adminCreateTeacherSubmit(){
   }).catch(function(e){
     if(err) err.textContent = 'Hata: '+(e.message||e);
   });
+}
+
+function adminSaveTeacherMaxClasses(uid){
+  const input = document.getElementById('editMaxClassesInput_'+uid);
+  if(!input || !db) return;
+  const raw = input.value.trim();
+  if(raw === ''){
+    db.ref('admin/teachers/'+uid+'/maxClasses').remove();
+    return;
+  }
+  const n = parseInt(raw, 10);
+  if(!Number.isInteger(n) || n < 1){ alert('Sınıf sayısı 1 veya daha büyük bir tam sayı olmalı (sınırsız için kutuyu boş bırakın).'); return; }
+  db.ref('admin/teachers/'+uid+'/maxClasses').set(n);
 }
 
 function adminToggleSuspend(uid, suspend){
@@ -542,10 +564,18 @@ function viewAdminPanel(){
           <div class="text-xs text-[var(--ink-dim)] mb-2">Güvenlik gereği admin panelinden doğrudan yeni bir şifre yazılamıyor — Firebase, başka bir kullanıcının şifresini elle değiştirmeye izin vermiyor. Bunun yerine öğretmenin e-postasına bir şifre sıfırlama bağlantısı gönderebilirsiniz; öğretmen o bağlantıyla kendi yeni şifresini belirler.</div>
           <button class="btn btn-gold px-3 py-2 text-xs" onclick="adminSendPasswordReset('${(t.email||'').replace(/'/g,"")}')">Şifre Sıfırlama Bağlantısı Gönder</button>
         </div>
+        <div>
+          <div class="text-xs mono text-[var(--ink-dim)] mb-1">İZİN VERİLECEK SINIF SAYISI</div>
+          <div class="flex gap-2">
+            <input id="editMaxClassesInput_${uid}" type="number" min="1" step="1" value="${t.maxClasses ? t.maxClasses : ''}" placeholder="Sınırsız" class="flex-1 px-3 py-2 text-sm">
+            <button class="btn btn-cyber px-3 py-2 text-xs" onclick="adminSaveTeacherMaxClasses('${uid}')">Kaydet</button>
+          </div>
+          <div class="text-xs text-[var(--ink-dim)] mt-1">Boş bırakıp kaydederseniz sınırsız olur.</div>
+        </div>
       </div>` : ''}
       <div class="mt-2">
         <button class="btn btn-ghost px-2 py-1 text-xs" onclick="AdminState.expandedTeacher = AdminState.expandedTeacher==='${uid}' ? null : '${uid}'; render();">
-          ${classCodes.length} sınıf ${expanded?'▲':'▼'}
+          ${classCodes.length}${t.maxClasses ? ' / '+t.maxClasses : ''} sınıf ${expanded?'▲':'▼'}
         </button>
         ${expanded ? `
         <div class="mt-2 space-y-1">
@@ -570,10 +600,11 @@ function viewAdminPanel(){
 
     <div class="card p-5">
       <div class="font-medium mb-3">Yeni Öğretmen Ekle</div>
-      <div class="grid sm:grid-cols-3 gap-2">
+      <div class="grid sm:grid-cols-4 gap-2">
         <input id="newTeacherEmail" type="email" placeholder="E-posta" class="px-3 py-2 text-sm">
         <input id="newTeacherName" type="text" placeholder="Ad Soyad (opsiyonel)" class="px-3 py-2 text-sm">
         <input id="newTeacherPw" type="text" placeholder="Şifre (en az 6 karakter)" class="px-3 py-2 text-sm">
+        <input id="newTeacherMaxClasses" type="number" min="1" step="1" placeholder="İzin Verilecek Sınıf Sayısı (boş=sınırsız)" class="px-3 py-2 text-sm">
       </div>
       <div id="adminCreateError" class="text-xs mt-2" style="color:var(--danger)"></div>
       <button class="btn btn-gold px-4 py-2 mt-2" onclick="adminCreateTeacherSubmit()">Öğretmen Hesabı Oluştur</button>
@@ -1820,9 +1851,17 @@ function provisionUniqueClass(uid, andNavigate, triesLeft){
 }
 
 function createNewClass(){
-  if(!confirm('Yeni bir sınıf/oyun oluşturmak istediğinize emin misiniz? Mevcut sınıfın verileri saklı kalır; şimdi boş yeni bir sınıfa geçeceksiniz.')) return;
-  if(!currentTeacherUid){ alert('Bağlantı hazır değil.'); return; }
-  provisionUniqueClass(currentTeacherUid, true);
+  if(!currentTeacherUid || !db){ alert('Bağlantı hazır değil.'); return; }
+  db.ref('admin/teachers/'+currentTeacherUid).once('value').then(function(snap){
+    const t = snap.val() || {};
+    const currentCount = Object.keys(t.classCodes || {}).length;
+    if(t.maxClasses && currentCount >= t.maxClasses){
+      alert('Sınıf/oyun oluşturma limitinize ulaştınız ('+currentCount+' / '+t.maxClasses+'). Daha fazla sınıf açabilmek için yöneticinizle iletişime geçin.');
+      return;
+    }
+    if(!confirm('Yeni bir sınıf/oyun oluşturmak istediğinize emin misiniz? Mevcut sınıfın verileri saklı kalır; şimdi boş yeni bir sınıfa geçeceksiniz.')) return;
+    provisionUniqueClass(currentTeacherUid, true);
+  });
 }
 
 // Öğretmen SADECE kendi sahip olduğu sınıflar arasında geçiş yapabilir — başka bir

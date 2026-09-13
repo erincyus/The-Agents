@@ -60,8 +60,8 @@
     border-bottom:1px solid rgba(255,255,255,0.06);
   }
   .site-header img{
-    width:44px;
-    height:44px;
+    width:66px;
+    height:66px;
     object-fit:contain;
   }
   .site-header .wordmark{
@@ -228,15 +228,15 @@
     position:absolute;
     top:50%; left:50%;
     transform:translate(-50%, -50%);
-    width:70px; height:70px;
+    width:190px; height:190px;
     border-radius:50%;
     background:var(--neutral-bg);
-    border:2px solid rgba(255,255,255,0.14);
+    border:3px solid rgba(255,255,255,0.14);
     display:flex; align-items:center; justify-content:center;
     z-index:3;
-    box-shadow:0 0 0 6px rgba(0,0,0,0.35), 0 0 30px rgba(56,217,224,0.25);
+    box-shadow:0 0 0 8px rgba(0,0,0,0.35), 0 0 44px rgba(56,217,224,0.3);
   }
-  .seam-badge img{ width:44px; height:44px; object-fit:contain; }
+  .seam-badge img{ width:132px; height:132px; object-fit:contain; }
 
   /* ---------- Footer ---------- */
   .site-footer{
@@ -256,13 +256,17 @@
     .panel{ padding:56px 26px; }
     .panel--agents{ clip-path:polygon(0 0, 100% 0, 100% 92%, 0 100%); }
     .panel--clans{ clip-path:polygon(0 8%, 100% 0, 100% 100%, 0 100%); margin-left:0; margin-top:-6%; }
-    .seam-badge{ top:auto; left:50%; bottom:0; }
+    .seam-badge{ top:auto; left:50%; bottom:0; width:150px; height:150px; }
+    .seam-badge img{ width:104px; height:104px; }
     .panel--clans .seam-badge{ display:none; }
   }
   @media (max-width: 480px){
     .site-header{ padding:14px 18px; }
+    .site-header img{ width:54px; height:54px; }
     .hero{ padding:40px 18px 28px; }
     .panel-logo{ width:120px; height:120px; }
+    .seam-badge{ width:120px; height:120px; }
+    .seam-badge img{ width:84px; height:84px; }
   }
 </style>
 </head>
