@@ -7,23 +7,58 @@
 <link rel="apple-touch-icon" id="appleTouchIconLink" href="assets/classclans_logo.png">
 <link rel="manifest" id="manifestLink" href="">
 <!-- ===== FIREBASE KURULUMU =====
-     1) https://console.firebase.google.com adresinden ücretsiz bir proje oluşturun.
-     2) Proje içinde Firestore Database'i (production mode) ve Storage'ı etkinleştirin.
-     3) Proje Ayarları > Genel > "Web uygulaması ekle" ile bir config objesi alın ve aşağıya yapıştırın.
-     4) Firestore ve Storage kurallarını bu dosyayla birlikte verilen kural metinleriyle güncelleyin. -->
+     Bu sayfa, The Agents ile AYNI Firebase projesini (the-agents-69182) kullanır.
+     - Firestore Database: sadece "games" (sınıf/oyun verileri) için kullanılır.
+     - Realtime Database: öğretmen hesapları The Agents ile PAYLAŞILAN tek bir
+       kayıt defterinde (admin/teachers/{uid}) tutulur; bu düğüm zaten The
+       Agents için kurulu. Yönetici (admin) girişi de artık The Agents'taki
+       AYNI Firebase Authentication hesabı ile yapılır (ADMIN_UID kontrolü).
+       Çok sayıda öğretmen olduğunda arama hızını artırmak için The Agents'ın
+       Realtime Database kurallarına ".indexOn": ["email"] eklemeniz önerilir
+       (bkz. sohbetteki adımlar).
+     Aşağıdaki Firestore/Storage kuralları (yorum içinde) Firebase konsolunda
+     ilgili yerlere yapıştırılmalıdır. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
   const FIREBASE_CONFIG = {
-    apiKey: "BURAYA_API_KEY",
-    authDomain: "BURAYA_PROJE.firebaseapp.com",
-    projectId: "BURAYA_PROJE_ID",
-    storageBucket: "BURAYA_PROJE.appspot.com",
-    messagingSenderId: "BURAYA_SENDER_ID",
-    appId: "BURAYA_APP_ID"
+    apiKey: "AIzaSyBxBzCkrJ9D8Uf9EcVGC80WcD116BtoUI4",
+    authDomain: "the-agents-69182.firebaseapp.com",
+    databaseURL: "https://the-agents-69182-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "the-agents-69182",
+    storageBucket: "the-agents-69182.firebasestorage.app",
+    messagingSenderId: "516259979836",
+    appId: "1:516259979836:web:868a36a1551cb2e9d61939"
   };
 </script>
+<!-- ===== FIRESTORE GÜVENLİK KURALLARI (Firebase Konsolu > Firestore Database > Rules'a yapıştırın) =====
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /games/{gameId} { allow read, write: if true; }
+    match /games/{gameId}/data/{key} { allow read, write: if true; }
+  }
+}
+===== STORAGE GÜVENLİK KURALLARI (Firebase Konsolu > Storage > Rules'a yapıştırın) =====
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} { allow read, write: if true; }
+  }
+}
+===== REALTIME DATABASE KURALINA EKLENECEK SATIR (Firebase Konsolu > Realtime Database >
+Rules — The Agents için zaten var olan kuralınızın İÇİNE, admin/teachers bölümüne
+şunu ekleyin; tamamen SİLİP değiştirmeyin, sadece ".indexOn" satırını ekleyin):
+"admin": {
+  "teachers": {
+    ".indexOn": ["email"]
+  }
+}
+===================================================================================== -->
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Pirata+One&family=MedievalSharp&family=Cinzel:wght@600;700&family=Archivo:wght@400;500;600;700;800&display=swap');
 
@@ -276,9 +311,10 @@ footer.site-footer b{color:#4a3216;}
 
     <div id="authPanelAdmin" style="display:none;">
       <h3>🛠️ Yönetici Girişi</h3>
-      <p class="note">Bu bölüm yalnızca sistem yöneticisi (okul yöneticisi) içindir. Buradan öğretmen hesapları oluşturulur.</p>
+      <p class="note">Bu bölüm yalnızca sistem yöneticisi içindir. Buradan öğretmen hesapları oluşturulur. <b>The Agents'taki yönetici hesabınızın aynısıyla</b> giriş yapın (aynı e-posta ve şifre).</p>
       <div class="form-grid">
-        <div class="full"><label>Yönetici Şifresi</label><input id="adminLoginPassword" type="password"></div>
+        <div class="full"><label>E-posta</label><input id="adminLoginEmail" type="email" placeholder="yönetici e-postanız"></div>
+        <div class="full"><label>Şifre</label><input id="adminLoginPassword" type="password"></div>
       </div>
       <button class="primary-btn" id="btnAdminLogin" style="margin-top:12px;">Giriş Yap</button>
       <div class="auth-error" id="adminLoginError"></div>
@@ -345,8 +381,8 @@ footer.site-footer b{color:#4a3216;}
     <div class="form-grid">
       <div><label>Adı Soyadı</label><input id="newTeacherName" placeholder="ör: Ertuna Ancay"></div>
       <div><label>E-posta</label><input id="newTeacherEmail" type="email" placeholder="ertuna@mail.com"></div>
-      <div><label>Şifre</label><input id="newTeacherPassword" placeholder="ör. 1234"></div>
-      <div><label>İzin Verilecek Sınıf Sayısı</label><input id="newTeacherClassLimit" type="number" min="1" step="1" value="1" placeholder="ör. 1"></div>
+      <div><label>Şifre <span class="note">(The Agents'ta zaten hesabı olan bir öğretmene sadece ClassClans izni veriyorsanız BOŞ bırakın)</span></label><input id="newTeacherPassword" placeholder="yeni hesap için en az 6 karakter"></div>
+      <div><label>İzin Verilecek Sınıf Sayısı <span class="note">(0 = bu öğretmen ClassClans'ı kullanamaz)</span></label><input id="newTeacherClassLimit" type="number" min="0" step="1" value="1" placeholder="ör. 1"></div>
     </div>
     <button class="primary-btn" id="btnAddTeacher" style="margin-top:10px;">+ Öğretmen Ekle</button>
     <div class="auth-error" id="addTeacherError"></div>
@@ -359,10 +395,8 @@ footer.site-footer b{color:#4a3216;}
 
     <div class="danger-zone" style="margin-top:24px;">
       <h3 style="color:var(--ink);">🔑 Yönetici Şifremi Değiştir</h3>
-      <div class="form-grid">
-        <div><label>Yeni Yönetici Şifresi</label><input id="newAdminPassword" type="password"></div>
-      </div>
-      <button class="ghost-btn" id="btnChangeAdminPassword" style="margin-top:10px;">Şifreyi Güncelle</button>
+      <p class="note">Yönetici hesabınız artık The Agents ile aynı Firebase hesabı — şifrenizi değiştirmek için kendinize bir sıfırlama bağlantısı gönderebilirsiniz.</p>
+      <button class="ghost-btn" id="btnChangeAdminPassword" style="margin-top:10px;">Şifre Sıfırlama Bağlantısı Gönder</button>
       <div class="auth-error" id="adminPwError"></div>
     </div>
   </div>
@@ -768,7 +802,7 @@ const LEGEND_POS = {
    (sekme geçişleri, formlar vb.) her koşulda çalışmaya devam eder; kullanıcı
    sadece üstteki uyarı bandını görür. */
 let fbReady = false;
-let db = null, storage = null;
+let db = null, storage = null, rtdb = null, auth = null;
 try{
   const stillPlaceholder = !FIREBASE_CONFIG || String(FIREBASE_CONFIG.apiKey||'').includes('BURAYA');
   if(typeof firebase === 'undefined'){
@@ -780,10 +814,31 @@ try{
   firebase.initializeApp(FIREBASE_CONFIG);
   db = firebase.firestore();
   storage = firebase.storage();
+  // Öğretmen hesapları artık The Agents ile PAYLAŞILAN tek bir kayıt defterinde
+  // (Realtime Database, admin/teachers/{uid}) tutulur. Böylece bir öğretmen tek
+  // hesapla her iki oyuna da girebilir; her oyun için ayrı "izin verilen sınıf
+  // sayısı" (0 = o oyunu kullanamaz) ayarlanır.
+  rtdb = firebase.database();
+  auth = firebase.auth();
   fbReady = true;
 }catch(e){
   console.error('Firebase başlatılamadı:', e);
   fbReady = false;
+}
+function getSecondaryAuth(){
+  // Yönetici hesap oluştururken kendi tarayıcı oturumunu (ör. başka bir sekmede
+  // The Agents'a girişli olabilir) bozmamak için ayrı, "ikincil" bir Firebase
+  // bağlantısı kullanılır.
+  let secondaryApp;
+  try{ secondaryApp = firebase.app('Secondary'); }
+  catch(e){ secondaryApp = firebase.initializeApp(FIREBASE_CONFIG, 'Secondary'); }
+  return secondaryApp.auth();
+}
+function waitForAuthUser(){
+  return new Promise(function(resolve){
+    if(!auth){ resolve(null); return; }
+    const unsub = auth.onAuthStateChanged(function(u){ unsub(); resolve(u); });
+  });
 }
 
 /* ================= STATE ================= */
@@ -893,42 +948,90 @@ async function generateUniqueGameId(className, teacherName){
   return candidate;
 }
 
-/* ---- YÖNETİCİ (ADMIN) ---- */
-async function ensureAdminSeed(){
-  try{
-    const exists = await Backend.docExists(['admins','main']);
-    if(!exists){
-      const salt = randomSalt();
-      const hash = await hashPassword('admin123', salt);
-      await Backend.setDoc(['admins','main'], {passwordHash:hash, passwordSalt:salt, createdAt:Date.now()});
-    }
-  }catch(e){ console.error('Yönetici hesabı hazırlanamadı', e); }
+/* ---- EMAILJS (öğretmenlere hoş geldiniz e-postası) ---- */
+const EMAILJS_SERVICE_ID = 'service_agents';
+const EMAILJS_TEMPLATE_ID = 'template_r5eegyl';
+const EMAILJS_PUBLIC_KEY = 'spOtRgEpGSmXvAyUw';
+if(window.emailjs){
+  try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); }catch(e){ console.warn('EmailJS başlatılamadı', e); }
 }
-async function loginAdmin(password){
-  if(!password) return {error:'Lütfen şifreyi girin.'};
-  const acc = await Backend.getDoc(['admins','main']);
-  if(!acc) return {error:'Yönetici hesabı bulunamadı.'};
-  const hash = await hashPassword(password, acc.passwordSalt);
-  if(hash !== acc.passwordHash) return {error:'Şifre yanlış.'};
+function sendWelcomeEmail(toEmail, toName, password){
+  if(!window.emailjs){ return Promise.reject(new Error('EmailJS yüklenemedi')); }
+  return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+    to_email: toEmail,
+    to_name: toName || toEmail,
+    password: password,
+    login_link: window.location.origin + '/ClassClans.html',
+    logo_html: '<br><img src="'+window.location.origin+'/assets/site_logo.png" width="180" alt="ClassClans">'
+  });
+}
+
+/* ---- YÖNETİCİ (ADMIN) ---- */
+// Yönetici hesabı artık The Agents ile AYNI Firebase Authentication hesabı —
+// bu sabit, The Agents'taki ADMIN_UID ile birebir aynı olmalıdır.
+const ADMIN_UID = "eDTGhzccveNDugVZ9z0e2HmEhqr2";
+async function loginAdmin(email, password){
+  if(!email || !password) return {error:'Lütfen e-posta ve şifreyi girin.'};
+  if(!auth) return {error:'Bağlantı hazır değil, sayfayı yenileyin.'};
+  let cred;
+  try{
+    cred = await auth.signInWithEmailAndPassword(email, password);
+  }catch(e){
+    return {error:'E-posta veya şifre hatalı.'};
+  }
+  if(cred.user.uid !== ADMIN_UID){
+    await auth.signOut();
+    return {error:'Bu hesap yönetici hesabı değil.'};
+  }
   return {ok:true};
 }
 async function adminCreateTeacher(email, fullName, password, classLimit){
   email = normEmail(email);
-  if(!email || !fullName || !password) return {error:'Lütfen tüm alanları doldurun.'};
+  if(!email || !fullName) return {error:'Lütfen ad soyad ve e-posta alanlarını doldurun.'};
   if(!email.includes('@') || !email.includes('.')) return {error:'Lütfen geçerli bir e-posta adresi girin.'};
-  const limit = Number(classLimit);
-  if(!Number.isInteger(limit) || limit < 1) return {error:'Lütfen "İzin Verilecek Sınıf Sayısı" için 1 veya daha büyük bir tam sayı girin.'};
-  const exists = await Backend.docExists(['teachers', email]);
-  if(exists) return {error:'Bu e-posta ile zaten bir öğretmen hesabı var.'};
-  const salt = randomSalt();
-  const hash = await hashPassword(password, salt);
-  await Backend.setDoc(['teachers', email], {email, fullName, passwordHash:hash, passwordSalt:salt, classLimit:limit, disabled:false, createdAt:Date.now()});
-  return {ok:true, email};
+  const limitRaw = (classLimit===''||classLimit===null||classLimit===undefined) ? null : Number(classLimit);
+  if(limitRaw !== null && (!Number.isInteger(limitRaw) || limitRaw < 0)){
+    return {error:'Lütfen "İzin Verilecek Sınıf Sayısı" için 0 veya daha büyük bir tam sayı girin (0 = bu öğretmen ClassClans\'ı kullanamaz).'};
+  }
+  const ccLimit = limitRaw === null ? 0 : limitRaw;
+  if(!rtdb || !auth) return {error:'Bağlantı hazır değil, sayfayı yenileyin.'};
+  // Bu e-posta ile zaten paylaşımlı bir öğretmen hesabı var mı? (The Agents
+  // tarafında veya ClassClans'ta daha önce oluşturulmuş olabilir.)
+  let existingUid = null;
+  try{
+    const q = await rtdb.ref('admin/teachers').orderByChild('email').equalTo(email).once('value');
+    const val = q.val();
+    if(val) existingUid = Object.keys(val)[0];
+  }catch(e){ /* sorgu başarısız olursa yeni hesap oluşturmayı deneriz */ }
+  if(existingUid){
+    // Hesap zaten var: şifreyi DEĞİŞTİRMEDEN sadece ClassClans sınıf limitini
+    // (ve varsa adını) güncelliyoruz — böylece The Agents'taki girişi bozulmaz.
+    await rtdb.ref('admin/teachers/'+existingUid).update({ ccMaxClasses: ccLimit, displayName: fullName });
+    return {ok:true, email, updatedExisting:true};
+  }
+  if(!password) return {error:'Bu e-posta için henüz hesap yok; lütfen bir şifre belirleyin.'};
+  if(password.length < 6) return {error:'Şifre en az 6 karakter olmalı.'};
+  const secAuth = getSecondaryAuth();
+  try{
+    const cred = await secAuth.createUserWithEmailAndPassword(email, password);
+    const uid = cred.user.uid;
+    await secAuth.signOut();
+    await rtdb.ref('admin/teachers/'+uid).set({
+      email, displayName: fullName, suspended:false, createdAt:Date.now(),
+      classCodes:{}, maxClasses:0, ccMaxClasses: ccLimit
+    });
+    return {ok:true, email};
+  }catch(e){
+    return {error:'Hata: '+(e.message||e)};
+  }
 }
-async function checkTeacherGameLimit(teacherEmail){
-  const acc = await Backend.getDoc(['teachers', normEmail(teacherEmail)]);
-  // Bu alan eklenmeden önce oluşturulmuş öğretmen hesapları için sınırsız kabul edilir (geriye dönük uyumluluk).
-  const limit = (acc && Number.isFinite(acc.classLimit)) ? acc.classLimit : Infinity;
+async function checkTeacherGameLimit(teacherUid, teacherEmail){
+  let limit = 0;
+  try{
+    const snap = await rtdb.ref('admin/teachers/'+teacherUid+'/ccMaxClasses').once('value');
+    const v = snap.val();
+    limit = (typeof v === 'number') ? v : 0;
+  }catch(e){ limit = 0; }
   const games = await listTeacherGames(teacherEmail);
   return {limit, current: games.length, allowed: games.length < limit};
 }
@@ -937,12 +1040,26 @@ async function checkTeacherGameLimit(teacherEmail){
 async function loginTeacher(email, password){
   email = normEmail(email);
   if(!email || !password) return {error:'Lütfen e-posta ve şifreyi girin.'};
-  const acc = await Backend.getDoc(['teachers', email]);
-  if(!acc) return {error:'Bu e-posta ile kayıtlı bir öğretmen hesabı bulunamadı. Yöneticinizden hesap oluşturmasını isteyin.'};
-  if(acc.disabled) return {error:'Bu hesap yönetici tarafından askıya alınmış. Lütfen okul yöneticinizle iletişime geçin.'};
-  const hash = await hashPassword(password, acc.passwordSalt);
-  if(hash !== acc.passwordHash) return {error:'Şifre yanlış.'};
-  return {email, fullName:acc.fullName};
+  if(!auth) return {error:'Bağlantı hazır değil, sayfayı yenileyin.'};
+  let cred;
+  try{
+    cred = await auth.signInWithEmailAndPassword(email, password);
+  }catch(e){
+    return {error:'E-posta veya şifre hatalı.'};
+  }
+  const uid = cred.user.uid;
+  const snap = await rtdb.ref('admin/teachers/'+uid).once('value');
+  const rec = snap.val();
+  if(!rec){
+    await auth.signOut();
+    return {error:'Bu hesap için bir öğretmen kaydı bulunamadı. Yöneticinizle iletişime geçin.'};
+  }
+  if(rec.suspended){
+    await auth.signOut();
+    return {error:'Bu hesap yönetici tarafından askıya alınmış. Lütfen okul yöneticinizle iletişime geçin.'};
+  }
+  teacherSession = {uid, email, fullName: rec.displayName || email};
+  return {email, fullName: rec.displayName || email};
 }
 async function listTeacherGames(teacherEmail){
   const rows = await Backend.listCollection(['games']);
@@ -951,9 +1068,9 @@ async function listTeacherGames(teacherEmail){
     .map(r => ({gameId:r.id, ...r.data}))
     .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
 }
-async function createGameForTeacher(teacherEmail, teacherName, schoolName, className, clanCount, activeClans){
+async function createGameForTeacher(teacherUid, teacherEmail, teacherName, schoolName, className, clanCount, activeClans){
   if(!schoolName || !className) return {error:'Lütfen tüm alanları doldurun.'};
-  const limitCheck = await checkTeacherGameLimit(teacherEmail);
+  const limitCheck = await checkTeacherGameLimit(teacherUid, teacherEmail);
   if(!limitCheck.allowed){
     return {error:'Sınıf oluşturma limitinize ulaştınız (izin verilen: '+limitCheck.limit+'). Daha fazla sınıf açmak için okul yöneticinizle iletişime geçin.'};
   }
@@ -1010,15 +1127,20 @@ async function resumeSession(session){
   try{
     if(!session || !session.type) return false;
     if(session.type === 'admin'){
-      const exists = await Backend.docExists(['admins','main']);
-      if(!exists) return false;
+      if(!auth) return false;
+      const user = await waitForAuthUser();
+      if(!user || user.uid !== ADMIN_UID) return false;
       adminSession = true;
       return 'admin';
     }
     if(session.type === 'teacher'){
-      const acc = await Backend.getDoc(['teachers', normEmail(session.email)]);
-      if(!acc || acc.disabled) return false;
-      teacherSession = {email: normEmail(session.email), fullName: acc.fullName};
+      if(!auth || !rtdb) return false;
+      const user = await waitForAuthUser();
+      if(!user || normEmail(user.email) !== normEmail(session.email)) return false;
+      const snap = await rtdb.ref('admin/teachers/'+user.uid).once('value');
+      const rec = snap.val();
+      if(!rec || rec.suspended) return false;
+      teacherSession = {uid: user.uid, email: normEmail(user.email), fullName: rec.displayName || user.email};
       if(session.gameId){
         const gdoc = await Backend.getDoc(['games', session.gameId]);
         if(gdoc && normEmail(gdoc.teacherEmail) === teacherSession.email){
@@ -2500,11 +2622,15 @@ async function renderTeacherGamesList(){
   });
 }
 async function refreshTeacherLimitNote(){
-  const check = await checkTeacherGameLimit(teacherSession.email);
+  const check = await checkTeacherGameLimit(teacherSession.uid, teacherSession.email);
   const note = document.getElementById('teacherLimitNote');
   const btn = document.getElementById('btnShowCreateGame');
-  const limitText = Number.isFinite(check.limit) ? check.limit : 'sınırsız';
-  note.textContent = 'Sınıf kullanımı: ' + check.current + '/' + limitText;
+  if(check.limit === 0){
+    note.textContent = 'Bu hesap için ClassClans\'ta sınıf açma izniniz yok. Okul yöneticinizle görüşün.';
+    btn.disabled = true;
+    return;
+  }
+  note.textContent = 'Sınıf kullanımı: ' + check.current + '/' + check.limit;
   if(!check.allowed){
     note.textContent += ' — limitinize ulaştınız, yeni sınıf açmak için okul yöneticinizle görüşün.';
     btn.disabled = true;
@@ -2521,75 +2647,76 @@ async function showTeacherHome(){
   document.getElementById('teacherHome').style.display='block';
 }
 async function renderTeacherTable(){
-  const rows = await Backend.listCollection(['teachers']);
+  let entries = [];
+  if(rtdb){
+    try{
+      const snap = await rtdb.ref('admin/teachers').once('value');
+      const val = snap.val() || {};
+      entries = Object.keys(val).map(uid=>({uid, ...val[uid]}));
+    }catch(e){ console.error('Öğretmen listesi okunamadı', e); }
+  }
+  entries.sort((a,b)=>(a.email||'').localeCompare(b.email||''));
   const tbody = document.getElementById('teacherTableBody');
-  tbody.innerHTML = rows.map(r=>{
-    const t = r.data;
-    const limitText = Number.isFinite(t.classLimit) ? t.classLimit : 'Sınırsız';
-    return `<tr class="${t.disabled?'disabled-row':''}">
-      <td>${t.fullName}</td>
-      <td>${t.email}</td>
+  tbody.innerHTML = entries.map(t=>{
+    const cc = (typeof t.ccMaxClasses === 'number') ? t.ccMaxClasses : 0;
+    const limitText = cc === 0 ? 'Yok (0)' : cc;
+    return `<tr class="${t.suspended?'disabled-row':''}">
+      <td>${t.displayName||''}</td>
+      <td>${t.email||''}</td>
       <td>${limitText}</td>
-      <td>${t.disabled?'Askıya Alındı':'Aktif'}</td>
+      <td>${t.suspended?'Askıya Alındı':'Aktif'}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="ghost-btn small-btn" data-act="editname" data-e="${t.email}">✏️ Adı Düzenle</button>
-        <button class="ghost-btn small-btn" data-act="editlimit" data-e="${t.email}">🔢 Limiti Düzenle</button>
-        <button class="ghost-btn small-btn" data-act="pw" data-e="${t.email}">🔑 Şifre Sıfırla</button>
-        <button class="ghost-btn small-btn" data-act="toggle" data-e="${t.email}" data-cur="${t.disabled?'1':'0'}">${t.disabled?'✅ Etkinleştir':'🚫 Askıya Al'}</button>
-        <button class="danger-btn small-btn" data-act="delete" data-e="${t.email}">🗑️ Hesabı Sil</button>
+        <button class="ghost-btn small-btn" data-act="editname" data-uid="${t.uid}">✏️ Adı Düzenle</button>
+        <button class="ghost-btn small-btn" data-act="editlimit" data-uid="${t.uid}">🔢 ClassClans Limitini Düzenle</button>
+        <button class="ghost-btn small-btn" data-act="pw" data-e="${t.email}">🔑 Şifre Sıfırlama Bağlantısı Gönder</button>
+        <button class="ghost-btn small-btn" data-act="toggle" data-uid="${t.uid}" data-cur="${t.suspended?'1':'0'}">${t.suspended?'✅ Etkinleştir (her iki oyun)':'🚫 Askıya Al (her iki oyun)'}</button>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="5" class="note">Henüz öğretmen eklenmedi.</td></tr>';
 
   tbody.querySelectorAll('[data-act="editname"]').forEach(b=>{
     b.addEventListener('click', async ()=>{
-      const email = b.dataset.e;
-      const doc = await Backend.getDoc(['teachers', email]);
-      const newName = prompt('Yeni ad soyad:', doc ? doc.fullName : '');
+      const uid = b.dataset.uid;
+      const doc = (await rtdb.ref('admin/teachers/'+uid).once('value')).val();
+      const newName = prompt('Yeni ad soyad:', doc ? doc.displayName : '');
       if(!newName || !newName.trim()) return;
-      await Backend.updateDoc(['teachers', email], {fullName:newName.trim()});
+      await rtdb.ref('admin/teachers/'+uid).update({displayName:newName.trim()});
       renderTeacherTable();
     });
   });
   tbody.querySelectorAll('[data-act="editlimit"]').forEach(b=>{
     b.addEventListener('click', async ()=>{
-      const email = b.dataset.e;
-      const doc = await Backend.getDoc(['teachers', email]);
-      const current = Number.isFinite(doc && doc.classLimit) ? doc.classLimit : 1;
-      const input = prompt('İzin verilecek sınıf sayısı (en az 1):', current);
+      const uid = b.dataset.uid;
+      const doc = (await rtdb.ref('admin/teachers/'+uid).once('value')).val();
+      const current = (doc && typeof doc.ccMaxClasses === 'number') ? doc.ccMaxClasses : 0;
+      const input = prompt('ClassClans için izin verilecek sınıf sayısı (0 = bu öğretmen ClassClans\'ı kullanamaz):', current);
       if(input === null) return;
       const newLimit = Number(input);
-      if(!Number.isInteger(newLimit) || newLimit < 1){ alert('Lütfen 1 veya daha büyük bir tam sayı girin.'); return; }
-      const games = await listTeacherGames(email);
+      if(!Number.isInteger(newLimit) || newLimit < 0){ alert('Lütfen 0 veya daha büyük bir tam sayı girin.'); return; }
+      const games = await listTeacherGames(doc.email);
       if(newLimit < games.length){
-        if(!confirm('Bu öğretmenin şu an '+games.length+' sınıfı var. Limiti '+newLimit+' olarak ayarlarsanız yeni sınıf açamaz ama mevcut sınıfları etkilenmez. Devam edilsin mi?')) return;
+        if(!confirm('Bu öğretmenin ClassClans\'ta şu an '+games.length+' sınıfı var. Limiti '+newLimit+' olarak ayarlarsanız yeni sınıf açamaz ama mevcut sınıfları etkilenmez. Devam edilsin mi?')) return;
       }
-      await Backend.updateDoc(['teachers', email], {classLimit:newLimit});
+      await rtdb.ref('admin/teachers/'+uid).update({ccMaxClasses:newLimit});
       renderTeacherTable();
     });
   });
   tbody.querySelectorAll('[data-act="pw"]').forEach(b=>{
     b.addEventListener('click', async ()=>{
-      const newPw = prompt('Yeni şifre (öğretmene söyleyin):');
-      if(!newPw) return;
-      const salt = randomSalt();
-      const hash = await hashPassword(newPw, salt);
-      await Backend.updateDoc(['teachers', b.dataset.e], {passwordHash:hash, passwordSalt:salt});
-      alert('Şifre güncellendi: '+newPw);
+      if(!auth){ alert('Bağlantı hazır değil.'); return; }
+      try{
+        await auth.sendPasswordResetEmail(b.dataset.e);
+        alert(b.dataset.e+' adresine şifre sıfırlama bağlantısı gönderildi.');
+      }catch(e){
+        alert('Hata: '+(e.message||e));
+      }
     });
   });
   tbody.querySelectorAll('[data-act="toggle"]').forEach(b=>{
     b.addEventListener('click', async ()=>{
       const willDisable = b.dataset.cur==='0';
-      if(willDisable && !confirm('Bu öğretmen hesabını askıya almak istediğinize emin misiniz? Öğretmen giriş yapamayacak ama verileri silinmeyecek.')) return;
-      await Backend.updateDoc(['teachers', b.dataset.e], {disabled:willDisable});
-      renderTeacherTable();
-    });
-  });
-  tbody.querySelectorAll('[data-act="delete"]').forEach(b=>{
-    b.addEventListener('click', async ()=>{
-      if(!confirm('Bu öğretmen hesabını KALICI OLARAK silmek istediğinize emin misiniz? Öğretmenin oluşturduğu sınıflara artık giriş yapılamaz (veriler sistemde kalır ama erişilemez olur). Bu işlem geri alınamaz.')) return;
-      await Backend.deleteDoc(['teachers', b.dataset.e]);
+      if(willDisable && !confirm('Bu öğretmen hesabını HEM ClassClans HEM The Agents için askıya almak istediğinize emin misiniz? Öğretmen hiçbir oyuna giriş yapamayacak ama verileri silinmeyecek.')) return;
+      await rtdb.ref('admin/teachers/'+b.dataset.uid).update({suspended:willDisable});
       renderTeacherTable();
     });
   });
@@ -2629,7 +2756,6 @@ document.getElementById('btnTeacherLogin').addEventListener('click', async ()=>{
   );
   btn.disabled = false; btn.textContent = 'Giriş Yap';
   if(res.error){ errEl.textContent = res.error; errEl.classList.add('show'); return; }
-  teacherSession = {email: res.email, fullName: res.fullName};
   saveSession({type:'teacher', email: res.email});
   document.getElementById('teacherLoginEmail').value='';
   document.getElementById('teacherLoginPassword').value='';
@@ -2640,19 +2766,25 @@ document.getElementById('btnAdminLogin').addEventListener('click', async ()=>{
   const errEl = document.getElementById('adminLoginError');
   errEl.classList.remove('show');
   btn.disabled = true; btn.textContent = 'Giriş yapılıyor...';
-  const res = await loginAdmin(document.getElementById('adminLoginPassword').value);
+  const res = await loginAdmin(
+    document.getElementById('adminLoginEmail').value,
+    document.getElementById('adminLoginPassword').value
+  );
   btn.disabled = false; btn.textContent = 'Giriş Yap';
   if(res.error){ errEl.textContent = res.error; errEl.classList.add('show'); return; }
   adminSession = true;
   saveSession({type:'admin'});
+  document.getElementById('adminLoginEmail').value='';
   document.getElementById('adminLoginPassword').value='';
   await showAdminPanel();
 });
 document.getElementById('btnTeacherHomeLogout').addEventListener('click', ()=>{
+  if(auth && teacherSession) auth.signOut();
   clearSession();
   location.reload();
 });
 document.getElementById('btnAdminLogout').addEventListener('click', ()=>{
+  if(auth) auth.signOut();
   clearSession();
   location.reload();
 });
@@ -2678,17 +2810,31 @@ document.getElementById('btnAddTeacher').addEventListener('click', async ()=>{
   document.getElementById('newTeacherPassword').value='';
   document.getElementById('newTeacherClassLimit').value='1';
   renderTeacherTable();
+  if(res.updatedExisting){
+    alert('Bu e-posta zaten kayıtlı bir hesaba aitti — şifresi değişmedi, sadece ClassClans için izin verilen sınıf sayısı güncellendi: '+email);
+    return;
+  }
+  sendWelcomeEmail(email, name, pw).then(function(){
+    alert('Öğretmen hesabı oluşturuldu ve hoş geldiniz e-postası gönderildi: '+email);
+  }).catch(function(emailErr){
+    alert('Öğretmen hesabı oluşturuldu, ancak hoş geldiniz e-postası gönderilemedi.\n\nHata: '+(emailErr && (emailErr.text||emailErr.message) || emailErr));
+  });
 });
 document.getElementById('btnChangeAdminPassword').addEventListener('click', async ()=>{
-  const pw = document.getElementById('newAdminPassword').value;
   const errEl = document.getElementById('adminPwError');
   errEl.classList.remove('show');
-  if(!pw || pw.length<4){ errEl.textContent='Lütfen en az 4 karakterli bir şifre girin.'; errEl.classList.add('show'); return; }
-  const salt = randomSalt();
-  const hash = await hashPassword(pw, salt);
-  await Backend.setDoc(['admins','main'], {passwordHash:hash, passwordSalt:salt, createdAt:Date.now()});
-  document.getElementById('newAdminPassword').value='';
-  alert('Yönetici şifresi güncellendi.');
+  if(!auth || !auth.currentUser || !auth.currentUser.email){
+    errEl.textContent = 'Bağlantı hazır değil, sayfayı yenileyip tekrar giriş yapın.';
+    errEl.classList.add('show');
+    return;
+  }
+  try{
+    await auth.sendPasswordResetEmail(auth.currentUser.email);
+    alert(auth.currentUser.email+' adresine şifre sıfırlama bağlantısı gönderildi.');
+  }catch(e){
+    errEl.textContent = 'Hata: '+(e.message||e);
+    errEl.classList.add('show');
+  }
 });
 document.getElementById('btnEditGameId').addEventListener('click', ()=>{
   const box = document.getElementById('editGameIdBox');
@@ -2770,6 +2916,7 @@ document.getElementById('btnDoRegister').addEventListener('click', async ()=>{
   }
   btn.disabled = true; btn.textContent = 'Oluşturuluyor...';
   const res = await createGameForTeacher(
+    teacherSession.uid,
     teacherSession.email,
     teacherSession.fullName,
     document.getElementById('regSchool').value.trim(),
@@ -2785,6 +2932,7 @@ document.getElementById('btnDoRegister').addEventListener('click', async ()=>{
   await enterGameAsTeacher(res.gameId);
 });
 document.getElementById('btnLogout').addEventListener('click', ()=>{
+  if(auth && role==='teacher') auth.signOut();
   clearSession();
   location.reload();
 });
@@ -2801,9 +2949,11 @@ document.getElementById('btnConfirmReset').addEventListener('click', async ()=>{
   const pw = document.getElementById('resetPasswordInput').value;
   const errEl = document.getElementById('resetModalError');
   errEl.classList.remove('show');
-  const acc = await Backend.getDoc(['teachers', identity.username]);
-  const hash = await hashPassword(pw, acc.passwordSalt);
-  if(hash !== acc.passwordHash){ errEl.textContent='Şifre yanlış. Sıfırlama iptal edildi.'; errEl.classList.add('show'); return; }
+  try{
+    await auth.signInWithEmailAndPassword(teacherSession.email, pw);
+  }catch(e){
+    errEl.textContent='Şifre yanlış. Sıfırlama iptal edildi.'; errEl.classList.add('show'); return;
+  }
   document.getElementById('resetModal').classList.remove('show');
   await performGameReset();
   alert('Oyun sıfırlandı ve yeni bir oyun için hazır.');
@@ -2894,7 +3044,6 @@ async function startApp(){
 
 async function init(){
   setupParallax();
-  await ensureAdminSeed();
   if(!fbReady){ document.getElementById('fbWarningBanner').style.display='block'; }
   const session = loadSession();
   if(session){
