@@ -687,6 +687,15 @@ function roundAnswerDuration(){
   return ANSWER_DURATION;
 }
 const MOVES_DURATION = 180;  // 3 dakika
+// Saniyeyi "10 dakikalık", "1 dakika 30 saniyelik", "45 saniyelik" gibi yazıya çevirir
+function fmtDurationAdj(sec){
+  sec = Math.max(0, Math.round(Number(sec)||0));
+  const m = Math.floor(sec/60), r = sec%60;
+  if(m>0 && r===0) return m+' dakikalık';
+  if(m>0) return m+' dakika '+r+' saniyelik';
+  return r+' saniyelik';
+}
+function fmtNum(n){ return String(Math.round((Number(n)||0)*100)/100); }
 const BATTLE_INTRO_DURATION = 5; // saniye
 
 /* ============ ÇOK KLANLI HARİTA VERİLERİ (otomatik üretildi) ============ */
@@ -1462,7 +1471,7 @@ function renderScoreboard(){
     return `<div class="clan-card clan-${k}">
       <h4>${clanLogoImg(k,39)} ${c.name} Klanı</h4>
       <div class="stat-row">
-        <span class="stat-pill">🪙 ${s.puan}</span><span class="stat-pill">⚓ ${s.liman}</span>
+        <span class="stat-pill">💰 ${s.puan}</span><span class="stat-pill">⚓ ${s.liman}</span>
         <span class="stat-pill">🚢 ${s.gemi}</span><span class="stat-pill">⚔️ ${currentRound&&currentRound.resolved? s.savas : '—'}</span>
       </div>
       <div class="skill">✦ ${c.skill}</div>
@@ -1784,7 +1793,7 @@ async function saveRoles(){
 /* ================= GRADING (teacher-only view) ================= */
 function gradeSubmission(card, answer){ return answer === card.correct; }
 function computeClanScores(){
-  const scores = {}; Object.keys(CLANS).forEach(k=>scores[k]={raw:0,wrongs:0});
+  const scores = {}; Object.keys(CLANS).forEach(k=>scores[k]={raw:0,wrongs:0,starExtra:0});
   const perStudentDetail = {};
   Object.entries(submissions).forEach(([student, cards])=>{
     let studentTotal = 0, dogru=0, yanlis=0, bos=0;
@@ -1794,7 +1803,7 @@ function computeClanScores(){
       const clan = sub.clan; if(!scores[clan]) return;
       const isStar = clan==='maya' && currentRound.mayaStarCardId===cardId;
       let delta;
-      if(sub.correct){ delta = isStar? card.points*2 : card.points; dogru++; }
+      if(sub.correct){ delta = isStar? card.points*2 : card.points; if(isStar) scores[clan].starExtra += card.points; dogru++; }
       else if(sub.answer==='BLANK'){ delta = 0; bos++; }
       else { delta = -(isStar? 0.5 : card.points*0.25); scores[clan].wrongs++; yanlis++; }
       scores[clan].raw += delta;
@@ -1802,14 +1811,16 @@ function computeClanScores(){
     });
     perStudentDetail[student] = { toplam: Math.round(studentTotal*100)/100, dogru, yanlis, bos };
   });
-  const final = {};
+  const final = {}, passives = {};
   Object.entries(scores).forEach(([clan,sc])=>{
     let val = sc.raw;
-    if(clan==='aztek') val += Math.min(sc.wrongs,2)*0.25;
-    if(clan==='navajo') val += 0.5;
+    passives[clan] = [];
+    if(clan==='aztek'){ const b = Math.min(sc.wrongs,2)*0.25; val += b; if(b>0) passives[clan].push({label:'Aztek pasifi (2 yanlıştan puan kırılmaz)', value:b}); }
+    if(clan==='navajo'){ val += 0.5; passives[clan].push({label:'Navajo pasifi', value:0.5}); }
+    if(clan==='maya' && sc.starExtra>0){ passives[clan].push({label:'Maya pasifi (yıldızlı kart 2 kat)', value:sc.starExtra}); }
     final[clan] = Math.round(val*100)/100;
   });
-  return {final, perStudentDetail};
+  return {final, perStudentDetail, passives};
 }
 function renderGradeSummary(){
   const el = document.getElementById('gradeSummary');
@@ -1933,8 +1944,8 @@ async function toggleAnsweringPause(){
 }
 function renderHomeworkBtns(){
   document.getElementById('homeworkBtns').innerHTML = Object.entries(CLANS).map(([k,c])=>
-    `<button class="ghost-btn" data-clan="${k}" data-delta="1" style="border-color:${c.hex};">+1 🪙 ${clanLogoImg(k,22)} ${c.name}</button>
-     <button class="ghost-btn" data-clan="${k}" data-delta="-1" style="border-color:${c.hex};">-1 🪙 ${clanLogoImg(k,22)} ${c.name}</button>`).join('');
+    `<button class="ghost-btn" data-clan="${k}" data-delta="1" style="border-color:${c.hex};">+1 💰 ${clanLogoImg(k,22)} ${c.name}</button>
+     <button class="ghost-btn" data-clan="${k}" data-delta="-1" style="border-color:${c.hex};">-1 💰 ${clanLogoImg(k,22)} ${c.name}</button>`).join('');
   document.querySelectorAll('#homeworkBtns button').forEach(b=>{
     b.addEventListener('click', async ()=>{
       const delta = parseInt(b.dataset.delta);
@@ -1948,7 +1959,7 @@ function renderHomeworkBtns(){
 /* ================= RESOLVE / BATTLE PROCESSING ================= */
 async function resolveAttackPhase(){
   if(!currentRound || currentRound.resolved) return;
-  const {final, perStudentDetail} = computeClanScores();
+  const {final, perStudentDetail, passives} = computeClanScores();
   Object.keys(CLANS).forEach(k=>{ localState.clans[k].savas = final[k]; });
 
   const log = [];
@@ -1963,14 +1974,19 @@ async function resolveAttackPhase(){
       const def = tile.owner;
       if(atk.type==='deniz' && localState.clans[clan].gemi<1) continue;
       let atkScore = localState.clans[clan].savas;
-      let defScore = localState.clans[def].savas + tile.walls;
-      if(def==='inka') defScore += 1;
+      const defBase = localState.clans[def].savas;
+      const wallBonus = tile.walls;
+      const inkaBonus = def==='inka' ? 1 : 0;
+      let defScore = defBase + wallBonus + inkaBonus;
       let winner;
-      if(atkScore===defScore){ winner = Math.random()<0.5?clan:def; }
+      const tie = atkScore===defScore;
+      if(tie){ winner = Math.random()<0.5?clan:def; }
       else winner = atkScore>defScore ? clan : def;
       if(winner===clan){ tile.owner=clan; tile.port=false; tile.walls=0; }
       else if(atk.type==='deniz'){ localState.clans[clan].gemi = Math.max(0, localState.clans[clan].gemi-1); }
-      log.push({type:'attack', clan, targetClan:def, tileId:atk.tileId, attackType:atk.type, winner});
+      log.push({type:'attack', clan, targetClan:def, tileId:atk.tileId, attackType:atk.type, winner,
+        atkScore, defBase, wallBonus, inkaBonus, defScore, tie,
+        atkPassives:(passives&&passives[clan])||[], defPassives:(passives&&passives[def])||[]});
     }
   }
 
@@ -1991,6 +2007,21 @@ async function resolveAttackPhase(){
 }
 
 /* ================= SAVAŞ SONUÇLARI (öğretmen + öğrenci ortak görünüm) ================= */
+function passiveTxt(list){
+  return (list||[]).map(p=>`${p.label} ${p.value>=0?'+':''}${fmtNum(p.value)}`).join(', ');
+}
+function attackScoreDetailHTML(ev){
+  if(ev.atkScore===undefined) return '';   // eski kayıtlarda puan ayrıntısı yok
+  const atkC = CLANS[ev.clan], defC = CLANS[ev.targetClan];
+  const ap = passiveTxt(ev.atkPassives);
+  const dparts = [`klan puanı ${fmtNum(ev.defBase)}`];
+  if(ev.wallBonus>0) dparts.push(`sur +${fmtNum(ev.wallBonus)}`);
+  if(ev.inkaBonus>0) dparts.push(`İnka pasifi (savunmada +1) +${fmtNum(ev.inkaBonus)}`);
+  const dp = passiveTxt(ev.defPassives);
+  return `<div class="note" style="margin:0;">⚔️ <b>Saldıran ${atkC.name}: ${fmtNum(ev.atkScore)} puan</b>${ap?' <span>(içinde: '+ap+')</span>':''}</div>`
+    + `<div class="note" style="margin:0;">🛡️ <b>Savunan ${defC.name}: ${fmtNum(ev.defScore)} puan</b> (${dparts.join(' + ')})${dp?' <span>(klan puanının içinde: '+dp+')</span>':''}</div>`
+    + (ev.tie?`<div class="note" style="margin:0;">⚖️ Puanlar eşit çıktı, sonuç kura ile belirlendi.</div>`:'');
+}
 function renderBattleResultsHTML(){
   if(!currentRound){ return '<p class="note">Aktif tur yok.</p>'; }
   if(!currentRound.resolved){ return '<p class="note">Bu tur henüz sonuçlanmadı. Saldırılar tamamlandığında hamle sonuçları ve puan karşılaştırması burada görünecek.</p>'; }
@@ -2002,7 +2033,8 @@ function renderBattleResultsHTML(){
     ? attacks.map(ev=>{
         const atkC = CLANS[ev.clan], defC = CLANS[ev.targetClan];
         const won = ev.winner===ev.clan;
-        return `<div class="queued-item">${ev.attackType==='deniz'?'⛵':'🗡️'} ${clanLogoImg(ev.clan,20)} ${atkC.name} → ${clanLogoImg(ev.targetClan,20)} ${defC.name} (${ev.tileId}): ${won ? '✅ '+atkC.name+' kazandı, bölgeyi ele geçirdi' : '🛡️ '+defC.name+' savundu'}</div>`;
+        const head = `${ev.attackType==='deniz'?'⛵':'🗡️'} ${clanLogoImg(ev.clan,20)} ${atkC.name} → ${clanLogoImg(ev.targetClan,20)} ${defC.name} (${ev.tileId}): ${won ? '✅ '+atkC.name+' kazandı, bölgeyi ele geçirdi' : '🛡️ '+defC.name+' savundu'}`;
+        return `<div class="queued-item" style="flex-direction:column;align-items:flex-start;gap:4px;"><div>${head}</div>${attackScoreDetailHTML(ev)}</div>`;
       }).join('')
     : '<p class="note">Bu turda hiçbir saldırı yapılmadı.</p>';
   return scoreRow + attackRows;
@@ -2035,7 +2067,7 @@ function playBattleAnimation(type, attackerClan, defenderClan){
         <div class="flash"></div>`;
     }
     modal.classList.add('show');
-    setTimeout(()=>resolve({stage,result}), 2800);
+    setTimeout(()=>resolve({stage,result}), 6500);
   });
 }
 function playBuildAnimation(icon,title,text){
@@ -2045,12 +2077,12 @@ function playBuildAnimation(icon,title,text){
     document.getElementById('buildModalTitle').textContent = title;
     document.getElementById('buildModalText').textContent = text;
     modal.classList.add('show');
-    setTimeout(()=>{ modal.classList.remove('show'); resolve(); }, 1600);
+    setTimeout(()=>{ modal.classList.remove('show'); resolve(); }, 3500);
   });
 }
 function showConfirmModal(title, text){
   document.getElementById('confirmTitle').textContent = title;
-  document.getElementById('confirmText').textContent = text;
+  document.getElementById('confirmText').innerHTML = text;
   const icon = document.getElementById('sealIcon');
   icon.style.animation = 'none';
   void icon.offsetWidth; // reflow zorla, animasyonu baştan başlatmak için
@@ -2069,8 +2101,12 @@ async function maybePlayAnimations(){
       await playBuildAnimation(icon, CLANS[ev.clan].name+' klanı inşa ediyor', ev.tileId+' bölgesinde '+ev.buildType+' inşa edildi.');
     } else if(ev.type==='attack'){
       const {result} = await playBattleAnimation(ev.attackType, ev.clan, ev.targetClan);
-      result.innerHTML = `🏆 ${clanLogoImg(ev.winner,31)} ${CLANS[ev.winner].name} kazandı! (${ev.tileId})`;
-      await new Promise(r=>setTimeout(r,1400));
+      let scoreLine = '';
+      if(ev.atkScore!==undefined){
+        scoreLine = `<div style="font-family:'Archivo',sans-serif;font-size:15px;margin-top:8px;opacity:.95;">⚔️ ${CLANS[ev.clan].name}: <b>${fmtNum(ev.atkScore)}</b> &nbsp;·&nbsp; 🛡️ ${CLANS[ev.targetClan].name}: <b>${fmtNum(ev.defScore)}</b>${ev.tie?' (eşit — kura)':''}</div>`;
+      }
+      result.innerHTML = `🏆 ${clanLogoImg(ev.winner,31)} ${CLANS[ev.winner].name} kazandı! (${ev.tileId})` + scoreLine;
+      await new Promise(r=>setTimeout(r,6000));
       document.getElementById('battleModal').classList.remove('show');
     }
   }
@@ -3200,7 +3236,7 @@ document.getElementById('btnSaveAttendance').addEventListener('click', saveAtten
 document.getElementById('btnSaveRoles').addEventListener('click', saveRoles);
 document.getElementById('btnConfirmDistribution').addEventListener('click', async ()=>{
   const ok = await confirmDistribution();
-  if(ok) showConfirmModal('✅ Sorular Dağıtıldı', 'Sorular öğrencilere açıldı ve 5 dakikalık cevaplama süresi başladı.');
+  if(ok) showConfirmModal('✅ Sorular Dağıtıldı', 'Sorular öğrencilere açıldı ve ' + fmtDurationAdj(roundAnswerDuration()) + ' cevaplama süresi başladı.');
 });
 document.getElementById('btnEndAnswering').addEventListener('click', endAnsweringPhase);
 document.getElementById('btnPauseAnswering').addEventListener('click', toggleAnsweringPause);
