@@ -41,6 +41,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /games/{gameId} { allow read, write: if true; }
     match /games/{gameId}/data/{key} { allow read, write: if true; }
+    match /games/{gameId}/accounts/{username} { allow read, write: if true; }
   }
 }
 ===== STORAGE GÜVENLİK KURALLARI (Firebase Konsolu > Storage > Rules'a yapıştırın) =====
@@ -2679,12 +2680,26 @@ async function renderUsersPanel(){
   });
 }
 async function addStudentAccount(){
+  const btn = document.getElementById('btnAddStudent');
+  const errBox = document.getElementById('addStudentError');
+  btn.disabled = true;
+  try{ await addStudentAccountInner(); }
+  catch(e){
+    console.error('Öğrenci eklenemedi', e);
+    const msg = String((e && e.message) || e);
+    errBox.innerHTML = 'Öğrenci eklenemedi: ' + msg + (/permission|izin|insufficient/i.test(msg) ? '<br><b>Firebase izin kuralı eksik olabilir:</b> Firestore kurallarına "accounts" için izin eklenmesi gerekir.' : '');
+    errBox.classList.add('show');
+  }
+  btn.disabled = false;
+}
+async function addStudentAccountInner(){
   const name = document.getElementById('newStuName').value.trim();
   const username = document.getElementById('newStuUsername').value.trim();
   const password = document.getElementById('newStuPassword').value;
   const errEl = document.getElementById('addStudentError');
   errEl.classList.remove('show');
   if(!name || !username || !password){ errEl.textContent='Lütfen tüm alanları doldurun.'; errEl.classList.add('show'); return; }
+  if(/[\/\s]/.test(username) || username==='.' || username==='..'){ errEl.textContent='Kullanıcı adında boşluk veya / işareti olamaz.'; errEl.classList.add('show'); return; }
   const existing = await Backend.docExists(['games',gameId,'accounts',username]);
   if(existing){ errEl.textContent='Bu kullanıcı adı zaten kullanılıyor.'; errEl.classList.add('show'); return; }
   const rows = await Backend.listCollection(['games',gameId,'accounts']);
