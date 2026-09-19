@@ -902,6 +902,50 @@ function addStudentDb(name, password){
   }
   ref(`students/${id}`).set(data);
 }
+function importStudentsFromExcel(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      if(!rows.length){ alert('Excel dosyasında veri bulunamadı.'); return; }
+      const findKey = function(row, candidates){
+        const keys = Object.keys(row);
+        for(let i=0;i<candidates.length;i++){
+          const c = candidates[i].toLocaleLowerCase('tr');
+          const k = keys.find(function(k){ return k.trim().toLocaleLowerCase('tr') === c; });
+          if(k) return k;
+        }
+        return null;
+      };
+      let added = 0;
+      const skipped = [];
+      rows.forEach(function(row){
+        const nameKey = findKey(row, ['Öğrenci Adı','Ogrenci Adi','Öğrenci Adi','Ad Soyad']);
+        const pwKey = findKey(row, ['Kişisel Şifre','Kisisel Sifre','Şifre','Sifre']);
+        const name = (nameKey ? row[nameKey] : '').toString().trim();
+        const pw = (pwKey ? row[pwKey] : '').toString().trim();
+        if(!name || pw.length < 4){
+          if(name || pw) skipped.push(name || '(isimsiz satır)');
+          return;
+        }
+        addStudentDb(name, pw);
+        added++;
+      });
+      let msg = added + ' öğrenci başarıyla eklendi.';
+      if(skipped.length){
+        msg += '\n\nEksik/hatalı satırlar (isim boş veya şifre 4 karakterden kısa olduğu için) atlandı: ' + skipped.join(', ');
+      }
+      alert(msg);
+    }catch(err){
+      alert('Excel dosyası okunamadı. "Öğrenci Adı" ve "Kişisel Şifre" başlıklı bir tablo olduğundan emin olun.\n\nHata: ' + (err.message || err));
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
 function removeStudentDb(id){
   if(USE_LOCAL_STORAGE || !firebaseReady){
     delete State.students[id]; persistLocalState(); render(); return;
@@ -1239,6 +1283,8 @@ function viewPuanlamaContent(){
           <input id="newStudentName" type="text" placeholder="Öğrenci adı" class="px-2 py-1 text-sm">
           <input id="newStudentPw" type="text" placeholder="Kişisel şifre (en az 4)" class="px-2 py-1 text-sm w-40">
           <button class="btn btn-ghost px-3 py-1 text-sm" onclick="const n=document.getElementById('newStudentName').value.trim(); const p=document.getElementById('newStudentPw').value.trim(); if(!n||p.length<4){ alert('Ad girin ve en az 4 karakterlik bir şifre belirleyin.'); return;} addStudentDb(n,p); document.getElementById('newStudentName').value=''; document.getElementById('newStudentPw').value='';">Ekle</button>
+          <input id="studentExcelInput" type="file" accept=".xlsx,.xls" style="display:none" onchange="importStudentsFromExcel(this.files[0]); this.value='';">
+          <button class="btn btn-ghost px-3 py-1 text-sm" onclick="document.getElementById('studentExcelInput').click()">📄 Excel Tablosu Olarak Yükle</button>
           <button class="btn btn-gold px-3 py-1 text-sm" ${State.meta.rolesAssigned?'disabled':''} onclick="if(confirm('Roller rastgele atansın mı?')) assignRolesRandom()">Rolleri Rastgele Ata (${ids.length} öğrenci → ${agentCountFor(ids.length)} ajan)</button>
           ${State.meta.rolesAssigned ? `<button class="btn btn-ghost px-2 py-1 text-xs" onclick="if(confirm('Bunu tekrar aktif etmek oyun ortasında karışıklığa yol açabilir. Emin misiniz?')) saveMeta({rolesAssigned:false})">Kilidi Aç</button>`:''}
         </div>
