@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Klanlar Savaşı</title>
-<link rel="apple-touch-icon" id="appleTouchIconLink" href="assets/classclans_logo.png">
+<link rel="apple-touch-icon" id="appleTouchIconLink" href="assets/site_logo.png">
+<link rel="icon" href="assets/site_logo.png" type="image/png">
 <link rel="manifest" id="manifestLink" href="">
 <!-- ===== FIREBASE KURULUMU =====
      Bu sayfa, The Agents ile AYNI Firebase projesini (the-agents-69182) kullanır.
@@ -3076,8 +3077,8 @@ init();
 <!-- ================= PWA: MANIFEST + SERVICE WORKER + YÜKLEME BUTONU ================= -->
 <script>
 const pwaManifest = {
-  name: "ClassClans",
-  short_name: "ClassClans",
+  name: "thegamifyclass.com",
+  short_name: "thegamifyclass.com",
   description: "Aztek, İnka, Maya ve Navajo klanlarıyla eğitici oyunlaştırma",
   start_url: "./ClassClans.html",
   scope: "./",
@@ -3085,7 +3086,7 @@ const pwaManifest = {
   background_color: "#0a0912",
   theme_color: "#0d0a1c",
   icons: [
-    { src: "assets/classclans_logo.png", sizes: "640x640", type: "image/png", purpose: "any" }
+    { src: "assets/site_logo.png", sizes: "640x640", type: "image/png", purpose: "any" }
   ]
 };
 const pwaManifestBlob = new Blob([JSON.stringify(pwaManifest)], { type: "application/manifest+json" });
