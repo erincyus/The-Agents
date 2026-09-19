@@ -1,9 +1,9 @@
 {
-  "rewrites": [
+  "routes": [
     {
-      "source": "/assets/:path*",
+      "src": "/assets/(.*)",
       "has": [{ "type": "host", "value": "bk.thegamifyclass.com" }],
-      "destination": "/assets-bk/:path*"
+      "dest": "/assets-bk/$1"
     }
   ]
 }
