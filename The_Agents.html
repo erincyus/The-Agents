@@ -1001,6 +1001,33 @@ function currentRoute(){
 }
 window.addEventListener('hashchange', render);
 
+/* ---- Görev bildirisi açıkken ekran görüntüsü caydırma ---- */
+let _missionRevealActive = false;
+(function(){
+  const overlay = document.createElement('div');
+  overlay.id = 'antiScreenshotOverlay';
+  overlay.style.cssText = 'display:none;position:fixed;inset:0;background:#000;z-index:999999;';
+  document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(overlay); });
+  function flashBlackout(){
+    if(!_missionRevealActive) return;
+    overlay.style.display = 'block';
+    setTimeout(function(){ overlay.style.display = 'none'; }, 1500);
+  }
+  window.addEventListener('keyup', function(e){
+    if(e.key === 'PrintScreen'){ flashBlackout(); }
+  });
+  window.addEventListener('blur', function(){
+    if(_missionRevealActive) overlay.style.display = 'block';
+  });
+  window.addEventListener('focus', function(){
+    overlay.style.display = 'none';
+  });
+  document.addEventListener('visibilitychange', function(){
+    if(_missionRevealActive && document.hidden){ overlay.style.display = 'block'; }
+  });
+})();
+
+
 function goTo(route){
   if(location.hash === '#'+route){ render(); }
   else { location.hash = route; }
@@ -1289,6 +1316,7 @@ function viewPuanlamaContent(){
           ${State.meta.rolesAssigned ? `<button class="btn btn-ghost px-2 py-1 text-xs" onclick="if(confirm('Bunu tekrar aktif etmek oyun ortasında karışıklığa yol açabilir. Emin misiniz?')) saveMeta({rolesAssigned:false})">Kilidi Aç</button>`:''}
         </div>
       </div>
+      <div class="text-xs text-[var(--ink-dim)] mb-3">Eklenmesini istediğiniz öğrenciler için hazırlayacağınız excel tablosunda A sütununda "Öğrenci Adı", B sütununda "Kişisel Şifre" başlıklarını yazıp altlarına öğrenci isimlerini (ister ad soyad, ister sadece isim "burda aynı isimli öğrenci çakışmaları olmamalı", ister öğrencilerin belirlediği kullanıcı isimleri) ve kullanıcı şifrelerini yazıp, kaydedip buraya yükleyerek tek seferde tüm sınıf kaydını tamamlayabilirsiniz. Unutmayınız şifre en az 4 haneli olmalıdır.</div>
       ${State.meta.rolesAssigned ? `<div class="text-xs mono mb-2" style="color:var(--cyber)">✓ Roller atandı — kazara değişikliği önlemek için tuş pasif.</div>`:''}
       <div id="teacherTableWrap" class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -2041,9 +2069,12 @@ function viewOgrenci(){
     ? `GİZLİ AJAN BİLDİRİMİ: Sınıfın içerisine sızmış gizli ajanlardan birisin. Görevin: Her hafta yüksek puan alarak araştırmacıları sabote ederek elemek ve Yargılama Konseyinde kimliğini gizli tutmaktır. Sadakatini koru, dikkat çekme!`
     : `GİZLİ GÖREV EMRİ: Bilimsel araştırmalarımızı korumakla görevlendirildin. Ajanlar sınıfa sızdı. Her hafta ödevlerini tam yaparak ve testlerde yüksek puan alarak sabotajlara karşı kalkan oluştur! Unutma, bilgin senin en güçlü savunmandır.`;
 
-  const ENVELOPE_REVEAL_MS = 15000;
+  const ENVELOPE_REVEAL_MS = 6000;
   let envelopeBlock = '';
+  const _overlayEl = document.getElementById('antiScreenshotOverlay');
   if(!s.envelopeOpenedAt){
+    _missionRevealActive = false;
+    if(_overlayEl) _overlayEl.style.display = 'none';
     envelopeBlock = `
     <div class="envelope" onclick="openEnvelope('${selectedId}')">
       <img src="${ENVELOPE_DATA_URI}" alt="Görev Ataması Zarfı" class="w-full h-full object-contain">
@@ -2053,6 +2084,7 @@ function viewOgrenci(){
   } else {
     const elapsed = Date.now() - s.envelopeOpenedAt;
     if(elapsed < ENVELOPE_REVEAL_MS){
+      _missionRevealActive = true;
       envelopeBlock = `
       <div class="card p-5 letter-reveal max-w-md mx-auto" style="border-color:${s.role==='ajan'?'var(--danger)':'var(--cyber)'}">
         <div class="text-xs mono mb-2" style="color:${s.role==='ajan'?'var(--danger)':'var(--cyber)'}">${s.role==='ajan'?'AJAN DOSYASI':'ARAŞTIRMACI DOSYASI'}</div>
@@ -2060,6 +2092,8 @@ function viewOgrenci(){
       </div>`;
       scheduleEnvelopeHide(ENVELOPE_REVEAL_MS - elapsed);
     } else {
+      _missionRevealActive = false;
+      if(_overlayEl) _overlayEl.style.display = 'none';
       envelopeBlock = '';
     }
   }
