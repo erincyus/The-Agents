@@ -1250,6 +1250,18 @@ function clanFullyReady(clan){
 }
 
 async function loadAll(){
+  try{ await loadAllInner(); }
+  catch(e){
+    console.error('loadAll hatası:', e);
+    try{
+      if(!localState) localState = defaultMapState();
+      renderAll();
+    }catch(e2){ console.error('renderAll hatası:', e2); }
+    const ti = document.getElementById('tileInfo');
+    if(ti) ti.innerHTML = '<b>⚠️ Veriler yüklenirken bir sorun oluştu:</b> ' + String((e && e.message) || e) + '<br><span class="note">Harita varsayılan düzenle gösteriliyor. Sorun sürerse bu yazının ekran görüntüsünü paylaşın.</span>';
+  }
+}
+async function loadAllInner(){
   if(gameId){
     try{
       const gdoc = await Backend.getDoc(['games',gameId]);
@@ -1261,9 +1273,11 @@ async function loadAll(){
       }
     }catch(e){ setActiveClanCount(4); }
   }
-  if(gameId && identity.username){
-    const acc = await Backend.getDoc(['games',gameId,'accounts',identity.username]);
-    if(acc){ identity.name = acc.name; identity.clan = acc.clan||''; }
+  if(gameId && identity.username && role==='student'){
+    try{
+      const acc = await Backend.getDoc(['games',gameId,'accounts',identity.username]);
+      if(acc){ identity.name = acc.name; identity.clan = acc.clan||''; }
+    }catch(e){ console.error('hesap okunamadı', e); }
   }
   let ms = await sGet('map-state', true);
   if(!ms){ ms = defaultMapState(); await sSet('map-state', ms, true); }
@@ -1306,6 +1320,7 @@ function hexPoints(cx,cy,size){
 
 /* ================= RENDER: MAP ================= */
 function renderMap(){
+  if(!localState || !localState.tiles) localState = defaultMapState();
   const svg = document.getElementById('hexmap');
   svg.innerHTML = '';
   svg.setAttribute('viewBox', '0 0 '+MAP_IMG_W+' '+MAP_IMG_H);
@@ -2708,13 +2723,14 @@ function updateClanFlagDisplay(){
     img.style.display = 'none';
   }
 }
+function safeRun(fn){ try{ fn(); }catch(e){ console.error('Çizim hatası ('+(fn.name||'?')+'):', e); } }
 function renderAll(){
-  renderMap();
-  renderScoreboard();
-  updatePhaseBadge();
-  updateClanFlagDisplay();
-  if(role==='teacher'){ renderGradePanel(); renderTurnPanel(); renderRolesForm(); renderUsersPanel(); renderAttendancePanel(); }
-  if(role==='student'){ renderStudentClanInfo(); renderStudentDynamicArea(); }
+  safeRun(renderMap);
+  safeRun(renderScoreboard);
+  safeRun(updatePhaseBadge);
+  safeRun(updateClanFlagDisplay);
+  if(role==='teacher'){ [renderGradePanel, renderTurnPanel, renderRolesForm, renderUsersPanel, renderAttendancePanel].forEach(safeRun); }
+  if(role==='student'){ [renderStudentClanInfo, renderStudentDynamicArea].forEach(safeRun); }
 }
 
 /* ================= INIT / EVENTS ================= */
@@ -3178,7 +3194,7 @@ async function startApp(){
   renderStudentClanInfo();
   renderHomeworkBtns();
   await loadAll();
-  await renderCardPool();
+  try{ await renderCardPool(); }catch(e){ console.error('soru havuzu çizilemedi', e); }
   renderAll();
 
   // Not: otomatik periyodik yenileme (setInterval ile arka planda sürekli yeniden çizim) KASITLI olarak
