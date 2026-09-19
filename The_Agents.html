@@ -440,8 +440,12 @@ function adminCreateTeacherSubmit(){
     return secAuth.createUserWithEmailAndPassword(email, pw).then(function(cred){
       const newUid = cred.user.uid;
       return secAuth.signOut().then(function(){
-        const record = { email, displayName: name || email, suspended:false, createdAt: Date.now(), classCodes:{}, ccMaxClasses:0 };
+        // Yeni hesap: ClassClans tarafı da AYNI sınıf sayısıyla başlasın (siz
+        // isterseniz sonradan ClassClans'ın kendi panelinden bağımsız olarak
+        // değiştirebilirsiniz — bu satır sadece BAŞLANGIÇ değeridir).
+        const record = { email, displayName: name || email, suspended:false, createdAt: Date.now(), classCodes:{} };
         if(maxClasses !== null) record.maxClasses = maxClasses;
+        record.ccMaxClasses = maxClasses;
         return db.ref('admin/teachers/'+newUid).set(record);
       });
     }).then(function(){
@@ -594,7 +598,7 @@ function viewAdminPanel(){
         </div>
         <div>
           <div class="text-xs mono text-[var(--ink-dim)] mb-1">CLASSCLANS ERİŞİMİ</div>
-          <div class="text-xs text-[var(--ink-dim)]">İzin verilen sınıf sayısı: <b>${(t.ccMaxClasses>0) ? t.ccMaxClasses : 'Yok (0)'}</b> — bu değeri ClassClans'ın kendi Yönetici Paneli'nden değiştirebilirsiniz.</div>
+          <div class="text-xs text-[var(--ink-dim)]">İzin verilen sınıf sayısı: <b>${(typeof t.ccMaxClasses !== 'number') ? 'Sınırsız' : (t.ccMaxClasses===0 ? 'Yok (0)' : t.ccMaxClasses)}</b> — bu değeri ClassClans'ın kendi Yönetici Paneli'nden değiştirebilirsiniz.</div>
         </div>
       </div>` : ''}
       <div class="mt-2">
@@ -985,7 +989,7 @@ function navBar(active){
 function appFooterHtml(){
   return `
   <div class="app-footer">
-    <div>© 2026 <a href="https://open.spotify.com/artist/3hjxNc6k7cCNZUlqSjsuas?si=p42Bqd4TTPKx-jUonWH2wQ&utm_source=copy-link" target="_blank" rel="noopener noreferrer" style="color:#69ffb2;text-decoration:underline;">Erincyus</a>. Tüm hakları saklıdır.</div>
+    <div>© 2026 Erincyus. Tüm hakları saklıdır.</div>
     <div>Designed &amp; Developed by <span class="signature">Erinç Tuncay</span></div>
   </div>`;
 }

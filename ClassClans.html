@@ -382,7 +382,7 @@ footer.site-footer b{color:#4a3216;}
       <div><label>Adı Soyadı</label><input id="newTeacherName" placeholder="ör: Ertuna Ancay"></div>
       <div><label>E-posta</label><input id="newTeacherEmail" type="email" placeholder="ertuna@mail.com"></div>
       <div><label>Şifre <span class="note">(The Agents'ta zaten hesabı olan bir öğretmene sadece ClassClans izni veriyorsanız BOŞ bırakın)</span></label><input id="newTeacherPassword" placeholder="yeni hesap için en az 6 karakter"></div>
-      <div><label>İzin Verilecek Sınıf Sayısı <span class="note">(0 = bu öğretmen ClassClans'ı kullanamaz)</span></label><input id="newTeacherClassLimit" type="number" min="0" step="1" value="1" placeholder="ör. 1"></div>
+      <div><label>İzin Verilecek Sınıf Sayısı <span class="note">(0 = bu öğretmen ClassClans'ı kullanamaz; boş = sınırsız; yeni hesapta bu sayı The Agents için de başlangıç değeri olur)</span></label><input id="newTeacherClassLimit" type="number" min="0" step="1" value="1" placeholder="ör. 1"></div>
     </div>
     <button class="primary-btn" id="btnAddTeacher" style="margin-top:10px;">+ Öğretmen Ekle</button>
     <div class="auth-error" id="addTeacherError"></div>
@@ -635,7 +635,7 @@ footer.site-footer b{color:#4a3216;}
   </div>
 </div>
 
-<footer class="site-footer">© 2026 <a href="https://open.spotify.com/artist/3hjxNc6k7cCNZUlqSjsuas?si=p42Bqd4TTPKx-jUonWH2wQ&utm_source=copy-link" target="_blank" rel="noopener noreferrer" style="color:#38d9e0;text-decoration:underline;">Erincyus</a>. Tüm hakları saklıdır.<br><b>Designed &amp; Developed by Erinç Tuncay</b></footer>
+<footer class="site-footer">© 2026 Erincyus. Tüm hakları saklıdır.<br><b>Designed &amp; Developed by Erinç Tuncay</b></footer>
 
 <script>
 /* ================= CONFIG ================= */
@@ -989,11 +989,11 @@ async function adminCreateTeacher(email, fullName, password, classLimit){
   email = normEmail(email);
   if(!email || !fullName) return {error:'Lütfen ad soyad ve e-posta alanlarını doldurun.'};
   if(!email.includes('@') || !email.includes('.')) return {error:'Lütfen geçerli bir e-posta adresi girin.'};
+  // Boş bırakılırsa "sınırsız" anlamına gelir (The Agents ile aynı kural).
   const limitRaw = (classLimit===''||classLimit===null||classLimit===undefined) ? null : Number(classLimit);
   if(limitRaw !== null && (!Number.isInteger(limitRaw) || limitRaw < 0)){
-    return {error:'Lütfen "İzin Verilecek Sınıf Sayısı" için 0 veya daha büyük bir tam sayı girin (0 = bu öğretmen ClassClans\'ı kullanamaz).'};
+    return {error:'Lütfen "İzin Verilecek Sınıf Sayısı" için 0 veya daha büyük bir tam sayı girin (0 = bu öğretmen ClassClans\'ı kullanamaz; boş bırakılırsa sınırsız olur).'};
   }
-  const ccLimit = limitRaw === null ? 0 : limitRaw;
   if(!rtdb || !auth) return {error:'Bağlantı hazır değil, sayfayı yenileyin.'};
   // Bu e-posta ile zaten paylaşımlı bir öğretmen hesabı var mı? (The Agents
   // tarafında veya ClassClans'ta daha önce oluşturulmuş olabilir.)
@@ -1005,8 +1005,10 @@ async function adminCreateTeacher(email, fullName, password, classLimit){
   }catch(e){ /* sorgu başarısız olursa yeni hesap oluşturmayı deneriz */ }
   if(existingUid){
     // Hesap zaten var: şifreyi DEĞİŞTİRMEDEN sadece ClassClans sınıf limitini
-    // (ve varsa adını) güncelliyoruz — böylece The Agents'taki girişi bozulmaz.
-    await rtdb.ref('admin/teachers/'+existingUid).update({ ccMaxClasses: ccLimit, displayName: fullName });
+    // (ve varsa adını) güncelliyoruz — The Agents'taki limit ve girişi bozulmaz.
+    // limitRaw null ise alan silinir (= sınırsız); RTDB'de update() içinde
+    // null değer o alanı otomatik olarak kaldırır.
+    await rtdb.ref('admin/teachers/'+existingUid).update({ ccMaxClasses: limitRaw, displayName: fullName });
     return {ok:true, email, updatedExisting:true};
   }
   if(!password) return {error:'Bu e-posta için henüz hesap yok; lütfen bir şifre belirleyin.'};
@@ -1016,9 +1018,13 @@ async function adminCreateTeacher(email, fullName, password, classLimit){
     const cred = await secAuth.createUserWithEmailAndPassword(email, password);
     const uid = cred.user.uid;
     await secAuth.signOut();
+    // Yeni hesap: sadece ClassClans tarafından ekleniyor. The Agents erişimi
+    // güvenli tarafta kalsın diye varsayılan olarak 0 (kapalı) yazılır — bu
+    // öğretmene The Agents'ı da açmak isterseniz The Agents'ın kendi
+    // panelinden e-postasını girip izin verirsiniz.
     await rtdb.ref('admin/teachers/'+uid).set({
       email, displayName: fullName, suspended:false, createdAt:Date.now(),
-      classCodes:{}, maxClasses:0, ccMaxClasses: ccLimit
+      classCodes:{}, maxClasses:0, ccMaxClasses: limitRaw
     });
     return {ok:true, email};
   }catch(e){
@@ -1026,12 +1032,12 @@ async function adminCreateTeacher(email, fullName, password, classLimit){
   }
 }
 async function checkTeacherGameLimit(teacherUid, teacherEmail){
-  let limit = 0;
+  let limit = Infinity;
   try{
     const snap = await rtdb.ref('admin/teachers/'+teacherUid+'/ccMaxClasses').once('value');
     const v = snap.val();
-    limit = (typeof v === 'number') ? v : 0;
-  }catch(e){ limit = 0; }
+    if(typeof v === 'number') limit = v;
+  }catch(e){ limit = Infinity; }
   const games = await listTeacherGames(teacherEmail);
   return {limit, current: games.length, allowed: games.length < limit};
 }
@@ -2630,7 +2636,7 @@ async function refreshTeacherLimitNote(){
     btn.disabled = true;
     return;
   }
-  note.textContent = 'Sınıf kullanımı: ' + check.current + '/' + check.limit;
+  note.textContent = 'Sınıf kullanımı: ' + check.current + '/' + (Number.isFinite(check.limit) ? check.limit : 'sınırsız');
   if(!check.allowed){
     note.textContent += ' — limitinize ulaştınız, yeni sınıf açmak için okul yöneticinizle görüşün.';
     btn.disabled = true;
@@ -2658,8 +2664,8 @@ async function renderTeacherTable(){
   entries.sort((a,b)=>(a.email||'').localeCompare(b.email||''));
   const tbody = document.getElementById('teacherTableBody');
   tbody.innerHTML = entries.map(t=>{
-    const cc = (typeof t.ccMaxClasses === 'number') ? t.ccMaxClasses : 0;
-    const limitText = cc === 0 ? 'Yok (0)' : cc;
+    const cc = t.ccMaxClasses;
+    const limitText = (typeof cc !== 'number') ? 'Sınırsız' : (cc === 0 ? 'Yok (0)' : cc);
     return `<tr class="${t.suspended?'disabled-row':''}">
       <td>${t.displayName||''}</td>
       <td>${t.email||''}</td>
@@ -2688,14 +2694,21 @@ async function renderTeacherTable(){
     b.addEventListener('click', async ()=>{
       const uid = b.dataset.uid;
       const doc = (await rtdb.ref('admin/teachers/'+uid).once('value')).val();
-      const current = (doc && typeof doc.ccMaxClasses === 'number') ? doc.ccMaxClasses : 0;
-      const input = prompt('ClassClans için izin verilecek sınıf sayısı (0 = bu öğretmen ClassClans\'ı kullanamaz):', current);
+      const current = (doc && typeof doc.ccMaxClasses === 'number') ? doc.ccMaxClasses : '';
+      const input = prompt('ClassClans için izin verilecek sınıf sayısı (boş = sınırsız, 0 = bu öğretmen ClassClans\'ı kullanamaz):', current);
       if(input === null) return;
-      const newLimit = Number(input);
-      if(!Number.isInteger(newLimit) || newLimit < 0){ alert('Lütfen 0 veya daha büyük bir tam sayı girin.'); return; }
-      const games = await listTeacherGames(doc.email);
-      if(newLimit < games.length){
-        if(!confirm('Bu öğretmenin ClassClans\'ta şu an '+games.length+' sınıfı var. Limiti '+newLimit+' olarak ayarlarsanız yeni sınıf açamaz ama mevcut sınıfları etkilenmez. Devam edilsin mi?')) return;
+      let newLimit;
+      if(input.trim() === ''){
+        newLimit = null;
+      } else {
+        newLimit = Number(input);
+        if(!Number.isInteger(newLimit) || newLimit < 0){ alert('Lütfen 0 veya daha büyük bir tam sayı girin (sınırsız için boş bırakın).'); return; }
+      }
+      if(newLimit !== null){
+        const games = await listTeacherGames(doc.email);
+        if(newLimit < games.length){
+          if(!confirm('Bu öğretmenin ClassClans\'ta şu an '+games.length+' sınıfı var. Limiti '+newLimit+' olarak ayarlarsanız yeni sınıf açamaz ama mevcut sınıfları etkilenmez. Devam edilsin mi?')) return;
+        }
       }
       await rtdb.ref('admin/teachers/'+uid).update({ccMaxClasses:newLimit});
       renderTeacherTable();
