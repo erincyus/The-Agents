@@ -931,12 +931,49 @@ const Backend = {
 };
 
 /* ================= STORAGE HELPERS (oyuna özel veri) ================= */
+/* Soru görselleri Firebase Storage (ücretli plan gerektirir) yerine Firestore'da, her görsel ayrı bir belgede
+   ('img-<kartId>') saklanır. Kart havuzunda ve turda sadece küçük 'fs:<kartId>' referansı tutulur; böylece
+   tek belge 1 MB sınırına takılmadan çok sayıda kart eklenebilir. Okurken görseller geri yüklenir. */
+const IMG_CACHE = {};
+async function hydrateCards(cards){
+  if(!Array.isArray(cards)) return cards;
+  await Promise.all(cards.map(async c=>{
+    if(c && typeof c.image==='string' && c.image.startsWith('fs:')){
+      const id = c.image.slice(3);
+      if(!IMG_CACHE[id]){
+        try{ const d = await Backend.getDoc(['games',gameId,'data','img-'+id]); if(d && d.value) IMG_CACHE[id] = d.value; }
+        catch(e){ console.error('görsel okunamadı', id, e); }
+      }
+      if(IMG_CACHE[id]) c.image = IMG_CACHE[id];
+    }
+  }));
+  return cards;
+}
+function dehydrateCards(cards){
+  if(!Array.isArray(cards)) return cards;
+  return cards.map(c=>{
+    if(c && c.id && typeof c.image==='string' && c.image.startsWith('data:') && IMG_CACHE[c.id]===c.image) return {...c, image:'fs:'+c.id};
+    return c;
+  });
+}
 async function sGet(key, shared){
-  try{ const doc = await Backend.getDoc(['games',gameId,'data',key]); return doc ? doc.value : null; }
+  try{
+    const doc = await Backend.getDoc(['games',gameId,'data',key]);
+    let v = doc ? doc.value : null;
+    if(v && key==='card-pool') await hydrateCards(v);
+    else if(v && key==='round-current' && v.cards) await hydrateCards(v.cards);
+    return v;
+  }
   catch(e){ console.error('storage get failed', key, e); return null; }
 }
 async function sSet(key, value, shared){
-  try{ await Backend.setDoc(['games',gameId,'data',key], {value}); return true; }
+  try{
+    let v = value;
+    if(key==='card-pool') v = dehydrateCards(value);
+    else if(key==='round-current' && value && value.cards) v = {...value, cards: dehydrateCards(value.cards)};
+    await Backend.setDoc(['games',gameId,'data',key], {value:v});
+    return true;
+  }
   catch(e){ console.error('storage set failed', key, e); return false; }
 }
 
@@ -1593,26 +1630,17 @@ async function addCardToPool(){
   if(!pendingImageData){ alert('Lütfen bir soru görseli yükleyin.'); return; }
   const cardId = 'c'+Date.now()+Math.floor(Math.random()*999);
   const btn = document.getElementById('btnAddCard');
-  let imageUrl;
-  if(fbReady){
-    btn.disabled = true; btn.textContent = '⬆️ Görsel yükleniyor...';
-    try{
-      // Görsel zaten resizeImageFile ile sıkıştırılmış (maxW 700px, kalite 0.6);
-      // Firestore belge boyutu sınırına takılmamak için ayrı olarak Firebase Storage'a yükleniyor,
-      // Firestore'da sadece küçük bir URL saklanıyor.
-      const ref = storage.ref(`games/${gameId}/cards/${cardId}.jpg`);
-      await ref.putString(pendingImageData, 'data_url');
-      imageUrl = await ref.getDownloadURL();
-    }catch(e){
-      console.error('image upload failed', e);
-      alert('Görsel yüklenemedi. İnternet bağlantınızı ve Firebase Storage kurulumunuzu kontrol edin.');
-      btn.disabled = false; btn.textContent = '+ Kartı Havuza Ekle';
-      return;
-    }
-  } else {
-    // Yerel test modu: Firebase Storage yok, sıkıştırılmış görsel doğrudan bu cihazın
-    // hafızasında (localStorage) saklanır. Çok sayıda kart eklerseniz depolama dolabilir.
-    imageUrl = pendingImageData;
+  btn.disabled = true; btn.textContent = '⬆️ Kaydediliyor...';
+  let imageUrl = pendingImageData;
+  try{
+    // Görsel (zaten sıkıştırılmış) kendi belgesine kaydedilir; havuzda sadece referansı tutulur.
+    await Backend.setDoc(['games',gameId,'data','img-'+cardId], {value: pendingImageData});
+    IMG_CACHE[cardId] = pendingImageData;
+  }catch(e){
+    console.error('görsel kaydedilemedi', e);
+    alert('Görsel kaydedilemedi: ' + ((e && e.message) ? e.message : e));
+    btn.disabled = false; btn.textContent = '+ Kartı Havuza Ekle';
+    return;
   }
   let pool = await sGet('card-pool', true) || [];
   pool.push({ id:cardId, image:imageUrl, correct, points, clans:Object.keys(CLANS) });
