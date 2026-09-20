@@ -208,6 +208,12 @@
   .rules-section--clans li{ color:var(--cl-muted); }
   .rules-section--clans .term{ color:var(--cl-text); }
   .rules-section--clans li::marker{ color:var(--cl-accent2); }
+  .rules-section--clans .signature{
+    color:var(--cl-text);
+    border-top:1px solid rgba(217,164,65,0.25);
+  }
+  .rules-section--clans .rules-inner p,
+  .rules-section--clans .rules-inner li{ text-align:left; }
 
   /* ---------- Footer ---------- */
   .site-footer{ padding:22px 28px 28px; text-align:left; }
@@ -289,9 +295,10 @@
         <li>Oyunu siz de istediğiniz hafta bitirebilirsiniz. Bu durumda grupların o haftaya kadar aldıkları puanların ortalamasına göre büyük olan grup kazanır.</li>
       </ol>
       <p>Oyun bittiğinde en altta yer alan <span class="term">Piyango Çekilişi Başlat</span> tuşuna basarak gölge öğrenciler arasında çekiliş başlatılır. Çekiliş akıllı tahtadan öğrenciler tarafından takip edilebilir. Öğrencilerin topladıkları bilet sayıları şanslarını artırır.</p>
-      <p>Oyun ile ilgili daha fazla bilgiye ihtiyaç duyarsanız iletişim kısmından yazarak iletişime geçebilirsiniz. İyi oyunlar dilerim…</p>
+      <p>Oyun sonunda tüm sabotaj hamleleri, konsey oylamaları ve öğrencilerin ödev, gizli görev ve mikro test puanları verilerinin bulunduğu bir dosya sizin için hazırlanır ve excel olarak dışa aktarılır. Bu dosyayı kendi bilgisayarınıza veya telefonunuza indirebilirsiniz.</p>
+      <p>Oyun ile ilgili daha fazla bilgiye ihtiyaç duyarsanız iletişim kısmından yazarak iletişime geçebilirsiniz. İyi oyunlar dileriz…</p>
 
-      <p class="signature">Oyunlaştırmanın Yazarı ve Tasarımcısı: Erinç Tuncay</p>
+      <p class="signature">Oyunlaştırmanın Yazarı ve Tasarımcısı: Erinç Tuncay, Ülfet Tuncay</p>
 
     </div>
   </section>
@@ -306,7 +313,57 @@
         <p class="section-sub">Aztek, İnka, Maya ve Navajo mirası</p>
       </div>
 
-      <p>ClassClans oynanış ve kural metni yakında bu bölüme eklenecek.</p>
+      <h3>Puanlama Sistemi</h3>
+      <p><span class="term">Savaş Puanı</span></p>
+      <p>Öğrencilerin çözdüğü soruların her biri doğru ise 1 Puan, boş ise 0 Puan, yanlış ise eksi 0,25 puan olarak sistem tarafından hesaplanır. Klanın her üyesinin puanı yine sistem tarafından toplanır ve saldırıların sonuçları burada toplanan puanlara göre belirlenir.</p>
+      <p>Eşitlik durumunda defans yapan kazanmış, saldırı yapan taraf kaybetmiş olur.</p>
+      <p><span class="term">Korsan Puanı</span></p>
+      <p>Haftalık olarak verdiğiniz ödevlerin klanın tüm üyeleri tarafından yapılması durumunda verilir. Ödevini yapmayan 1 oyuncu dahi olursa o klana o turda korsan puanı kazanamaz (örnek kural bu şekildedir ama bu tamamen sizin takdirinizdedir. Kendi ödev kurallarınıza göre korsan puanı verebilmenize engel değildir).</p>
+      <p>Korsan puanı liman ve sur inşaatı veya gemi üretimi için kullanılan bir puandır. Her biri 1 korsan puanı harcar. Korsan puanı olmayan klan bu inşaat ve üretimleri gerçekleştiremez.</p>
+
+      <h3>Giriş ve Sınıf Oluşturma</h3>
+      <p>ClassClans ana sayfasında yer alan öğretmen girişi kısmından mail adresiniz ve şifreniz ile giriş yapınız. Karşınıza çıkan sayfada yer alan <span class="term">Yeni Sınıf Oluştur</span> tuşuna basarak sınıfınızı oluşturmaya başlayın. Sınıf mevcudunun durumuna göre ister 2 klan, ister 3 klan, ister 4 klan seçeneğini seçiniz. Bu seçime göre haritanın büyüklüğü değişecek, her klanın toplam bölgesi (7) aynı kalacaktır. Bu bilgilere göre seçiminizi tamamlayıp sınıfı oluşturunuz.</p>
+      <p><span class="term">Önemli Not:</span> Sınıf sayısının 2, 3 ve 4 klana tam bölünmemesi sorun teşkil etmez. Klanlara gönderilen toplam soru sayısı aynı olduğu için değişen sadece 1 öğrencinin çözeceği soru sayısı olacaktır. Klan puanı hesaplarken adaletsizliğe neden olmaz. Ayrıca zaman zaman devamsızlıklar olacağı için gelmeyen öğrencilerin soruları da klandaki üyeler tarafından paylaşılarak çözülecektir.</p>
+      <p>Sınıfı oluşturduktan sonra ilk yapmanız gereken <span class="term">Kullanıcıları Yönet</span> sekmesine gelip öğrencilerinizi eklemek olmalıdır. Bu sayede öğrenci hesapları aktif olacaktır. Eklenen öğrenciler alt kısımda görünecektir. O kısma gelip öğrencilerin klanlarını seçebilirsiniz.</p>
+
+      <h3>Roller</h3>
+      <ul>
+        <li><span class="term">Kabile Lideri (İnşaat):</span> Liman, sur inşaatından ve gemilerin üretiminden sorumludur.</li>
+        <li><span class="term">Komutan (Kara Saldırısı):</span> Sınır komşusu olan kabilelerin bölgelerine saldırıyı yapmakla sorumlu olan kişidir.</li>
+        <li><span class="term">Korsan (Deniz Saldırısı):</span> Eğer klanın envanterinde gemi varsa denize kıyısı olan herhangi bir yere saldırı yapma hakkı vardır. Bu saldırıyı yapmakla sorumlu olan kişidir.</li>
+        <li><span class="term">Dağıtıcı (Soruları Dağıtır):</span> Tur başladığında soru havuzundaki tüm sorular önce dağıtıcıya gider. Dağıtıcı sorulara bakıp istediği soruyu kendine seçer, diğerlerini de klan üyelerine paylaştırıp göndere basar.</li>
+      </ul>
+
+      <h3>Rollerin Seçilmesi</h3>
+      <p>Öğrencileri sisteme ekleyip klanlarını seçtikten sonra <span class="term">Roller</span> sekmesine gelip klan rollerine öğrenci seçip en altta yer alan <span class="term">Rolleri Kaydet</span> tuşuna basmanız gerekir. O tuşa basılmazsa roller kaydedilmeyecektir. Oyun içinde rolleri istediğiniz zaman değiştirebilirsiniz. Bu adımla birlikte oyuna hazırsınız!</p>
+
+      <h3>Oyuna Başlama ve Tur Süreci</h3>
+      <p>Öncelikle sınıfın ödev kontrolünü yapmanız ve hak eden klanlara Korsan Puanı vermeniz gerekmektedir. Korsan puanlarını <span class="term">Tur Yönetimi</span> sekmesinin en altından verebilirsiniz.</p>
+      <p>Oyunun başında <span class="term">Test Oluştur</span> sekmesinden soru görsellerinizi (cevaplarını da seçerek) yükleyebilirsiniz. Oyun başladığında her klanın dağıtıcısına yüklediğiniz aynı soruların tamamı gönderilecektir. Yükleyeceğiniz toplam soru sayısı sizin isteğinize bağlıdır (ör. Klanlar 5 kişi ve her biri 3'er soru çözsün derseniz 15 soru kartı, 2'şer soru çözsünler derseniz 10 soru kartı yüklemeniz yeterlidir). İsterseniz soruların puan değerini de görsel yükleme tuşu altından değiştirebilirsiniz.</p>
+      <p>Soruları havuza eklemeyi bitirdikten sonra önce yoklamayı almalısınız ki gelmeyen öğrenci varsa sistem onu kapatsın ve soru gönderilemesin (unutursanız da sorun değil, turu başlatacağınız sırada sistem bunu size hatırlatacaktır). Öğrencileriniz de hazırsa <span class="term">Yeni Tur Başlat</span> tuşuna basıp açılan pencereden soru çözüm süresini seçtikten sonra <span class="term">Turu Başlat</span> tuşuna bastığınızda oyunu başlatmış olursunuz (bu kısımda süre işlemeye başlamaz; dağıtıcıların soruları seçmesi için süre tanınır). Sorular ilk önce klanların Dağıtıcılarına iletilir. Dağıtıcı soruları gönderir ve altta yer alan <span class="term">Soruları Gönderdim</span> tuşuna basıp seçimi onaylar. Siz bu kısımdan sonra Tur Yönetimi sekmesinden süreci takip edebilirsiniz.</p>
+      <p>Tüm dağıtıcılar soruları gönderdiğini onayladığında <span class="term">Dağıtıcı Seçimlerini Onayla → Soruları Dağıt</span> tuşuna basarak soruların klan üyelerine gitmesini onaylarsınız ve seçtiğiniz soru çözüm süresi aktif olur. Süreyi sayfanın üstünden takip edebilirsiniz ve isterseniz Tur Yönetimi kısmından süreyi duraklatabilirsiniz. Herkes çözümü bitirdiğinde <span class="term">Cevaplama Aşamasını Kapat → Hamlelere Geç</span> tuşuna basarak öğrencilerin panelinde inşaat ve savaş hamleleri kısmının aktif olmasını sağlarsınız (her rol için ayrı seçim ekranı açılır, öğrencinin atanmış bir rolü yoksa bir seçim yapmaz ve klan üyelerinin seçimlerini tamamlamasını bekler). Siz de seçimleri Tur Yönetimi kısmında görebilirsiniz.</p>
+      <ul>
+        <li><span class="term">Kabile liderleri:</span> Yapmak istediği inşaatları ve gemi üretimini seçerek <span class="term">Sıraya Ekle</span> tuşuna basar ve seçimlerini onaylamak için <span class="term">Onayla (Hemen Uygulanır)</span> tuşuna basar. Eğer klanın Korsan Puanı yoksa üretim ve inşaat yapamayacağı için <span class="term">Pas Geç</span> tuşuna basar.</li>
+        <li><span class="term">Komutan:</span> Hedef bölgeyi seçip <span class="term">Hamleyi Kaydet</span> der ve <span class="term">Saldırıyı Onayla</span> tuşuna basar.</li>
+        <li><span class="term">Korsan:</span> Hedef bölgeyi seçip <span class="term">Hamleyi Kaydet</span> der ve <span class="term">Saldırıyı Onayla</span> tuşuna basar.</li>
+      </ul>
+      <p>Tüm klanlar hamlelerini onayladığında öğrenci ve öğretmen panelinde “Savaş Başlıyor” geri sayımı görünür ve 5 saniyelik geri sayım bittiğinde saldırıların tek tek gerçekleştiği savaş animasyonları ekranda görünür. Ve tur bu şekilde sonlanmış olur.</p>
+      <p>Tur sonunda Öğretmen Panelinde tüm bilgiler yer alır:</p>
+      <ul>
+        <li><span class="term">Değerlendirme</span> sekmesinden kim hangi soruya ne işaretledi detaylı şekilde görebilirsiniz.</li>
+        <li><span class="term">Tur Yönetimi</span> sekmesinden tüm saldırıları ve puanları tek tek görebilirsiniz.</li>
+        <li><span class="term">Tur İstatistikleri</span> sekmesinden öğrencilerin tur bazlı puanlarını ve toplam puanlarını (tüm turların) görebilirsiniz.</li>
+      </ul>
+      <p>Öğrenciler panellerinde, kendi tur puanlarını (doğru, yanlış, boş), klanının savaş hamlelerini ve klan puanını, diğer klanların puanını, korsan puan sayısını ve envanterlerde yer alan gemi sayılarını görür. Diğer oyuncuların (kendi klanındaki oyuncular da dahil) puanlarını (doğru, yanlış, boş) göremez. Öğrenciler üzerinde baskı oluşturmamak için kişisel puanlar gizli tutulmuştur.</p>
+
+      <h3>Oyunun Bitişi</h3>
+      <p>Oyun bitişi için bir sınır olmamakla birlikte bir klan tüm topraklarını kaybettiğinde oyunu sonlandırabilirsiniz. Bu durum gerçekleşmezse oyun sizin istediğiniz süre boyunca devam eder.</p>
+      <p><span class="term">Tavsiye Notu:</span> Oyuna başlarken bir bitiş süresi koymak öğrencilerin haksızlık olarak görmemesi için en adil yol olabilir (ör. 1. Çeyrek dönemi boyunca uygulayacağız, 7 hafta boyunca uygulayacağız gibi).</p>
+      <p>Oyun tamamlandığında en fazla bölgesi olan klan kazanmış olur. Bireysel sıralamada ilk 3'e giren öğrenciler de kazananlar arasında yer alır.</p>
+      <p>Oyun sonunda öğrencilerin verilerinin bulunduğu bir dosya sizin için hazırlanır ve excel olarak dışa aktarılır. Bu dosyayı kendi bilgisayarınıza veya telefonunuza indirebilirsiniz.</p>
+      <p>Oyun ile ilgili daha fazla bilgiye ihtiyaç duyarsanız iletişim kısmından yazarak iletişime geçebilirsiniz. İyi oyunlar dileriz…</p>
+
+      <p class="signature">Oyunlaştırmanın Yazarı ve Tasarımcısı: Erinç Tuncay, Ülfet Tuncay</p>
 
     </div>
   </section>
