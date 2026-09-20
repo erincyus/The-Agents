@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+<!-- Sürüm: 2026-09-20 — menüde Sınıf Araçları ve Oynanış & Kurallar bağlantıları bulunur -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TheGamifyClass.com | Educational Gamification</title>
-<meta name="description" content="Educational Gamification – The Agents, ClassClans ve Who's Next?. Sınıfın için hazırlanmış üç oyunlaştırma dünyası.">
+<meta name="description" content="Educational Gamification – The Agents & ClassClans. Sınıfın için hazırlanmış iki oyunlaştırma dünyası: The Agents ve ClassClans.">
 <link rel="icon" href="assets/site_logo.png" type="image/png">
 <link rel="apple-touch-icon" id="appleTouchIconLink" href="assets/site_logo.png">
 <link rel="manifest" id="manifestLink" href="">
@@ -32,13 +33,6 @@
     --cl-accent2:#b5502d;
     --cl-text:#f4ead2;
     --cl-muted:#c2b393;
-
-    --wn-bg1:#0a0d2c;
-    --wn-bg2:#2a1030;
-    --wn-accent:#ff4d6d;
-    --wn-accent2:#38b6ff;
-    --wn-text:#eef1ff;
-    --wn-muted:#a9b3e6;
   }
 
   *{ box-sizing:border-box; }
@@ -169,13 +163,13 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    padding:64px 64px;
+    padding:64px 40px;
     overflow:hidden;
   }
   .panel-inner{
     position:relative;
     z-index:2;
-    max-width:340px;
+    max-width:400px;
     text-align:center;
   }
   .panel-logo{
@@ -244,7 +238,7 @@
   .panel--clans{
     background:radial-gradient(120% 140% at 80% 85%, var(--cl-bg2), var(--cl-bg1) 65%);
     color:var(--cl-text);
-    clip-path:polygon(12% 0, 100% 0, 88% 100%, 0% 100%);
+    clip-path:polygon(12% 0, 100% 0, 100% 100%, 0% 100%);
     margin-left:-8%;
   }
   .panel--clans::before{
@@ -276,45 +270,6 @@
     box-shadow:0 8px 24px rgba(217,164,65,0.18);
   }
 
-
-  /* Who's Next panel */
-  .panel--whosnext{
-    background:radial-gradient(120% 140% at 50% 100%, var(--wn-bg2), var(--wn-bg1) 65%);
-    color:var(--wn-text);
-    clip-path:polygon(12% 0, 100% 0, 100% 100%, 0% 100%);
-    margin-left:-8%;
-  }
-  .panel--whosnext::before{
-    content:"";
-    position:absolute; inset:0;
-    background:
-      radial-gradient(200px 200px at 88% 12%, rgba(255,77,109,0.16), transparent 70%),
-      radial-gradient(240px 240px at 8% 92%, rgba(56,182,255,0.16), transparent 70%);
-  }
-  .panel--whosnext h2{
-    font-family:'Space Grotesk', sans-serif;
-    font-weight:700;
-    font-size:2.1rem;
-    margin:0;
-    background:linear-gradient(90deg, var(--wn-accent), var(--wn-accent2));
-    -webkit-background-clip:text;
-    background-clip:text;
-    color:transparent;
-  }
-  .panel--whosnext h3{
-    font-family:'Inter', sans-serif;
-    font-weight:500;
-    font-size:0.95rem;
-    color:var(--wn-muted);
-    margin:6px 0 0;
-  }
-  .panel--whosnext .panel-desc{ color:var(--wn-muted); }
-  .panel--whosnext .panel-cta{
-    background:linear-gradient(90deg, var(--wn-accent), var(--wn-accent2));
-    color:#fff;
-    box-shadow:0 8px 24px rgba(255,77,109,0.22);
-  }
-
   /* ---------- Footer ---------- */
   .site-footer{
     padding:22px 28px 28px;
@@ -328,12 +283,11 @@
   }
 
   /* ---------- Responsive ---------- */
-  @media (max-width: 1100px){
+  @media (max-width: 880px){
     .panels{ flex-direction:column; min-height:auto; }
     .panel{ padding:56px 26px; }
     .panel--agents{ clip-path:polygon(0 0, 100% 0, 100% 92%, 0 100%); }
-    .panel--clans{ clip-path:polygon(0 4%, 100% 0, 100% 96%, 0 100%); margin-left:0; margin-top:-6%; }
-    .panel--whosnext{ clip-path:polygon(0 8%, 100% 0, 100% 100%, 0 100%); margin-left:0; margin-top:-6%; }
+    .panel--clans{ clip-path:polygon(0 8%, 100% 0, 100% 100%, 0 100%); margin-left:0; margin-top:-6%; }
   }
   @media (max-width: 480px){
     .site-header{ padding:14px 18px; }
@@ -355,8 +309,10 @@
       </div>
     </a>
     <nav class="nav-links">
+      <a class="nav-link" href="sinif-araclari.html">🧪 Sınıf Araçları</a>
       <a class="nav-link" href="iletisim.html">İletişim</a>
       <a class="nav-link" href="uyelik-hakkinda.html">Üyelik Hakkında</a>
+      <a class="nav-link" href="oynanis-kurallar.html">Oynanış &amp; Kurallar</a>
       <button id="pwaInstallBtn" class="nav-link" style="display:none;background:none;font-family:inherit;cursor:pointer;" onclick="triggerPwaInstall()">📱 Uygulamayı Yükle</button>
     </nav>
   </header>
@@ -365,7 +321,7 @@
     <div class="hero">
       <img class="hero-logo" src="assets/site_logo.png" alt="TheGamifyClass.com logosu">
       <h1>Hangi göreve çıkıyorsun?</h1>
-      <p>Sınıfın için hazırlanan üç farklı oyunlaştırma dünyasından birini seç. Hepsi haftalık görevler, puanlar ve sürprizlerle dolu.</p>
+      <p>Sınıfın için hazırlanan iki farklı oyunlaştırma dünyasından birini seç. İkisi de haftalık görevler, puanlar ve sürprizlerle dolu.</p>
     </div>
   </section>
 
@@ -390,16 +346,6 @@
       </div>
     </a>
 
-    <a class="panel panel--whosnext" href="WhosNext.html">
-      <div class="panel-inner">
-        <img class="panel-logo" src="assets/whos_next_logo.png" alt="Who's Next? oyun logosu">
-        <h2>Who's Next?</h2>
-        <h3>Sıradaki kim?</h3>
-        <p class="panel-desc">Kartların üzerinde dönen mor çerçeve sıradaki öğrenciyi seçer. Soruyu cevapla, pasla, bilet kazan ya da arkadaşınla birlikte çöz. Şans son ana kadar dönebilir.</p>
-        <span class="panel-cta">Oyuna Gir</span>
-      </div>
-    </a>
-
   </section>
 
   <footer class="site-footer">
@@ -412,7 +358,7 @@
 const pwaManifest = {
   name: "TheGamifyClass.com",
   short_name: "GamifyClass",
-  description: "Eğitimde oyunlaştırma portalı: The Agents, ClassClans ve Who's Next?",
+  description: "Eğitimde oyunlaştırma portalı: The Agents ve ClassClans",
   start_url: "./index.html",
   scope: "./",
   display: "standalone",
