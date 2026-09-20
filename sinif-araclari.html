@@ -118,6 +118,8 @@
     font-size:3.6rem;
     background:var(--card-grad, linear-gradient(135deg, #1b2a2c, #0c1416));
   }
+  .card-top.has-img{ height:200px; padding:14px; }
+  .card-top img{ width:100%; height:100%; object-fit:contain; }
   .card-body{ padding:18px 20px 22px; display:flex; flex-direction:column; gap:10px; flex:1; }
   .card-tags{ display:flex; gap:6px; flex-wrap:wrap; }
   .tag{
@@ -196,8 +198,8 @@
    tur   : "Simülasyon", "Animasyon" veya "Uygulama"  (filtre düğmeleri buna göre oluşur)
    brans : "Fizik", "Matematik" gibi ders adı (istemezsen boş bırak: "")
    dosya : aracın HTML dosyasının adı
-   ikon  : karta gelecek emoji (görsel yüklenemezse bu görünür)
-   gorsel: (isteğe bağlı) kartın üstünde emoji yerine görünecek logo dosyasının yolu
+   ikon  : karta gelecek emoji (logo yoksa bu görünür)
+   gorsel: karta gelecek logo/resim dosyası, örn. "assets/zombie_logo.png" (istemezsen bu satırı hiç yazma)
    renk  : kartın üst kısmının arka plan rengi (iki renk yazıyorsun)
    ===================================================================== */
 const ARACLAR = [
@@ -208,17 +210,8 @@ const ARACLAR = [
     brans: "Fizik",
     dosya: "zombie.html",
     ikon: "🧟",
+    gorsel: "assets/zombie_logo.png",
     renk: ["#1a3a2e", "#0b1416"]
-  },
-  {
-    baslik: "Homework Chart Tool",
-    aciklama: "Sınıfının ödev takibi: haftalık ödevler, teslim durumları, renkli tablo, dairesel grafik ve Excel dökümü. Öğretmen girişi gerekir.",
-    tur: "Eğitim Aracı",
-    brans: "Tüm Branşlar",
-    dosya: "homework-chart-tool.html",
-    ikon: "📊",
-    gorsel: "assets/homework_chart_tool_logo.png",
-    renk: ["#1c2540", "#0b0e18"]
   }
   /* Yeni araçlar için buraya virgül koyup yeni { ... } ekle */
 ];
@@ -236,11 +229,12 @@ function kartOlustur(a){
   const ust = document.createElement("div");
   ust.className = "card-top";
   if (a.gorsel){
-    const im = document.createElement("img");
-    im.src = a.gorsel; im.alt = a.baslik + " logosu";
-    im.style.cssText = "max-height:110px; max-width:80%; object-fit:contain;";
-    im.onerror = function(){ ust.textContent = a.ikon; ust.setAttribute("aria-hidden","true"); };
-    ust.appendChild(im);
+    ust.classList.add("has-img");
+    const img = document.createElement("img");
+    img.src = a.gorsel;
+    img.alt = a.baslik + " logosu";
+    img.loading = "lazy";
+    ust.appendChild(img);
   } else {
     ust.textContent = a.ikon;
     ust.setAttribute("aria-hidden", "true");
