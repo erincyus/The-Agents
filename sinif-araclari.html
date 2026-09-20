@@ -169,6 +169,7 @@
       <a class="nav-link active" href="sinif-araclari.html" aria-current="page">🧪 Sınıf Araçları</a>
       <a class="nav-link" href="iletisim.html">İletişim</a>
       <a class="nav-link" href="uyelik-hakkinda.html">Üyelik Hakkında</a>
+      <a class="nav-link" href="oynanis-kurallar.html">Oynanış &amp; Kurallar</a>
     </nav>
   </header>
 
@@ -193,7 +194,7 @@
    (Virgülü silmemeye dikkat et.)
 
    tur   : "Simülasyon", "Animasyon" veya "Uygulama"  (filtre düğmeleri buna göre oluşur)
-   sinif : "9. Sınıf Fizik" gibi bir etiket (istemezsen boş bırak: "")
+   brans : "Fizik", "Matematik" gibi ders adı (istemezsen boş bırak: "")
    dosya : aracın HTML dosyasının adı
    ikon  : karta gelecek emoji
    renk  : kartın üst kısmının arka plan rengi (iki renk yazıyorsun)
@@ -201,9 +202,9 @@
 const ARACLAR = [
   {
     baslik: "Hayatta Kalma Protokolü",
-    aciklama: "Zombi kaçış senaryosuyla yol–zaman analizi. Öğrenciler hız ve zaman hesaplarıyla sığınağa ulaşmaya çalışır.",
+    aciklama: "Zombi kaçış senaryosuyla yol–zaman analizi. Öğrenciler sürat ve zaman hesaplarıyla sığınağa ulaşmaya çalışır.",
     tur: "Simülasyon",
-    sinif: "9. Sınıf Fizik",
+    brans: "Fizik",
     dosya: "zombie.html",
     ikon: "🧟",
     renk: ["#1a3a2e", "#0b1416"]
@@ -234,9 +235,9 @@ function kartOlustur(a){
   const t1 = document.createElement("span");
   t1.className = "tag"; t1.textContent = a.tur;
   etiketler.appendChild(t1);
-  if (a.sinif){
+  if (a.brans){
     const t2 = document.createElement("span");
-    t2.className = "tag grade"; t2.textContent = a.sinif;
+    t2.className = "tag grade"; t2.textContent = a.brans;
     etiketler.appendChild(t2);
   }
 
