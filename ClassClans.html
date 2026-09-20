@@ -24,6 +24,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
   const FIREBASE_CONFIG = {
     apiKey: "AIzaSyBxBzCkrJ9D8Uf9EcVGC80WcD116BtoUI4",
@@ -293,10 +294,10 @@ footer.site-footer b{color:#4a3216;}
 
     <div id="authPanelLogin">
       <h3>Oyuna Giriş</h3>
-      <p class="note">Öğretmeniniz size Oyun Kodu, kullanıcı adı ve şifre vermiş olmalı.</p>
+      <p class="note">Öğretmeniniz size Oyun Kodu ve şifre vermiş olmalı. Oyun Kodunu yazınca adın listede çıkar, listeden seçip şifrenle giriş yapabilirsin.</p>
       <div class="form-grid">
-        <div class="full"><label>Oyun Kodu</label><input id="loginGameId" placeholder="ör. MEV7A23"></div>
-        <div><label>Kullanıcı Adı</label><input id="loginUsername"></div>
+        <div class="full"><label>Oyun Kodu</label><input id="loginGameId" placeholder="9akullanıcı" autocapitalize="none" autocomplete="off"></div>
+        <div><label>Kullanıcı Adı</label><select id="loginUsername" disabled><option value="">Önce Oyun Kodunu yaz</option></select><div class="note" id="loginUserHint" style="margin-top:4px;"></div></div>
         <div><label>Şifre</label><input id="loginPassword" type="password"></div>
       </div>
       <button class="primary-btn" id="btnDoLogin" style="margin-top:12px;">Giriş Yap</button>
@@ -307,7 +308,7 @@ footer.site-footer b{color:#4a3216;}
       <h3>Öğretmen Girişi</h3>
       <p class="note">Okul yöneticinizin sizin için oluşturduğu e-posta ve şifre ile giriş yapın. Hesabınız yoksa yöneticinizden (Yönetici Paneli) sizin için bir hesap oluşturmasını isteyin.</p>
       <div class="form-grid">
-        <div class="full"><label>E-posta</label><input id="teacherLoginEmail" type="email" placeholder="ör. ogretmen@okul.com"></div>
+        <div class="full"><label>E-posta</label><input id="teacherLoginEmail" type="email" placeholder="ör. ogretmen@mail.com"></div>
         <div class="full"><label>Şifre</label><input id="teacherLoginPassword" type="password"></div>
       </div>
       <button class="primary-btn" id="btnTeacherLogin" style="margin-top:12px;">Giriş Yap</button>
@@ -491,6 +492,7 @@ footer.site-footer b{color:#4a3216;}
     <div class="card">
       <h2>⚔️ Tur Yönetimi</h2>
       <div id="turnPhaseInfo" class="note"></div>
+      <div id="answerProgress"></div>
       <button class="gold-btn" id="btnConfirmDistribution" style="margin-top:10px;display:none;">✅ Dağıtıcı Seçimlerini Onayla → Soruları Dağıt</button>
       <button class="ghost-btn" id="btnPauseAnswering" style="margin-top:10px;">⏸ Süreyi Duraklat</button>
       <button class="gold-btn" id="btnEndAnswering" style="margin-top:10px;">⏭ Cevaplama Aşamasını Kapat → Hamlelere Geç</button>
@@ -528,6 +530,10 @@ footer.site-footer b{color:#4a3216;}
     <div class="card">
       <h2>📈 Tur İstatistikleri</h2>
       <p class="note">Her turda öğrencilerin aldığı puanlar, klanların tur bazlı puanları ve oyun boyunca toplam puan sıralaması.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px;">
+        <button class="primary-btn" id="btnExportExcel">📥 İstatistikleri Excel Olarak İndir</button>
+        <button class="gold-btn" id="btnEndGameExport">🏁 Oyunu Bitir ve Excel İndir</button>
+      </div>
       <div id="statsContent"></div>
     </div>
   </div>
@@ -552,10 +558,9 @@ footer.site-footer b{color:#4a3216;}
       </div>
 
       <h3 style="margin-top:18px;">+ Yeni Öğrenci Ekle</h3>
-      <p class="note">En fazla 24 aktif öğrenci hesabı olabilir (sınıftaki öğrenci sayınıza göre daha az da olabilir).</p>
+      <p class="note">En fazla 24 aktif öğrenci hesabı olabilir (sınıftaki öğrenci sayınıza göre daha az da olabilir). Kullanıcı adı olarak öğrencinin adını soyadını yazın; öğrenciler girişte adını listeden seçecek.</p>
       <div class="form-grid">
-        <div><label>Öğrenci Adı Soyadı</label><input id="newStuName" placeholder="ör. Ertuna Ancay"></div>
-        <div><label>Kullanıcı Adı</label><input id="newStuUsername" placeholder="ör. ayse7a"></div>
+        <div><label>Kullanıcı Adı (öğrencinin adı soyadı)</label><input id="newStuUsername" placeholder="ör. Ayşe Yılmaz"></div>
         <div><label>Şifre</label><input id="newStuPassword" placeholder="ör. 1234"></div>
       </div>
       <button class="primary-btn" id="btnAddStudent" style="margin-top:10px;">+ Öğrenci Ekle</button>
@@ -569,7 +574,7 @@ footer.site-footer b{color:#4a3216;}
 
       <div class="danger-zone">
         <h3 style="color:var(--bad);">⚠️ Tehlikeli Bölge</h3>
-        <p class="note">Bu, haritayı, kartları, turları ve puanları sıfırlar ve oyunu baştan başlatır. <b>Öğrenci ve öğretmen hesapları silinmez.</b></p>
+        <p class="note">Bu, haritayı, kartları, turları ve puanları sıfırlar ve oyunu baştan başlatır. <b>Öğrenci ve öğretmen hesapları silinmez.</b> Sıfırlamadan hemen önce istatistikler otomatik olarak Excel dosyası halinde indirilir.</p>
         <button class="big-danger-btn" id="btnOpenResetModal">🔴 Tüm Oyunu Sıfırla ve Yeni Oyun Başlat</button>
       </div>
     </div>
@@ -1847,7 +1852,42 @@ function renderSubTable(){
 function renderGradePanel(){ renderGradeSummary(); renderSubTable(); }
 
 /* ================= TUR YÖNETİMİ (teacher) ================= */
+function renderAnswerProgress(){
+  const el = document.getElementById('answerProgress');
+  if(!el) return;
+  if(!currentRound || currentRound.resolved || currentRound.distributing || !(currentRound.answeringOpen || currentRound.movesOpen || currentRound.battleIntro)){ el.innerHTML=''; return; }
+  const names = Object.keys(assignments||{}).filter(n=>Array.isArray(assignments[n]) && assignments[n].length>0);
+  if(names.length===0){ el.innerHTML=''; return; }
+  const rows = names.map(n=>{
+    const assigned = assignments[n];
+    const subs = (submissions && submissions[n]) || {};
+    const answered = assigned.filter(cid=>subs[cid]).length;
+    return {name:n, total:assigned.length, answered, done: answered>=assigned.length};
+  }).sort((a,b)=>a.name.localeCompare(b.name,'tr'));
+  const doneList = rows.filter(r=>r.done), left = rows.filter(r=>!r.done);
+  const pill = (r,ok)=>`<span class="stat-pill" style="background:${ok?'#1e7a3c':'#8a6d1f'};color:#fff;margin:0 6px 6px 0;display:inline-block;">${ok?'✅':'⏳'} ${r.name}${ok?'':' ('+r.answered+'/'+r.total+')'}</span>`;
+  el.innerHTML = `<div style="border:1px solid #c8b17f;border-radius:10px;padding:10px 12px;margin-top:10px;background:#fffdf7;">
+    <b>📝 Soru Çözümü Durumu:</b> ${doneList.length}/${rows.length} öğrenci tamamladı · <b>${left.length}</b> kişi kaldı
+    ${left.length?`<div style="margin-top:8px;"><div class="note" style="margin:0 0 4px;">Henüz tamamlamayanlar</div>${left.map(r=>pill(r,false)).join('')}</div>`:'<div class="note" style="margin-top:6px;">Herkes tamamladı 🎉</div>'}
+    ${doneList.length?`<div style="margin-top:8px;"><div class="note" style="margin:0 0 4px;">Tamamlayanlar</div>${doneList.map(r=>pill(r,true)).join('')}</div>`:''}
+  </div>`;
+}
+let answerProgressTimer = null;
+function startAnswerProgressPolling(){
+  if(answerProgressTimer) return;
+  answerProgressTimer = setInterval(async ()=>{
+    try{
+      if(role!=='teacher' || !currentRound || !currentRound.answeringOpen) return;
+      const panel = document.getElementById('panel-turn');
+      if(!panel || !panel.classList.contains('active')) return;
+      const subs = await sGet('submissions-'+currentRound.id, true);
+      if(subs) submissions = subs;
+      renderAnswerProgress();
+    }catch(e){}
+  }, 5000);
+}
 async function renderTurnPanel(){
+  renderAnswerProgress();
   const info = document.getElementById('turnPhaseInfo');
   const endBtn = document.getElementById('btnEndAnswering');
   const resolveBtn = document.getElementById('btnResolve');
@@ -1980,8 +2020,8 @@ async function resolveAttackPhase(){
       let defScore = defBase + wallBonus + inkaBonus;
       let winner;
       const tie = atkScore===defScore;
-      if(tie){ winner = Math.random()<0.5?clan:def; }
-      else winner = atkScore>defScore ? clan : def;
+      // Puanlar eşitse kura yok: savunan taraf kazanır.
+      winner = atkScore>defScore ? clan : def;
       if(winner===clan){ tile.owner=clan; tile.port=false; tile.walls=0; }
       else if(atk.type==='deniz'){ localState.clans[clan].gemi = Math.max(0, localState.clans[clan].gemi-1); }
       log.push({type:'attack', clan, targetClan:def, tileId:atk.tileId, attackType:atk.type, winner,
@@ -2004,6 +2044,16 @@ async function resolveAttackPhase(){
   battleLog = log; studentScores = perStudentDetail;
   renderAll();
   maybePlayAnimations();
+  try{
+    const owners = Object.values(localState.tiles).map(t=>t.owner);
+    if(role==='teacher' && owners.length && owners.every(o=>o===owners[0])){
+      setTimeout(async ()=>{
+        if(confirm('🏁 Oyun bitti! '+(CLANS[owners[0]]?CLANS[owners[0]].name:owners[0])+' klanı tüm bölgeleri ele geçirdi.\n\nÖğrenci istatistikleri ve klan puanları Excel olarak indirilsin mi?')){
+          await exportGameToExcel('oyun-sonu');
+        }
+      }, 6000);
+    }
+  }catch(e){ console.error(e); }
 }
 
 /* ================= SAVAŞ SONUÇLARI (öğretmen + öğrenci ortak görünüm) ================= */
@@ -2020,7 +2070,7 @@ function attackScoreDetailHTML(ev){
   const dp = passiveTxt(ev.defPassives);
   return `<div class="note" style="margin:0;">⚔️ <b>Saldıran ${atkC.name}: ${fmtNum(ev.atkScore)} puan</b>${ap?' <span>(içinde: '+ap+')</span>':''}</div>`
     + `<div class="note" style="margin:0;">🛡️ <b>Savunan ${defC.name}: ${fmtNum(ev.defScore)} puan</b> (${dparts.join(' + ')})${dp?' <span>(klan puanının içinde: '+dp+')</span>':''}</div>`
-    + (ev.tie?`<div class="note" style="margin:0;">⚖️ Puanlar eşit çıktı, sonuç kura ile belirlendi.</div>`:'');
+    + (ev.tie?`<div class="note" style="margin:0;">⚖️ Puanlar eşit çıktı, savunan taraf kazandı.</div>`:'');
 }
 function renderBattleResultsHTML(){
   if(!currentRound){ return '<p class="note">Aktif tur yok.</p>'; }
@@ -2093,6 +2143,12 @@ async function maybePlayAnimations(){
   if(animPlaying) return;
   if(!currentRound || !currentRound.resolved) return;
   if(lastAnimatedCount >= battleLog.length) return;
+  // Bu tur için animasyon bu cihazda daha önce oynatıldıysa tekrar gösterme.
+  const seenKey = 'cc-anim-seen-'+gameId+'-'+currentRound.id;
+  try{
+    if(localStorage.getItem(seenKey)){ lastAnimatedCount = battleLog.length; return; }
+    localStorage.setItem(seenKey, '1');
+  }catch(e){}
   animPlaying = true;
   for(let i=lastAnimatedCount;i<battleLog.length;i++){
     const ev = battleLog[i];
@@ -2103,7 +2159,7 @@ async function maybePlayAnimations(){
       const {result} = await playBattleAnimation(ev.attackType, ev.clan, ev.targetClan);
       let scoreLine = '';
       if(ev.atkScore!==undefined){
-        scoreLine = `<div style="font-family:'Archivo',sans-serif;font-size:15px;margin-top:8px;opacity:.95;">⚔️ ${CLANS[ev.clan].name}: <b>${fmtNum(ev.atkScore)}</b> &nbsp;·&nbsp; 🛡️ ${CLANS[ev.targetClan].name}: <b>${fmtNum(ev.defScore)}</b>${ev.tie?' (eşit — kura)':''}</div>`;
+        scoreLine = `<div style="font-family:'Archivo',sans-serif;font-size:15px;margin-top:8px;opacity:.95;">⚔️ ${CLANS[ev.clan].name}: <b>${fmtNum(ev.atkScore)}</b> &nbsp;·&nbsp; 🛡️ ${CLANS[ev.targetClan].name}: <b>${fmtNum(ev.defScore)}</b>${ev.tie?' (eşit — savunma kazandı)':''}</div>`;
       }
       result.innerHTML = `🏆 ${clanLogoImg(ev.winner,31)} ${CLANS[ev.winner].name} kazandı! (${ev.tileId})` + scoreLine;
       await new Promise(r=>setTimeout(r,6000));
@@ -2179,9 +2235,10 @@ async function renderStudentDynamicArea(){
       html += `<div class="locked-msg">Klanının hamleleri Kabile Lideri, Komutan ve Korsan tarafından gizlice yapılıyor. Bu aşamada senin için bir aksiyon yok.</div>`;
     } else {
       const tabLabel = {build:'🏗️ İnşaat', land:'🗡️ Kara Saldırısı', sea:'⛵ Deniz Saldırısı'};
-      html += `<div class="tabs" id="moveTabBar">` + myMoves.map((m,i)=>`<button class="tab-btn ${i===0?'active':''}" data-move="${m}">${tabLabel[m]}</button>`).join('') + `</div>`;
+      const activeMove = (moveTabState.round===currentRound.id && myMoves.includes(moveTabState.tab)) ? moveTabState.tab : myMoves[0];
+      html += `<div class="tabs" id="moveTabBar">` + myMoves.map((m,i)=>`<button class="tab-btn ${m===activeMove?'active':''}" data-move="${m}">${tabLabel[m]}</button>`).join('') + `</div>`;
       myMoves.forEach((m,i)=>{
-        html += `<div class="panel ${i===0?'active':''}" id="movepanel-${m}">`;
+        html += `<div class="panel ${m===activeMove?'active':''}" id="movepanel-${m}">`;
         if(m==='build') html += renderBuildPanel(cData);
         if(m==='land') html += renderLandPanel(cData);
         if(m==='sea') html += renderSeaPanel(cData);
@@ -2290,6 +2347,7 @@ async function renderDistributorUI(area){
   });
 }
 
+let moveTabState = {round:null, tab:null};
 function attachMoveTabHandlers(){
   const bar = document.getElementById('moveTabBar');
   if(!bar) return;
@@ -2297,6 +2355,7 @@ function attachMoveTabHandlers(){
     btn.addEventListener('click', ()=>{
       bar.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
+      moveTabState = {round: currentRound ? currentRound.id : null, tab: btn.dataset.move};
       document.querySelectorAll('[id^="movepanel-"]').forEach(p=>p.classList.remove('active'));
       document.getElementById('movepanel-'+btn.dataset.move).classList.add('active');
     });
@@ -2591,6 +2650,8 @@ async function toggleMayaStarCard(cardId){
 async function submitAnswer(cardId, answer){
   const card = currentRound.cards.find(c=>c.id===cardId);
   const correct = answer==='BLANK' ? false : gradeSubmission(card, answer);
+  // Başka öğrencilerin cevaplarını ezmemek için yazmadan önce en güncel kaydı oku.
+  try{ const latest = await sGet('submissions-'+currentRound.id, true); if(latest) submissions = latest; }catch(e){}
   if(!submissions[identity.name]) submissions[identity.name] = {};
   submissions[identity.name][cardId] = {clan:identity.clan, answer, correct};
   await sSet('submissions-'+currentRound.id, submissions, true);
@@ -2757,13 +2818,13 @@ async function addStudentAccount(){
   btn.disabled = false;
 }
 async function addStudentAccountInner(){
-  const name = document.getElementById('newStuName').value.trim();
-  const username = document.getElementById('newStuUsername').value.trim();
+  const username = document.getElementById('newStuUsername').value.trim().replace(/\s+/g,' ');
+  const name = username; // kullanıcı adı = öğrencinin ad soyadı
   const password = document.getElementById('newStuPassword').value;
   const errEl = document.getElementById('addStudentError');
   errEl.classList.remove('show');
   if(!name || !username || !password){ errEl.textContent='Lütfen tüm alanları doldurun.'; errEl.classList.add('show'); return; }
-  if(/[\/\s]/.test(username) || username==='.' || username==='..'){ errEl.textContent='Kullanıcı adında boşluk veya / işareti olamaz.'; errEl.classList.add('show'); return; }
+  if(/[\/]/.test(username) || username==='.' || username==='..'){ errEl.textContent='Kullanıcı adında / işareti olamaz.'; errEl.classList.add('show'); return; }
   const existing = await Backend.docExists(['games',gameId,'accounts',username]);
   if(existing){ errEl.textContent='Bu kullanıcı adı zaten kullanılıyor.'; errEl.classList.add('show'); return; }
   const rows = await Backend.listCollection(['games',gameId,'accounts']);
@@ -2774,7 +2835,6 @@ async function addStudentAccountInner(){
   await Backend.setDoc(['games',gameId,'accounts',username], {
     name, role:'student', clan:null, passwordHash:hash, passwordSalt:salt, disabled:false, createdAt:Date.now()
   });
-  document.getElementById('newStuName').value='';
   document.getElementById('newStuUsername').value='';
   document.getElementById('newStuPassword').value='';
   renderUsersPanel();
@@ -3100,6 +3160,132 @@ document.getElementById('btnSaveGameId').addEventListener('click', async ()=>{
   alert('Oyun kodu güncellendi: '+gameId+'\n\nÖğrencilerinize yeni kodu bildirmeyi unutmayın; eski kod artık çalışmayacak.');
   renderUsersPanel();
 });
+
+/* ================= ÖĞRENCİ GİRİŞİ: KULLANICI ADI LİSTESİ ================= */
+let loginListTimer = null, loginListSeq = 0;
+async function refreshLoginUserList(){
+  const seq = ++loginListSeq;
+  const sel = document.getElementById('loginUsername');
+  const hint = document.getElementById('loginUserHint');
+  const gid = (document.getElementById('loginGameId').value||'').trim().replace(/\s+/g,'').toLocaleLowerCase('tr');
+  if(!gid){
+    sel.innerHTML = '<option value="">Önce Oyun Kodunu yaz</option>'; sel.disabled = true; hint.textContent=''; return;
+  }
+  hint.textContent = 'Aranıyor...';
+  try{
+    const exists = await Backend.docExists(['games',gid]);
+    if(seq !== loginListSeq) return;
+    if(!exists){
+      sel.innerHTML = '<option value="">Oyun Kodu bulunamadı</option>'; sel.disabled = true; hint.textContent = 'Bu Oyun Kodu bulunamadı.'; return;
+    }
+    const rows = await Backend.listCollection(['games',gid,'accounts']);
+    if(seq !== loginListSeq) return;
+    const names = rows.filter(r=>r.data && r.data.role==='student' && !r.data.disabled).map(r=>r.id)
+      .sort((a,b)=>a.localeCompare(b,'tr'));
+    if(!names.length){
+      sel.innerHTML = '<option value="">Bu sınıfta henüz öğrenci yok</option>'; sel.disabled = true; hint.textContent=''; return;
+    }
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">— adını seç —</option>' + names.map(n=>{
+      const safe = String(n).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      return '<option value="'+safe+'">'+safe+'</option>';
+    }).join('');
+    if(names.includes(prev)) sel.value = prev;
+    sel.disabled = false; hint.textContent = '';
+  }catch(e){
+    console.error(e);
+    if(seq !== loginListSeq) return;
+    sel.innerHTML = '<option value="">Liste yüklenemedi</option>'; sel.disabled = true; hint.textContent = 'Liste yüklenemedi, sayfayı yenileyip tekrar deneyin.';
+  }
+}
+(function(){
+  const inp = document.getElementById('loginGameId');
+  inp.addEventListener('input', ()=>{ clearTimeout(loginListTimer); loginListTimer = setTimeout(refreshLoginUserList, 500); });
+  inp.addEventListener('change', refreshLoginUserList);
+  inp.addEventListener('blur', refreshLoginUserList);
+})();
+
+/* ================= EXCEL'E AKTAR (öğretmen) ================= */
+async function exportGameToExcel(reason, opts){
+  opts = opts || {};
+  try{
+    if(typeof XLSX === 'undefined') throw new Error('Excel bileşeni yüklenemedi (internet bağlantınızı kontrol edin)');
+    const studentLog = await sGet('student-stats-log', true) || [];
+    const clanLog = await sGet('clan-stats-log', true) || [];
+    if(studentLog.length === 0 && clanLog.length === 0){
+      if(!opts.quiet) alert('Henüz tamamlanmış bir tur olmadığı için indirilecek istatistik yok.');
+      return {ok:false, empty:true};
+    }
+    const rows = await Backend.listCollection(['games',gameId,'accounts']);
+    const clanOfStudent = {};
+    rows.forEach(r=>{ if(r.data && r.data.role==='student'){ clanOfStudent[r.data.name || r.id] = r.data.clan || ''; } });
+    const clanName = k => (k && CLANS[k]) ? CLANS[k].name : (k || '—');
+    const fmtDate = ts => ts ? new Date(ts).toLocaleString('tr-TR') : '';
+    const r2 = n => Math.round((Number(n)||0)*100)/100;
+
+    // 1) Tur bazlı öğrenci istatistikleri
+    const perRound = [['Tur (Hafta)','Tarih','Öğrenci','Klan (güncel)','Doğru','Yanlış','Boş','Puan']];
+    const totals = {};
+    studentLog.forEach((r,i)=>{
+      Object.entries(r.perStudent||{}).sort((a,b)=>b[1].toplam-a[1].toplam).forEach(([name,st])=>{
+        perRound.push([i+1, fmtDate(r.timestamp), name, clanName(clanOfStudent[name]), st.dogru||0, st.yanlis||0, st.bos||0, r2(st.toplam)]);
+        const t = totals[name] || (totals[name] = {tur:0,dogru:0,yanlis:0,bos:0,puan:0});
+        t.tur++; t.dogru += st.dogru||0; t.yanlis += st.yanlis||0; t.bos += st.bos||0; t.puan += Number(st.toplam)||0;
+      });
+    });
+    // 2) Öğrenci toplamları (hiç katılmayanlar da görünsün)
+    Object.keys(clanOfStudent).forEach(n=>{ if(!totals[n]) totals[n] = {tur:0,dogru:0,yanlis:0,bos:0,puan:0}; });
+    const summary = [['Sıra','Öğrenci','Klan (güncel)','Katıldığı Tur','Doğru','Yanlış','Boş','Çözülen Soru (D+Y+B)','Doğruluk %','Toplam Puan']];
+    Object.entries(totals).sort((a,b)=>b[1].puan-a[1].puan).forEach(([name,t],i)=>{
+      const asked = t.dogru + t.yanlis + t.bos;
+      summary.push([i+1, name, clanName(clanOfStudent[name]), t.tur, t.dogru, t.yanlis, t.bos, asked, asked ? Math.round(t.dogru/asked*1000)/10 : 0, r2(t.puan)]);
+    });
+    // 3) Haftalık klan puanları
+    const clanKeys = Object.keys(CLANS);
+    const weekly = [['Tur (Hafta)','Tarih', ...clanKeys.map(k=>CLANS[k].name)]];
+    const clanTotals = {}; clanKeys.forEach(k=>clanTotals[k]=0);
+    clanLog.forEach((r,i)=>{
+      weekly.push([i+1, fmtDate(r.timestamp), ...clanKeys.map(k=>{ const v = r2((r.clanScores||{})[k]); clanTotals[k]+=v; return v; })]);
+    });
+    weekly.push(['TOPLAM','', ...clanKeys.map(k=>r2(clanTotals[k]))]);
+    // 4) Klan genel durum
+    const owned = {}; clanKeys.forEach(k=>owned[k]=0);
+    if(localState && localState.tiles) Object.values(localState.tiles).forEach(t=>{ if(owned[t.owner]!==undefined) owned[t.owner]++; });
+    const clanSheet = [['Klan','Tur Puanları Toplamı','Sahip Olunan Bölge','Liman','Gemi','Ödev Puanı (💰)']];
+    clanKeys.slice().sort((a,b)=>clanTotals[b]-clanTotals[a]).forEach(k=>{
+      const c = (localState && localState.clans && localState.clans[k]) || {};
+      clanSheet.push([CLANS[k].name, r2(clanTotals[k]), owned[k], c.liman||0, c.gemi||0, c.puan||0]);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const add = (name, data, widths)=>{
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws['!cols'] = widths.map(w=>({wch:w}));
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    };
+    add('Öğrenci Toplamları', summary, [6,26,16,13,8,8,8,22,11,12]);
+    add('Tur Bazlı Öğrenci', perRound, [12,20,26,16,8,8,8,10]);
+    add('Haftalık Klan Puanları', weekly, [12,20,...clanKeys.map(()=>13)]);
+    add('Klan Genel Durum', clanSheet, [16,20,20,8,8,16]);
+
+    const safeId = String(gameId||'oyun').replace(/[^A-Za-z0-9ÇĞİÖŞÜçğıöşü_-]+/g,'_');
+    const d = new Date(); const pad = n=>String(n).padStart(2,'0');
+    const fname = 'ClassClans_'+safeId+'_'+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+(reason?'_'+reason:'')+'.xlsx';
+    XLSX.writeFile(wb, fname);
+    return {ok:true, fileName:fname};
+  }catch(e){
+    console.error('Excel dışa aktarma hatası', e);
+    if(!opts.quiet) alert('Excel dosyası oluşturulamadı: '+(e.message||e));
+    return {ok:false, error:String((e && e.message) || e)};
+  }
+}
+document.getElementById('btnExportExcel').addEventListener('click', ()=>exportGameToExcel('istatistikler'));
+document.getElementById('btnEndGameExport').addEventListener('click', async ()=>{
+  if(!confirm('Oyunu bitirmek ve tüm öğrenci soru istatistiklerini ile haftalık klan puanlarını Excel olarak indirmek istiyor musunuz?\n\n(Bu işlem verileri silmez; yeni oyuna başlamak için "Kullanıcıları Yönet" sekmesindeki sıfırlama butonunu kullanabilirsiniz.)')) return;
+  const res = await exportGameToExcel('oyun-sonu');
+  if(res.ok) alert('Excel dosyası indirildi: '+res.fileName);
+});
+
 document.getElementById('btnDoLogin').addEventListener('click', async ()=>{
   const btn = document.getElementById('btnDoLogin');
   const errEl = document.getElementById('loginError');
@@ -3196,6 +3382,8 @@ document.getElementById('btnConfirmReset').addEventListener('click', async ()=>{
     errEl.textContent='Şifre yanlış. Sıfırlama iptal edildi.'; errEl.classList.add('show'); return;
   }
   document.getElementById('resetModal').classList.remove('show');
+  const exp = await exportGameToExcel('sıfırlama-oncesi', {quiet:true});
+  if(exp.error && !confirm('Excel dosyası oluşturulamadı ('+exp.error+').\n\nYine de oyunu sıfırlamak istiyor musunuz? İstatistikler kalıcı olarak silinecek.')) return;
   await performGameReset();
   alert('Oyun sıfırlandı ve yeni bir oyun için hazır.');
 });
@@ -3281,6 +3469,7 @@ async function startApp(){
   // Bunun yerine güncelleme, üstteki "🔄 Yenile" butonuyla ve güvenli aksiyon noktalarında elle tetiklenir.
   // Sadece geri sayım saatini güncelleyen tickTimer DOM'u yeniden inşa etmediği için güvenlidir, açık kalır.
   if(!tickTimer) tickTimer = setInterval(updatePhaseBadge, 1000);
+  if(role==='teacher') startAnswerProgressPolling();
 }
 
 async function init(){
