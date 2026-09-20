@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homework Chart Tool | TheGamifyClass.com</title>
+<meta name="description" content="Sınıf ödev takip tablosu: öğrenci listesi, haftalık ödevler, teslim durumu, grafik ve Excel dökümü.">
+<link rel="icon" href="assets/site_logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+
+<!-- =====================================================================
+  FIREBASE REALTIME DATABASE KURALI (bir kere yapılır)
+  Firebase Konsolu > Realtime Database > Kurallar bölümünde, "whosnext" kuralının
+  hemen yanına (virgül koyarak) şu bloğu ekleyin. Diğer kuralları SİLMEYİN:
+
+  "homeworkchart": {
+    "$uid": {
+      ".read":  "auth != null && auth.uid === $uid",
+      ".write": "auth != null && auth.uid === $uid"
+    }
+  }
+
+  Her öğretmen yalnızca kendi sınıflarını görebilir ve değiştirebilir.
+  ===================================================================== -->
+
+<style>
+  :root{
+    --bg:#0a0a0c; --text:#e9e9ec; --muted:#8b8b93; --card:#121216; --line:rgba(255,255,255,0.10);
+    --red:#e43550; --cyan:#38d9e0;
+    --c-yapti:#2ecc71; --c-eksik:#f5c400; --c-yapmadi:#ef4444; --c-gec:#a855f7;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif; line-height:1.5; }
+  button,input,textarea{ font-family:inherit; font-size:inherit; color:inherit; }
+  button{ cursor:pointer; }
+  a{ color:inherit; text-decoration:none; }
+  :focus-visible{ outline:3px solid var(--cyan); outline-offset:2px; }
+  .hidden{ display:none !important; }
+
+  /* Üst çubuk */
+  .topbar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+    padding:12px 24px; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:30; background:rgba(10,10,12,0.94); backdrop-filter:blur(6px); }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand img{ width:46px; height:46px; object-fit:contain; border-radius:10px; }
+  .brand b{ font-family:'Space Grotesk',sans-serif; font-size:1.05rem; display:block; }
+  .brand small{ color:var(--muted); }
+  .top-actions{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .who{ color:var(--muted); font-size:0.82rem; }
+
+  .btn{ border:1px solid rgba(255,255,255,0.22); background:none; border-radius:999px; padding:9px 18px;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:0.86rem; transition:background .15s, transform .15s; }
+  .btn:hover{ background:rgba(255,255,255,0.08); }
+  .btn.primary{ background:linear-gradient(90deg,var(--red),var(--cyan)); color:#0a0a0c; border-color:transparent; }
+  .btn.primary:hover{ transform:translateY(-1px); filter:brightness(1.06); }
+  .btn.danger{ background:var(--c-yapmadi); border-color:transparent; color:#fff; }
+  .btn.small{ padding:6px 12px; font-size:0.78rem; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  main{ max-width:1300px; margin:0 auto; padding:22px 20px 60px; }
+  h1,h2,h3{ font-family:'Space Grotesk',sans-serif; margin:0; }
+  .panel{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 20px; }
+  .muted{ color:var(--muted); }
+
+  /* Giriş */
+  .auth-wrap{ min-height:calc(100vh - 80px); display:flex; align-items:center; justify-content:center; padding:24px 16px; }
+  .auth-card{ width:min(440px,100%); }
+  .auth-logo{ width:150px; height:150px; object-fit:contain; margin:0 auto 10px; display:block; }
+  .auth-card h2{ text-align:center; font-size:1.5rem; }
+  .auth-card .sub{ text-align:center; color:var(--muted); margin:6px 0 18px; font-size:0.92rem; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:0.82rem; font-weight:600; margin-bottom:5px; color:#cfcfd6; }
+  .field input,.field textarea{ width:100%; padding:11px 13px; border-radius:10px; border:1px solid var(--line); background:#0c0c10; }
+  .field textarea{ min-height:120px; resize:vertical; }
+  .err{ background:rgba(239,68,68,0.14); border:1px solid rgba(239,68,68,0.5); color:#ffb4b4; padding:10px 12px; border-radius:10px; margin-bottom:14px; font-size:0.88rem; }
+  .linkbtn{ background:none; border:none; color:var(--cyan); text-decoration:underline; padding:0; font-size:0.85rem; }
+
+  /* Sınıf listesi */
+  .head-row{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+  .class-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:16px; }
+  .class-card{ position:relative; text-align:left; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; transition:transform .15s,border-color .15s; }
+  .class-card:hover{ transform:translateY(-3px); border-color:rgba(56,217,224,0.6); }
+  .class-card h3{ font-size:1.2rem; margin-bottom:4px; }
+  .class-card .open{ margin-top:14px; color:var(--cyan); font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:0.9rem; }
+  .class-card .trash{ position:absolute; top:10px; right:10px; background:none; border:none; opacity:.55; font-size:1rem; padding:6px; }
+  .class-card .trash:hover{ opacity:1; }
+  .new-card{ border-style:dashed; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:130px; color:var(--cyan); font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.05rem; gap:6px; background:none; }
+
+  /* Sınıf ekranı üst bölümü */
+  .summary{ display:grid; grid-template-columns:1fr 340px; gap:16px; margin-bottom:18px; }
+  .stat-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; align-content:start; }
+  .stat{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 20px; }
+  .stat .n{ font-family:'Space Grotesk',sans-serif; font-size:2.4rem; font-weight:700; line-height:1.1; }
+  .stat .l{ color:var(--muted); font-size:0.85rem; margin-top:4px; }
+  .stat .s{ color:#6f6f78; font-size:0.75rem; margin-top:6px; }
+  .donut-box{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .donut-box svg{ width:190px; height:190px; }
+  .legend{ display:grid; grid-template-columns:1fr 1fr; gap:6px 16px; font-size:0.82rem; width:100%; }
+  .legend span{ display:flex; align-items:center; gap:7px; }
+  .dot{ width:12px; height:12px; border-radius:50%; display:inline-block; flex:none; }
+
+  /* Öğrenci ekleme */
+  .add-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:18px; }
+  .add-row input[type=text]{ flex:1 1 240px; padding:11px 14px; border-radius:999px; border:1px solid var(--line); background:#0c0c10; }
+  .toggle-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+  /* Aylar */
+  .months{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .mtab{ border:1px solid var(--line); background:none; border-radius:999px; padding:7px 16px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:0.84rem; }
+  .mtab:hover{ background:rgba(255,255,255,0.07); }
+  .mtab[aria-pressed="true"]{ background:linear-gradient(90deg,var(--red),var(--cyan)); color:#0a0a0c; border-color:transparent; }
+  .mtab small{ opacity:.75; font-weight:500; margin-left:4px; }
+
+  .legend-bar{ display:flex; gap:14px; flex-wrap:wrap; font-size:0.8rem; color:var(--muted); margin-bottom:10px; }
+  .legend-bar span{ display:inline-flex; align-items:center; gap:6px; }
+
+  /* Tablo */
+  .table-wrap{ overflow:auto; max-height:72vh; border:1px solid var(--line); border-radius:14px; background:var(--card); }
+  table{ border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; }
+  th,td{ border-bottom:1px solid var(--line); border-right:1px solid var(--line); padding:8px; text-align:center; vertical-align:middle; }
+  thead th{ position:sticky; top:0; z-index:5; background:#181820; font-size:0.82rem; }
+  th.namecol,td.namecol{ position:sticky; left:0; z-index:4; text-align:left; background:#15151b; min-width:190px; max-width:230px; }
+  thead th.namecol{ z-index:8; }
+  td.namecol{ font-weight:600; font-size:0.9rem; }
+  td.namecol .del{ float:right; background:none; border:none; opacity:.4; font-size:0.85rem; padding:0 2px; }
+  td.namecol .del:hover{ opacity:1; color:#ff8a8a; }
+  th.hwh{ cursor:pointer; min-width:150px; }
+  th.hwh:hover{ background:#22222c; }
+  th.hwh .t{ font-family:'Space Grotesk',sans-serif; font-weight:700; }
+  th.hwh .d{ font-weight:400; color:var(--muted); font-size:0.72rem; }
+  th.hwh .due{ font-weight:500; color:var(--cyan); font-size:0.72rem; margin-top:2px; }
+  th.hwh .note{ font-weight:400; color:#bdbdc6; font-size:0.72rem; margin-top:2px; max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-inline:auto; }
+  th.hwh.cur{ box-shadow:inset 0 3px 0 var(--cyan); }
+  th.hwoff,td.offcell{ min-width:84px; background:#101014; color:#6f6f78; font-size:0.72rem; }
+  th.hwoff .btn{ margin-top:4px; }
+  th.endcol{ min-width:90px; background:#1b1b24; }
+  td.endcol{ background:#15151b; font-weight:600; }
+  tfoot td{ position:sticky; bottom:0; z-index:3; background:#1b1b24; font-weight:600; font-size:0.85rem; }
+  tfoot td.namecol{ z-index:6; }
+
+  .marks{ display:grid; grid-template-columns:repeat(2,64px); gap:4px; justify-content:center; }
+  .mk{ border:1px solid rgba(255,255,255,0.18); background:transparent; border-radius:8px; padding:4px 2px; font-size:0.66rem; font-weight:600; color:#b5b5be; line-height:1.2; }
+  .mk:hover{ background:rgba(255,255,255,0.10); color:#fff; }
+  .mk.on.yapti{ background:var(--c-yapti); color:#052611; border-color:transparent; }
+  .mk.on.eksik{ background:var(--c-eksik); color:#2b2200; border-color:transparent; }
+  .mk.on.yapmadi{ background:var(--c-yapmadi); color:#fff; border-color:transparent; }
+  .mk.on.gec{ background:var(--c-gec); color:#fff; border-color:transparent; }
+  td.s-yapti{ background:rgba(46,204,113,0.16); }
+  td.s-eksik{ background:rgba(245,196,0,0.16); }
+  td.s-yapmadi{ background:rgba(239,68,68,0.18); }
+  td.s-gec{ background:rgba(168,85,247,0.20); }
+  .empty-note{ padding:36px; text-align:center; color:var(--muted); }
+
+  /* Diyalog */
+  .ov{ position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:100; display:flex; align-items:center; justify-content:center; padding:16px; overflow:auto; }
+  .modal{ width:min(460px,100%); background:#15151b; border:1px solid rgba(255,255,255,0.16); border-radius:18px; padding:22px; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+  .modal h3{ font-size:1.2rem; margin-bottom:6px; }
+  .modal p{ margin:6px 0 14px; color:#c9c9d1; font-size:0.93rem; }
+  .modal .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .acts{ display:flex; justify-content:flex-end; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .sep{ border-top:1px solid var(--line); margin:16px 0 4px; padding-top:12px; }
+  .sep .acts{ justify-content:flex-start; margin-top:8px; }
+  .toast{ position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:#20202a; border:1px solid rgba(255,255,255,0.2); padding:11px 18px; border-radius:12px; z-index:200; max-width:90vw; font-size:0.9rem; }
+  .toast.ok{ border-color:var(--c-yapti); }
+  .toast.err{ border-color:var(--c-yapmadi); }
+  .spinner{ text-align:center; padding:60px; color:var(--muted); }
+
+  @media (max-width:900px){ .summary{ grid-template-columns:1fr; } }
+  @media (max-width:520px){ .topbar{ padding:10px 14px; } main{ padding:16px 12px 50px; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="sinif-araclari.html" title="Sınıf Araçları'na dön">
+    <img id="brandLogo" src="assets/homework_chart_tool_logo.png" alt="Homework Chart Tool" onerror="this.onerror=null;this.src='assets/site_logo.png'">
+    <div><b>Homework Chart Tool</b><small>TheGamifyClass.com · Sınıf Araçları</small></div>
+  </a>
+  <div class="top-actions" id="topActions"></div>
+</header>
+
+<main id="app"><div class="spinner">Yükleniyor…</div></main>
+
+<script>
+'use strict';
+/* =====================================================================
+   HOMEWORK CHART TOOL — TheGamifyClass.com
+   The Agents / ClassClans / Who's Next ile AYNI Firebase projesini ve AYNI
+   öğretmen kayıt defterini (admin/teachers/{uid}) kullanır.
+   Veriler Realtime Database'de "homeworkchart/{öğretmenUid}" altında tutulur.
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBxBzCkrJ9D8Uf9EcVGC80WcD116BtoUI4",
+  authDomain: "the-agents-69182.firebaseapp.com",
+  databaseURL: "https://the-agents-69182-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "the-agents-69182",
+  storageBucket: "the-agents-69182.firebasestorage.app",
+  messagingSenderId: "516259979836",
+  appId: "1:516259979836:web:868a36a1551cb2e9d61939"
+};
+const ADMIN_UID = "eDTGhzccveNDugVZ9z0e2HmEhqr2";
+const ROOT = 'homeworkchart';
+const LOGO_SRC = 'assets/homework_chart_tool_logo.png';
+const MAX_STUDENTS = 300;
+
+/* ---------- Takvim: 21 Eylül 2026 haftası = 1. Hafta ---------- */
+const START = new Date(2026, 8, 21);   // Pazartesi
+const WEEKS = 41;                      // Haziran 2027 sonuna kadar
+const MONTHS_TR = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const MON_SHORT = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+const addDays = (d,n)=>new Date(d.getFullYear(), d.getMonth(), d.getDate()+n);
+const weekStart = n => addDays(START, 7*(n-1));
+const fmtShort = d => d.getDate()+' '+MON_SHORT[d.getMonth()];
+const weekRange = n => fmtShort(weekStart(n))+' – '+fmtShort(addDays(weekStart(n),6));
+function fmtIso(iso){ if(!iso) return ''; const p=iso.split('-'); return p.length===3 ? p[2]+'.'+p[1]+'.'+p[0] : iso; }
+function isoShort(iso){ if(!iso) return ''; const p=iso.split('-').map(Number); return p[2]+' '+MON_SHORT[p[1]-1]; }
+
+const MONTH_LIST = (()=>{
+  const out=[];
+  for(let w=1; w<=WEEKS; w++){
+    const d=weekStart(w), key=d.getFullYear()+'-'+d.getMonth();
+    let m=out[out.length-1];
+    if(!m || m.key!==key){ m={key,label:MONTHS_TR[d.getMonth()]+' '+d.getFullYear(),weeks:[]}; out.push(m); }
+    m.weeks.push(w);
+  }
+  return out;
+})();
+function currentWeek(){
+  const t=new Date(); const today=new Date(t.getFullYear(),t.getMonth(),t.getDate());
+  const days=Math.round((today-START)/86400000);
+  const w=Math.floor(days/7)+1;
+  return (w>=1 && w<=WEEKS) ? w : null;
+}
+function currentMonthKey(){
+  const t=new Date(), key=t.getFullYear()+'-'+t.getMonth();
+  if(MONTH_LIST.some(m=>m.key===key)) return key;
+  return (t < START) ? MONTH_LIST[0].key : MONTH_LIST[MONTH_LIST.length-1].key;
+}
+
+/* ---------- Durumlar ---------- */
+const ST = {
+  yapti:   { label:'Yaptı',      w:1,   argb:'FF5CCB7C', font:'FF06301A' },
+  eksik:   { label:'Eksik',      w:0.5, argb:'FFFFD84D', font:'FF3A2E00' },
+  yapmadi: { label:'Yapmadı',    w:0,   argb:'FFEF6B6B', font:'FF3A0A0A' },
+  gec:     { label:'Geç Teslim', w:1,   argb:'FFB18CE8', font:'FF250A45' }
+};
+const ST_KEYS = ['yapti','eksik','yapmadi','gec'];
+const ST_COLOR = { yapti:'#2ecc71', eksik:'#f5c400', yapmadi:'#ef4444', gec:'#a855f7' };
+
+/* ---------- Yardımcılar ---------- */
+const $ = (s,r=document)=>r.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s||'').toLocaleLowerCase('tr').replace(/\s+/g,' ').trim();
+const app = document.getElementById('app');
+const topActions = document.getElementById('topActions');
+function toast(msg,kind){
+  const t=document.createElement('div'); t.className='toast '+(kind||''); t.textContent=msg; document.body.appendChild(t);
+  setTimeout(()=>t.remove(), kind==='err'?6000:2800);
+}
+function parseKey(k){ const m=/^w(\d+)h(\d)$/.exec(k); return {w:+m[1],h:+m[2]}; }
+const hwTitle = k => { const p=parseKey(k); return p.w+'. Hafta '+p.h+'. Ödev'; };
+
+function modal(html, opts={}){
+  const ov=document.createElement('div'); ov.className='ov';
+  ov.innerHTML='<div class="modal" role="dialog" aria-modal="true">'+html+'</div>';
+  document.body.appendChild(ov);
+  let closed=false;
+  const close=()=>{ if(closed) return; closed=true; document.removeEventListener('keydown',onKey); ov.remove(); if(opts.onClose) opts.onClose(); };
+  const onKey=e=>{ if(e.key==='Escape') close(); };
+  document.addEventListener('keydown',onKey);
+  ov.addEventListener('mousedown',e=>{ if(e.target===ov) close(); });
+  return { ov, el:ov.firstElementChild, close };
+}
+function confirmBox({title,msg,ok='Evet',cancel='Vazgeç',danger=false}){
+  return new Promise(res=>{
+    let answered=false;
+    const m=modal('<h3>'+esc(title)+'</h3><p>'+msg+'</p><div class="acts"><button class="btn" data-x="0">'+esc(cancel)+'</button><button class="btn '+(danger?'danger':'primary')+'" data-x="1">'+esc(ok)+'</button></div>',
+      { onClose:()=>{ if(!answered){ answered=true; res(false);} } });
+    m.el.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{ answered=true; m.close(); res(b.dataset.x==='1'); });
+  });
+}
+function friendly(e){
+  if(!e) return 'Bilinmeyen hata.';
+  if(e.code==='PERMISSION_DENIED' || /permission_denied/i.test(e.message||''))
+    return 'Veritabanı izni yok. Firebase kurallarına "homeworkchart" bölümü henüz eklenmemiş olabilir.';
+  return e.message || String(e);
+}
+
+/* ---------- Firebase ---------- */
+let auth=null, db=null, fbOk=false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  auth=firebase.auth(); db=firebase.database(); fbOk=true;
+}catch(e){ console.error('Firebase başlatılamadı',e); }
+
+const S = { user:null, classes:{}, cid:null, data:null, month:null, unsub:[] };
+let loginMsg='';
+function clearListeners(){ S.unsub.forEach(f=>{ try{f();}catch(e){} }); S.unsub=[]; }
+const base = () => ROOT+'/'+S.user.uid;
+const cbase = () => base()+'/classes/'+S.cid;
+
+/* =====================================================================
+   GİRİŞ
+   ===================================================================== */
+function logoImg(cls){
+  return '<img class="'+cls+'" src="'+LOGO_SRC+'" alt="Homework Chart Tool" onerror="this.onerror=null;this.src=\'assets/site_logo.png\'">';
+}
+function viewLogin(msg){
+  clearListeners(); S.cid=null; S.data=null;
+  topActions.innerHTML='';
+  app.innerHTML='<div class="auth-wrap"><div class="panel auth-card">'+logoImg('auth-logo')+
+    '<h2>Homework Chart Tool</h2><p class="sub">Sistemde kayıtlı e-posta ve şifrenle giriş yap.</p>'+
+    (msg?'<div class="err">'+esc(msg)+'</div>':'')+
+    '<form id="lf"><div class="field"><label for="em">E-posta</label><input id="em" type="email" autocomplete="username" required></div>'+
+    '<div class="field"><label for="pw">Şifre</label><input id="pw" type="password" autocomplete="current-password" required></div>'+
+    '<button class="btn primary" style="width:100%" type="submit" id="lb">Giriş Yap</button></form>'+
+    '<p style="text-align:center;margin:14px 0 0"><button class="linkbtn" id="fp" type="button">Şifremi unuttum</button></p></div></div>';
+  $('#lf').onsubmit=async e=>{
+    e.preventDefault();
+    const em=$('#em').value.trim(), pw=$('#pw').value;
+    const b=$('#lb'); b.disabled=true; b.textContent='Giriş yapılıyor…';
+    try{ await auth.signInWithEmailAndPassword(em,pw); }
+    catch(err){
+      b.disabled=false; b.textContent='Giriş Yap';
+      const bad=['auth/invalid-credential','auth/wrong-password','auth/user-not-found','auth/invalid-email'];
+      viewLogin(bad.includes(err.code)?'E-posta veya şifre hatalı.':(err.code==='auth/too-many-requests'?'Çok fazla deneme yapıldı. Biraz bekleyip tekrar dene.':friendly(err)));
+    }
+  };
+  $('#fp').onclick=async()=>{
+    const em=$('#em').value.trim();
+    if(!em){ toast('Önce e-posta adresini yaz.','err'); return; }
+    try{ await auth.sendPasswordResetEmail(em); toast('Şifre sıfırlama bağlantısı e-postana gönderildi.','ok'); }
+    catch(err){ toast(friendly(err),'err'); }
+  };
+}
+async function verifyTeacher(user){
+  if(user.uid===ADMIN_UID) return;
+  const rec=(await db.ref('admin/teachers/'+user.uid).once('value')).val();
+  if(!rec) throw new Error('Bu hesap için öğretmen kaydı bulunamadı. Yöneticinle iletişime geç.');
+  if(rec.suspended) throw new Error('Bu hesap yönetici tarafından askıya alınmış.');
+}
+if(fbOk){
+  auth.onAuthStateChanged(async user=>{
+    if(!user){ S.user=null; const m=loginMsg; loginMsg=''; viewLogin(m); return; }
+    try{ await verifyTeacher(user); }
+    catch(e){ loginMsg=friendly(e); try{ await auth.signOut(); }catch(_){} return; }
+    S.user=user; viewClassList();
+  });
+}else{
+  app.innerHTML='<div class="err">Firebase başlatılamadı. İnternet bağlantını kontrol edip sayfayı yenile.</div>';
+}
+async function logout(){ try{ await auth.signOut(); }catch(e){} }
+
+/* =====================================================================
+   SINIF LİSTESİ
+   ===================================================================== */
+function topbarUser(extra){
+  topActions.innerHTML=(extra||'')+'<span class="who">'+esc(S.user.email||'')+'</span><button class="btn small" id="btnOut">Çıkış</button>';
+  $('#btnOut').onclick=logout;
+}
+function viewClassList(){
+  clearListeners(); S.cid=null; S.data=null;
+  topbarUser();
+  app.innerHTML='<div class="head-row"><div><h1>Sınıflarım</h1><div class="muted">Bir sınıf seç ya da yeni sınıf oluştur.</div></div></div><div class="class-grid" id="cg"><div class="spinner" style="grid-column:1/-1">Yükleniyor…</div></div>';
+  const r=db.ref(base()+'/index');
+  const h=r.on('value',snap=>{ S.classes=snap.val()||{}; drawClassGrid(); },e=>{ toast(friendly(e),'err'); });
+  S.unsub.push(()=>r.off('value',h));
+}
+function drawClassGrid(){
+  const g=$('#cg'); if(!g) return;
+  const ids=Object.keys(S.classes).sort((a,b)=>norm(S.classes[a].name).localeCompare(norm(S.classes[b].name),'tr'));
+  g.innerHTML=ids.map(id=>{
+    const c=S.classes[id];
+    return '<div class="class-card"><button class="trash" data-del="'+id+'" title="Sınıfı sil" aria-label="Sınıfı sil">🗑</button>'+
+      '<div data-open="'+id+'" style="cursor:pointer"><h3>'+esc(c.name)+'</h3><div class="muted">'+esc(c.school||'')+'</div><div class="open">Sınıfa Gir →</div></div></div>';
+  }).join('')+'<button class="class-card new-card" id="newClass"><span style="font-size:2rem">＋</span>Sınıf Oluştur</button>';
+  g.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>openClass(el.dataset.open));
+  g.querySelectorAll('[data-del]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); deleteClass(el.dataset.del); });
+  $('#newClass').onclick=createClassDialog;
+}
+function createClassDialog(){
+  const m=modal('<h3>Yeni Sınıf Oluştur</h3><form id="ncf"><div class="field"><label for="ncn">Sınıf adı</label><input id="ncn" maxlength="60" placeholder="Örn. 9-A" required></div>'+
+    '<div class="field"><label for="ncs">Okul</label><input id="ncs" maxlength="100" placeholder="Okul adı" required></div>'+
+    '<div class="acts"><button type="button" class="btn" id="ncx">Vazgeç</button><button class="btn primary" type="submit">Oluştur</button></div></form>');
+  $('#ncn').focus();
+  $('#ncx').onclick=m.close;
+  $('#ncf').onsubmit=async e=>{
+    e.preventDefault();
+    const name=$('#ncn').value.trim(), school=$('#ncs').value.trim();
+    if(!name||!school) return;
+    try{
+      const cid=db.ref().push().key, ts=firebase.database.ServerValue.TIMESTAMP;
+      await db.ref().update({
+        [base()+'/index/'+cid]:{name,school,createdAt:ts},
+        [base()+'/classes/'+cid+'/meta']:{name,school,createdAt:ts}
+      });
+      m.close(); openClass(cid);
+    }catch(err){ toast(friendly(err),'err'); }
+  };
+}
+async function deleteClass(id){
+  const c=S.classes[id]; if(!c) return;
+  const ok=await confirmBox({title:'Sınıf silinsin mi?',msg:'<b>'+esc(c.name)+'</b> sınıfı; öğrencileri, ödevleri ve tüm teslim durumlarıyla birlikte kalıcı olarak silinecek. Bu işlem geri alınamaz.',ok:'Evet, sil',danger:true});
+  if(!ok) return;
+  const ok2=await confirmBox({title:'Son onay',msg:'<b>'+esc(c.name)+'</b> gerçekten silinsin mi?',ok:'Kalıcı olarak sil',danger:true});
+  if(!ok2) return;
+  try{ await db.ref().update({[base()+'/index/'+id]:null,[base()+'/classes/'+id]:null}); toast('Sınıf silindi.','ok'); }
+  catch(e){ toast(friendly(e),'err'); }
+}
+
+/* =====================================================================
+   SINIF EKRANI — veri ve hesaplar
+   ===================================================================== */
+function openClass(cid){
+  clearListeners();
+  S.cid=cid; S.data=null; S.month=currentMonthKey();
+  topbarUser('<button class="btn primary" id="btnExport">📊 Sınıf için ödev dökümü çıkar</button>');
+  $('#btnExport').onclick=exportExcel;
+  app.innerHTML='<div class="spinner">Sınıf yükleniyor…</div>';
+  const r=db.ref(cbase());
+  let first=true;
+  const h=r.on('value',snap=>{
+    const v=snap.val();
+    if(!v || !v.meta){ if(!first){ toast('Bu sınıf artık yok.','err'); } viewClassList(); return; }
+    S.data=v;
+    if(first){ first=false; buildClassSkeleton(); }
+    refreshClass();
+  },e=>{ toast(friendly(e),'err'); viewClassList(); });
+  S.unsub.push(()=>r.off('value',h));
+}
+function studentList(){
+  const st=(S.data&&S.data.students)||{};
+  return Object.keys(st).map(id=>({id,name:st[id].name||''})).sort((a,b)=>a.name.localeCompare(b.name,'tr'));
+}
+function visibleCols(w){
+  const D=S.data||{};
+  const hw2On=!(D.settings && D.settings.hw2Enabled===false);
+  const r=[{k:'w'+w+'h1',w,h:1,off:false}];
+  if(hw2On) r.push({k:'w'+w+'h2',w,h:2,off:!!(D.hw2off&&D.hw2off['w'+w])});
+  return r;
+}
+function isGiven(k){
+  const D=S.data||{};
+  const i=D.hw&&D.hw[k];
+  if(i && i.text && String(i.text).trim()) return true;
+  const m=D.marks||{}, st=D.students||{};
+  for(const sid in m){ if(st[sid] && m[sid] && m[sid][k]) return true; }
+  return false;
+}
+function compute(){
+  const D=S.data||{}, studs=studentList(), keys=[], colDone={};
+  for(let w=1; w<=WEEKS; w++) visibleCols(w).forEach(c=>{ if(!c.off && isGiven(c.k)) keys.push(c.k); });
+  const G=keys.length, cnt={yapti:0,eksik:0,yapmadi:0,gec:0,none:0}, per={};
+  let doneAll=0, scoreAll=0;
+  studs.forEach(s=>{
+    let done=0, score=0;
+    keys.forEach(k=>{
+      const v=D.marks&&D.marks[s.id]&&D.marks[s.id][k];
+      if(v && ST[v]){ cnt[v]++; score+=ST[v].w; if(v==='yapti'||v==='gec'){ done++; colDone[k]=(colDone[k]||0)+1; } }
+      else cnt.none++;
+    });
+    per[s.id]={given:G,done,score,rate:G?score/G*100:0};
+    doneAll+=done; scoreAll+=score;
+  });
+  const N=studs.length;
+  return {G,keys,per,cnt,doneAll,N,studs,colDone,rate:(G&&N)?scoreAll/(G*N)*100:0};
+}
+const pct = v => (Math.round(v*10)/10).toString().replace('.',',')+'%';
+
+/* =====================================================================
+   SINIF EKRANI — çizim
+   ===================================================================== */
+function buildClassSkeleton(){
+  const meta=S.data.meta;
+  app.innerHTML=
+   '<div class="head-row"><div><button class="linkbtn" id="back">← Sınıflarım</button><h1 id="cTitle" style="margin-top:4px"></h1></div></div>'+
+   '<section class="summary"><div class="stat-cards" id="statCards"></div><div class="panel donut-box" id="donutBox"></div></section>'+
+   '<form class="add-row" id="addForm" autocomplete="off"><input type="text" id="stuName" maxlength="80" placeholder="Öğrenci adı soyadı" aria-label="Öğrenci adı soyadı">'+
+     '<button class="btn primary" type="submit">Ekle</button>'+
+     '<button class="btn" type="button" id="btnXlsx">📥 Excel ile toplu ekle</button>'+
+     '<button class="btn" type="button" id="btnTpl">Boş örnek Excel indir</button>'+
+     '<input type="file" id="fileXlsx" accept=".xlsx" class="hidden"></form>'+
+   '<div class="toggle-row" id="toggleRow" style="margin-bottom:14px"></div>'+
+   '<div class="months" id="months" role="group" aria-label="Aylar"></div>'+
+   '<div class="legend-bar"><span><i class="dot" style="background:var(--c-yapti)"></i>Yaptı (1)</span><span><i class="dot" style="background:var(--c-eksik)"></i>Eksik (0,5)</span><span><i class="dot" style="background:var(--c-yapmadi)"></i>Yapmadı (0)</span><span><i class="dot" style="background:var(--c-gec)"></i>Geç teslim (1)</span><span>· Ödev başlığına tıklayarak ödevi ve teslim tarihini yaz.</span></div>'+
+   '<div class="table-wrap" id="tableWrap"></div>';
+  $('#back').onclick=viewClassList;
+  $('#addForm').onsubmit=e=>{ e.preventDefault(); addStudent(); };
+  $('#btnXlsx').onclick=()=>$('#fileXlsx').click();
+  $('#fileXlsx').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) importExcel(f); };
+  $('#btnTpl').onclick=downloadTemplate;
+  $('#tableWrap').addEventListener('click',onTableClick);
+}
+function refreshClass(){
+  const meta=S.data.meta, cs=compute();
+  $('#cTitle').innerHTML=esc(meta.name)+' <span class="muted" style="font-size:1rem;font-weight:500">· '+esc(meta.school||'')+'</span>';
+  drawStats(cs); drawToggle(); drawMonths(); drawTable(cs);
+}
+function drawStats(cs){
+  $('#statCards').innerHTML=
+    '<div class="stat"><div class="n">'+cs.G+'</div><div class="l">Toplam verilen ödev sayısı</div><div class="s">Açıklaması yazılan / işaretlenen ödevler</div></div>'+
+    '<div class="stat"><div class="n" style="color:var(--c-yapti)">'+cs.doneAll+'</div><div class="l">Tamamlanan ödev sayısı</div><div class="s">Yaptı + geç teslim · '+cs.G+' ödev × '+cs.N+' öğrenci = '+(cs.G*cs.N)+' teslim</div></div>'+
+    '<div class="stat"><div class="n" style="color:var(--cyan)">'+pct(cs.rate)+'</div><div class="l">Sınıf teslim oranı</div><div class="s">Yaptı 1 · Geç 1 · Eksik 0,5 · Yapmadı 0</div></div>'+
+    '<div class="stat"><div class="n">'+cs.N+'</div><div class="l">Öğrenci sayısı</div></div>';
+  $('#donutBox').innerHTML=donutSvg(cs)+
+    '<div class="legend">'+ST_KEYS.map(k=>'<span><i class="dot" style="background:'+ST_COLOR[k]+'"></i>'+ST[k].label+': <b>'+cs.cnt[k]+'</b></span>').join('')+'</div>'+
+    '<div class="muted" style="font-size:0.75rem">İşaretlenmemiş: '+cs.cnt.none+'</div>';
+}
+function donutSvg(cs){
+  const tot=ST_KEYS.reduce((a,k)=>a+cs.cnt[k],0), R=70, C=2*Math.PI*R;
+  let segs='', off=0;
+  if(tot>0){
+    ST_KEYS.forEach(k=>{
+      const v=cs.cnt[k]; if(!v) return;
+      const len=v/tot*C;
+      segs+='<circle cx="100" cy="100" r="'+R+'" fill="none" stroke="'+ST_COLOR[k]+'" stroke-width="30" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 100 100)"><title>'+ST[k].label+': '+v+'</title></circle>';
+      off+=len;
+    });
+  }else{
+    segs='<circle cx="100" cy="100" r="'+R+'" fill="none" stroke="#2a2a33" stroke-width="30"/>';
+  }
+  const center=tot>0
+    ? '<text x="100" y="98" text-anchor="middle" fill="#e9e9ec" font-size="26" font-weight="700" font-family="Space Grotesk,sans-serif">'+pct(cs.rate)+'</text><text x="100" y="118" text-anchor="middle" fill="#8b8b93" font-size="11">teslim oranı</text>'
+    : '<text x="100" y="105" text-anchor="middle" fill="#8b8b93" font-size="13">Veri yok</text>';
+  return '<svg viewBox="0 0 200 200" role="img" aria-label="Ödev durumları dairesel grafiği">'+segs+center+'</svg>';
+}
+function drawToggle(){
+  const on=!(S.data.settings && S.data.settings.hw2Enabled===false);
+  $('#toggleRow').innerHTML='<span class="muted" style="font-size:0.85rem">2. Ödev sütunları: <b style="color:'+(on?'var(--c-yapti)':'var(--c-yapmadi)')+'">'+(on?'Açık':'Tüm haftalarda kaldırıldı')+'</b></span>'+
+    '<button class="btn small" id="tg2">'+(on?'2. ödevleri tamamen kaldır':'2. ödevleri geri getir')+'</button>';
+  $('#tg2').onclick=()=>setHw2Global(!on);
+}
+function drawMonths(){
+  const cur=currentMonthKey();
+  $('#months').innerHTML=MONTH_LIST.map(m=>{
+    const has=m.weeks.some(w=>visibleCols(w).some(c=>!c.off&&isGiven(c.k)));
+    return '<button class="mtab" data-m="'+m.key+'" aria-pressed="'+(m.key===S.month)+'">'+esc(m.label)+(m.key===cur?'<small>· bu ay</small>':'')+(has?'<small>●</small>':'')+'</button>';
+  }).join('');
+  $('#months').querySelectorAll('.mtab').forEach(b=>b.onclick=()=>{ S.month=b.dataset.m; refreshClass(); });
+}
+function drawTable(cs){
+  const wrap=$('#tableWrap'), sl=wrap.scrollLeft, st=wrap.scrollTop;
+  const D=S.data, m=MONTH_LIST.find(x=>x.key===S.month)||MONTH_LIST[0], cw=currentWeek();
+  if(!cs.N){ wrap.innerHTML='<div class="empty-note">Henüz öğrenci yok. Yukarıdan ad soyad yazıp <b>Ekle</b>\'ye bas ya da Excel ile toplu ekle.</div>'; return; }
+  let head='<tr><th class="namecol">Ad Soyad</th>', cols=[];
+  m.weeks.forEach(w=>visibleCols(w).forEach(c=>{
+    cols.push(c);
+    if(c.off){
+      head+='<th class="hwoff"><div>'+w+'. Hafta '+c.h+'. Ödev</div><div>kaldırıldı</div><button class="btn small" data-restore="'+w+'">↩ Geri al</button></th>';
+    }else{
+      const info=(D.hw&&D.hw[c.k])||{};
+      const due=(info.start||info.end)?'<div class="due">'+esc(isoShort(info.start))+' – '+esc(isoShort(info.end))+'</div>':'';
+      const note=info.text?'<div class="note">📝 '+esc(info.text)+'</div>':'';
+      head+='<th class="hwh'+(w===cw?' cur':'')+'" data-k="'+c.k+'" title="Ödev bilgisini gör / düzenle"><div class="t">'+w+'. Hafta '+c.h+'. Ödev</div><div class="d">'+weekRange(w)+(w===cw?' · bu hafta':'')+'</div>'+due+note+'</th>';
+    }
+  }));
+  head+='<th class="endcol">Verilen Ödev</th><th class="endcol">Tamamlanan</th><th class="endcol">Teslim Oranı</th></tr>';
+  let body='';
+  cs.studs.forEach(s=>{
+    body+='<tr><td class="namecol"><button class="del" data-del="'+s.id+'" title="Öğrenciyi sil" aria-label="Öğrenciyi sil">✕</button>'+esc(s.name)+'</td>';
+    cols.forEach(c=>{
+      if(c.off){ body+='<td class="offcell">—</td>'; return; }
+      const v=D.marks&&D.marks[s.id]&&D.marks[s.id][c.k];
+      body+='<td class="'+(v&&ST[v]?'s-'+v:'')+'"><div class="marks">'+ST_KEYS.map(k=>
+        '<button class="mk '+k+(v===k?' on':'')+'" data-sid="'+s.id+'" data-k="'+c.k+'" data-s="'+k+'" aria-pressed="'+(v===k)+'" title="'+ST[k].label+'">'+ST[k].label+'</button>').join('')+'</div></td>';
+    });
+    const p=cs.per[s.id];
+    body+='<td class="endcol">'+p.given+'</td><td class="endcol">'+p.done+'</td><td class="endcol">'+pct(p.rate)+'</td></tr>';
+  });
+  let foot='<tr><td class="namecol">Sınıf</td>';
+  cols.forEach(c=>{ foot+= c.off ? '<td class="offcell">—</td>' : '<td>'+(isGiven(c.k)?((cs.colDone[c.k]||0)+' / '+cs.N+' tamamladı'):'—')+'</td>'; });
+  foot+='<td>'+cs.G+'</td><td>'+cs.doneAll+'</td><td>'+pct(cs.rate)+'</td></tr>';
+  wrap.innerHTML='<table><thead>'+head+'</thead><tbody>'+body+'</tbody><tfoot>'+foot+'</tfoot></table>';
+  wrap.scrollLeft=sl; wrap.scrollTop=st;
+}
+function onTableClick(e){
+  const mk=e.target.closest('.mk');
+  if(mk){ setMark(mk.dataset.sid,mk.dataset.k,mk.dataset.s); return; }
+  const del=e.target.closest('[data-del]');
+  if(del){ deleteStudent(del.dataset.del); return; }
+  const rs=e.target.closest('[data-restore]');
+  if(rs){ restoreWeekHw2(+rs.dataset.restore); return; }
+  const th=e.target.closest('th.hwh');
+  if(th){ openHw(th.dataset.k); }
+}
+
+/* =====================================================================
+   İŞLEMLER
+   ===================================================================== */
+async function setMark(sid,k,s){
+  const stu=(S.data.students||{})[sid]; if(!stu) return;
+  const cur=S.data.marks&&S.data.marks[sid]&&S.data.marks[sid][k];
+  if(cur===s) return;
+  if(cur){
+    const ok=await confirmBox({title:'Emin misiniz?',msg:'<b>'+esc(stu.name)+'</b> için <b>'+esc(hwTitle(k))+'</b> durumu <b>“'+ST[cur].label+'”</b> iken <b>“'+ST[s].label+'”</b> olarak değiştirilecek.',ok:'Evet, değiştir'});
+    if(!ok) return;
+  }
+  try{ await db.ref(cbase()+'/marks/'+sid+'/'+k).set(s); }
+  catch(e){ toast(friendly(e),'err'); }
+}
+async function addStudent(){
+  const inp=$('#stuName'), name=inp.value.replace(/\s+/g,' ').trim();
+  if(!name){ toast('Ad soyad yaz.','err'); return; }
+  const list=studentList();
+  if(list.length>=MAX_STUDENTS){ toast('Bir sınıfa en fazla '+MAX_STUDENTS+' öğrenci eklenebilir.','err'); return; }
+  if(list.some(s=>norm(s.name)===norm(name))){
+    const ok=await confirmBox({title:'Aynı isim var',msg:'<b>'+esc(name)+'</b> adında bir öğrenci zaten listede. Yine de eklensin mi?',ok:'Yine de ekle'});
+    if(!ok) return;
+  }
+  try{ await db.ref(cbase()+'/students').push({name}); inp.value=''; inp.focus(); }
+  catch(e){ toast(friendly(e),'err'); }
+}
+async function deleteStudent(sid){
+  const stu=(S.data.students||{})[sid]; if(!stu) return;
+  const ok=await confirmBox({title:'Öğrenci silinsin mi?',msg:'<b>'+esc(stu.name)+'</b> ve tüm ödev durumları silinecek. Bu işlem geri alınamaz.',ok:'Evet, sil',danger:true});
+  if(!ok) return;
+  try{ await db.ref().update({[cbase()+'/students/'+sid]:null,[cbase()+'/marks/'+sid]:null}); }
+  catch(e){ toast(friendly(e),'err'); }
+}
+async function setHw2Global(on){
+  if(!on){
+    const ok=await confirmBox({title:'2. ödevler kaldırılsın mı?',msg:'Tüm haftalardaki <b>2. Ödev</b> sütunları gizlenecek ve hesaplara katılmayacak. Girilen veriler silinmez; geri getirdiğinde yeniden görünür.',ok:'Evet, kaldır'});
+    if(!ok) return;
+  }
+  try{ await db.ref(cbase()+'/settings/hw2Enabled').set(on?null:false); }
+  catch(e){ toast(friendly(e),'err'); }
+}
+async function restoreWeekHw2(w){
+  try{ await db.ref(cbase()+'/hw2off/w'+w).set(null); toast(w+'. Hafta 2. Ödev geri getirildi.','ok'); }
+  catch(e){ toast(friendly(e),'err'); }
+}
+function openHw(k){
+  const {w,h}=parseKey(k), info=(S.data.hw&&S.data.hw[k])||{};
+  const m=modal('<h3>'+esc(hwTitle(k))+'</h3><p style="margin-top:0" class="muted">'+weekRange(w)+' haftası</p>'+
+    '<div class="field"><label for="hwt">Verilen ödev</label><textarea id="hwt" maxlength="1500" placeholder="Ödevin ne olduğunu yaz…"></textarea></div>'+
+    '<div class="row2"><div class="field"><label for="hws">Teslim aralığı: başlangıç</label><input type="date" id="hws"></div>'+
+    '<div class="field"><label for="hwe">Teslim aralığı: bitiş</label><input type="date" id="hwe"></div></div>'+
+    '<div class="acts"><button class="btn" id="hwx">Kapat</button><button class="btn primary" id="hwsv">Kaydet</button></div>'+
+    (h===2?'<div class="sep"><div class="muted" style="font-size:0.82rem">2. ödev bu hafta ya da tüm haftalar için kaldırılabilir:</div><div class="acts"><button class="btn small" id="hwrw">Bu hafta için kaldır</button><button class="btn small" id="hwra">Tüm haftalarda kaldır</button></div></div>':''));
+  $('#hwt').value=info.text||''; $('#hws').value=info.start||''; $('#hwe').value=info.end||'';
+  $('#hwx').onclick=m.close;
+  $('#hwsv').onclick=async()=>{
+    const text=$('#hwt').value.trim(), start=$('#hws').value, end=$('#hwe').value;
+    if(start&&end&&end<start){ toast('Bitiş tarihi başlangıçtan önce olamaz.','err'); return; }
+    try{
+      const val=(text||start||end)?{text,start,end}:null;
+      await db.ref(cbase()+'/hw/'+k).set(val);
+      m.close(); toast('Ödev bilgisi kaydedildi.','ok');
+    }catch(e){ toast(friendly(e),'err'); }
+  };
+  if(h===2){
+    $('#hwrw').onclick=async()=>{
+      const ok=await confirmBox({title:'Bu hafta 2. ödev kaldırılsın mı?',msg:'<b>'+esc(hwTitle(k))+'</b> sütunu gizlenecek ve hesaplara katılmayacak. Girilen veriler silinmez; istersen geri alabilirsin.',ok:'Evet, kaldır'});
+      if(!ok) return;
+      try{ await db.ref(cbase()+'/hw2off/w'+w).set(true); m.close(); }catch(e){ toast(friendly(e),'err'); }
+    };
+    $('#hwra').onclick=async()=>{ m.close(); setHw2Global(false); };
+  }
+}
+
+/* =====================================================================
+   EXCEL: ŞABLON + İÇE AKTARMA
+   ===================================================================== */
+function downloadBlob(buf,filename){
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+const safeName = s => String(s||'sinif').replace(/[\\/:*?"<>|]+/g,'').replace(/\s+/g,'-').replace(/[ığüşöçİĞÜŞÖÇ]/g,ch=>({'ı':'i','ğ':'g','ü':'u','ş':'s','ö':'o','ç':'c','İ':'I','Ğ':'G','Ü':'U','Ş':'S','Ö':'O','Ç':'C'}[ch])).slice(0,40)||'sinif';
+async function downloadTemplate(){
+  try{
+    const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('Öğrenciler');
+    ws.getColumn(1).width=42; ws.getColumn(3).width=60;
+    const a1=ws.getCell('A1'); a1.value='Öğrenci Adı Soyadı';
+    a1.font={bold:true}; a1.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9E8F5'}};
+    a1.border={top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}};
+    ws.getCell('C1').value='A2\'den itibaren her satıra bir öğrenci adı soyadı yaz. A1 başlığını değiştirme.';
+    ws.getCell('C1').font={italic:true,color:{argb:'FF777777'}};
+    downloadBlob(await wb.xlsx.writeBuffer(),'ogrenci-listesi-ornek.xlsx');
+  }catch(e){ toast('Şablon oluşturulamadı: '+friendly(e),'err'); }
+}
+async function importExcel(file){
+  try{
+    const wb=new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
+    const ws=wb.worksheets[0]; if(!ws){ toast('Excel dosyasında sayfa bulunamadı.','err'); return; }
+    const names=[];
+    for(let r=2; r<=ws.rowCount; r++){
+      const c=ws.getRow(r).getCell(1);
+      const t=String(c.text!=null?c.text:(c.value||'')).replace(/\s+/g,' ').trim();
+      if(t) names.push(t);
+    }
+    if(!names.length){ toast('A2 ve altında öğrenci adı bulunamadı.','err'); return; }
+    const have=new Set(studentList().map(s=>norm(s.name)));
+    const add={}; let added=0, skipped=0, cap=MAX_STUDENTS-have.size;
+    for(const n of names){
+      const key=norm(n);
+      if(have.has(key)){ skipped++; continue; }
+      if(added>=cap){ skipped++; continue; }
+      have.add(key); add[db.ref().push().key]={name:n}; added++;
+    }
+    if(!added){ toast('Yeni öğrenci eklenmedi ('+skipped+' tekrar/fazla satır atlandı).','err'); return; }
+    await db.ref(cbase()+'/students').update(add);
+    toast(added+' öğrenci eklendi'+(skipped?', '+skipped+' satır atlandı (aynı isim).':'.'),'ok');
+  }catch(e){ toast('Excel okunamadı. Dosyanın .xlsx olduğundan emin ol. '+friendly(e),'err'); }
+}
+
+/* =====================================================================
+   EXCEL: ÖDEV DÖKÜMÜ
+   ===================================================================== */
+async function exportExcel(){
+  if(!S.data){ return; }
+  const cs=compute();
+  if(!cs.N){ toast('Önce sınıfa öğrenci ekle.','err'); return; }
+  if(!cs.G){ toast('Henüz verilmiş ödev yok. Bir ödev başlığına tıklayıp ödevi yaz ya da durum işaretle.','err'); return; }
+  try{
+    const D=S.data, meta=D.meta;
+    // Son ödev verilen haftaya kadar tüm sütunlar
+    let lastW=1; cs.keys.forEach(k=>{ lastW=Math.max(lastW,parseKey(k).w); });
+    const cols=[]; for(let w=1; w<=lastW; w++) visibleCols(w).forEach(c=>{ if(!c.off) cols.push(c); });
+    const nc=cols.length, cName=1, cFirst=2, cGiven=2+nc, cDone=3+nc, cRate=4+nc;
+    const thin={style:'thin',color:{argb:'FF999999'}}, border={top:thin,bottom:thin,left:thin,right:thin};
+    const wb=new ExcelJS.Workbook(); wb.creator='TheGamifyClass.com Homework Chart Tool';
+    const ws=wb.addWorksheet('Ödev Dökümü',{views:[{state:'frozen',xSplit:1,ySplit:3}]});
+    const centre={horizontal:'center',vertical:'middle',wrapText:true};
+
+    // Satır 1: başlık
+    ws.mergeCells(1,1,1,cRate);
+    const t=ws.getCell(1,1); t.value=meta.name+' — '+(meta.school||'')+' — Ödev Dökümü';
+    t.font={bold:true,size:14}; t.alignment={horizontal:'left',vertical:'middle'}; ws.getRow(1).height=26;
+
+    // Satır 2: ay grupları, Satır 3: ödev başlıkları
+    ws.getCell(2,1).value='Ad Soyad'; ws.mergeCells(2,1,3,1);
+    let i=0;
+    while(i<nc){
+      const w=cols[i].w, mk=weekStart(w).getMonth()+'-'+weekStart(w).getFullYear(); let j=i;
+      while(j+1<nc){ const w2=cols[j+1].w; if(weekStart(w2).getMonth()+'-'+weekStart(w2).getFullYear()!==mk) break; j++; }
+      const d=weekStart(w);
+      ws.getCell(2,cFirst+i).value=MONTHS_TR[d.getMonth()]+' '+d.getFullYear();
+      if(j>i) ws.mergeCells(2,cFirst+i,2,cFirst+j);
+      i=j+1;
+    }
+    cols.forEach((c,idx)=>{ const cell=ws.getCell(3,cFirst+idx); cell.value=c.w+'. Hafta '+c.h+'. Ödev'; });
+    [['Verilen Ödev',cGiven],['Tamamlanan Ödev',cDone],['Teslim Oranı (%)',cRate]].forEach(([txt,c])=>{ ws.getCell(2,c).value=txt; ws.mergeCells(2,c,3,c); });
+    for(let r=2; r<=3; r++) for(let c=1; c<=cRate; c++){
+      const cell=ws.getCell(r,c); cell.font={bold:true}; cell.alignment=centre; cell.border=border;
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:(c>=cGiven?'FFD6DCE4':'FFE7EEF7')}};
+    }
+    ws.getRow(3).height=32;
+
+    // Öğrenci satırları
+    let r=4;
+    cs.studs.forEach(s=>{
+      const nameCell=ws.getCell(r,1); nameCell.value=s.name; nameCell.border=border; nameCell.alignment={vertical:'middle'};
+      cols.forEach((c,idx)=>{
+        const cell=ws.getCell(r,cFirst+idx), v=D.marks&&D.marks[s.id]&&D.marks[s.id][c.k];
+        cell.border=border; cell.alignment=centre;
+        if(v&&ST[v]){ cell.value=ST[v].label; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:ST[v].argb}}; cell.font={color:{argb:ST[v].font},bold:true}; }
+      });
+      const p=cs.per[s.id];
+      [[cGiven,p.given],[cDone,p.done],[cRate,Math.round(p.rate*10)/10]].forEach(([c,val])=>{
+        const cell=ws.getCell(r,c); cell.value=val; cell.border=border; cell.alignment=centre; cell.font={bold:true};
+        if(c===cRate) cell.numFmt='0.0"%"';
+      });
+      r++;
+    });
+
+    // Sınıf özeti satırı
+    const sumRow=r;
+    ws.getCell(sumRow,1).value='SINIF TOPLAMI';
+    cols.forEach((c,idx)=>{ ws.getCell(sumRow,cFirst+idx).value=isGiven(c.k)?((cs.colDone[c.k]||0)+' / '+cs.N):'—'; });
+    ws.getCell(sumRow,cGiven).value=cs.G; ws.getCell(sumRow,cDone).value=cs.doneAll;
+    ws.getCell(sumRow,cRate).value=Math.round(cs.rate*10)/10; ws.getCell(sumRow,cRate).numFmt='0.0"%"';
+    for(let c=1; c<=cRate; c++){ const cell=ws.getCell(sumRow,c); cell.font={bold:true}; cell.border=border; cell.alignment=c===1?{vertical:'middle'}:centre; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD6DCE4'}}; }
+
+    // Açıklamalar
+    let lr=sumRow+2;
+    ws.getCell(lr,1).value='Renk anahtarı ve hesaplama:'; ws.getCell(lr,1).font={bold:true}; lr++;
+    const legend=[['yapti','Yaptı = 1 puan'],['eksik','Eksik = 0,5 puan'],['yapmadi','Yapmadı = 0 puan'],['gec','Geç Teslim = 1 puan']];
+    legend.forEach(([k,txt])=>{
+      const c=ws.getCell(lr,1); c.value=txt; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:ST[k].argb}}; c.font={bold:true,color:{argb:ST[k].font}}; c.border=border; lr++;
+    });
+    ws.getCell(lr,1).value='Tamamlanan ödev = Yaptı + Geç Teslim sayısı. Teslim oranı = toplam puan ÷ verilen ödev × 100.';
+    ws.getCell(lr,1).font={italic:true,color:{argb:'FF666666'}};
+
+    ws.getColumn(1).width=30;
+    for(let c=cFirst; c<=cRate; c++) ws.getColumn(c).width=(c>=cGiven?16:14);
+
+    // 2. sayfa: ödev açıklamaları
+    const w2=wb.addWorksheet('Ödev Açıklamaları');
+    w2.columns=[{header:'Hafta',width:10},{header:'Ödev',width:10},{header:'Hafta Aralığı',width:22},{header:'Verilen Ödev',width:70},{header:'Teslim Başlangıç',width:18},{header:'Teslim Bitiş',width:18}];
+    w2.getRow(1).font={bold:true}; w2.getRow(1).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE7EEF7'}};
+    cols.forEach(c=>{
+      const info=(D.hw&&D.hw[c.k])||{};
+      if(!isGiven(c.k)) return;
+      const row=w2.addRow([c.w+'. Hafta',c.h+'. Ödev',weekRange(c.w),info.text||'',fmtIso(info.start),fmtIso(info.end)]);
+      row.getCell(4).alignment={wrapText:true,vertical:'top'};
+    });
+
+    const d=new Date(), stamp=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+    downloadBlob(await wb.xlsx.writeBuffer(),safeName(meta.name)+'-odev-dokumu-'+stamp+'.xlsx');
+    toast('Excel dosyası indirildi.','ok');
+  }catch(e){ console.error(e); toast('Excel oluşturulamadı: '+friendly(e),'err'); }
+}
+</script>
+</body>
+</html>
