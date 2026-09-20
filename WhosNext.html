@@ -290,7 +290,24 @@ table.tb tr.off td{opacity:.55}
 .stat b{font-family:var(--font-display);font-weight:400;color:var(--cyan)}
 .ibtn{appearance:none;cursor:pointer;width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.08);border:1.5px solid var(--line);color:#fff;font-size:1.1rem;display:grid;place-items:center}
 .ibtn:hover{background:rgba(255,255,255,.16)}
-.gmain{flex:1;min-height:0;position:relative;padding:1.1rem 1.3rem .3rem;overflow:auto}
+.gwrap{flex:1;min-height:0;display:flex;position:relative}
+.gcol{flex:1;min-width:0;position:relative}
+.gmain{position:absolute;inset:0;padding:1.1rem 1.3rem .3rem;overflow:hidden}
+.lb{width:280px;flex:none;border-left:1.5px solid var(--line);background:rgba(4,6,22,.62);padding:1rem .9rem;overflow:auto}
+.lb h3{font:400 1.05rem var(--font-display);margin:0 0 .8rem;letter-spacing:.02em}
+.lbl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45rem}
+.lbr{display:flex;align-items:center;gap:.6rem;padding:.45rem .6rem;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.lbr.r1{background:linear-gradient(90deg,rgba(255,200,40,.24),rgba(255,255,255,.05));border-color:rgba(255,200,40,.55)}
+.lbr.r2{background:linear-gradient(90deg,rgba(190,200,230,.2),rgba(255,255,255,.05));border-color:rgba(200,208,235,.5)}
+.lbr.r3{background:linear-gradient(90deg,rgba(210,125,50,.24),rgba(255,255,255,.05));border-color:rgba(210,125,50,.55)}
+.lbr .rk{width:30px;flex:none;text-align:center;font-weight:700;color:var(--muted)}
+.lbr .md{width:26px;height:30px;display:block;margin:0 auto}
+.lbr .ln{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lbr .ls{font-size:.82rem;color:var(--muted);white-space:nowrap}
+.lbr .ls b{color:var(--cyan);font-size:1rem}
+.lbr.out{opacity:.5}
+.lbr.out .ln{text-decoration:line-through}
+@media (max-width:999px){.lb{position:absolute;right:0;top:0;bottom:0;z-index:30;background:rgba(4,6,22,.96)}}
 .grid{display:grid;justify-content:center;align-content:center;min-height:100%;gap:var(--gap,12px);grid-template-columns:repeat(var(--cols,5),var(--cw,200px));grid-auto-rows:var(--ch,130px)}
 
 /* Öğrenci kartı */
@@ -425,6 +442,9 @@ table.tb tr.off td{opacity:.55}
 
 /* Bitiş */
 .over{position:absolute;inset:0;z-index:70;background:rgba(3,4,16,.86);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1.2rem;text-align:center;padding:1rem;animation:fadein .3s}
+.over .sub2{margin:0;color:var(--muted);font-weight:600;font-size:clamp(1rem,2vw,1.5rem)}
+.winners{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center;max-width:min(900px,92%);max-height:40vh;overflow:auto}
+.wchip{background:linear-gradient(160deg,#ffe066,#f5b800);color:#3a2600;font-weight:700;padding:.4rem .9rem;border-radius:999px;font-size:clamp(1rem,1.8vw,1.4rem)}
 .over h2{font:400 clamp(1.5rem,4vw,3rem) var(--font-display);margin:0}
 .over .win{font:400 clamp(2.4rem,8vw,6.5rem) var(--font-display);color:#ffe066;text-shadow:0 0 40px rgba(255,210,63,.6);animation:verdict .7s cubic-bezier(.2,1.6,.4,1) both;overflow-wrap:anywhere}
 .cf{position:fixed;top:-20px;width:10px;height:16px;z-index:80;pointer-events:none;animation:fall linear forwards}
@@ -650,11 +670,9 @@ function viewHome(){
       <button class="entry-btn teacher" id="goTeacher"><span class="t">Öğretmen Girişi</span><span class="d">Sınıflarını, öğrencilerini ve sorularını yönet</span></button>
       <button class="entry-btn board" id="goBoard"><span class="t">Akıllı Tahta Girişi</span><span class="d">Sınıf kodu ve şifreyle oyunu aç</span></button>
     </div>
-    <button class="linklike" id="goAdmin">Yönetici girişi</button>
   </main>`;
   $('#goTeacher').onclick=()=>viewLogin('teacher');
   $('#goBoard').onclick=viewBoardLogin;
-  $('#goAdmin').onclick=()=>viewLogin('admin');
 }
 
 function authShell(inner){
@@ -705,8 +723,12 @@ function viewLogin(intent){
 
 async function afterAuth(user,opts={}){
   S.user=user;
-  if(user.uid===ADMIN_UID){ S.mode='admin'; return viewAdmin(); }
-  if(opts.intent==='admin'){ await auth.signOut(); throw new Error('Bu hesap yönetici hesabı değil.'); }
+  const isAdmin=user.uid===ADMIN_UID;
+  if(opts.intent==='admin'){
+    if(!isAdmin){ await auth.signOut(); throw new Error('Bu hesap yönetici hesabı değil.'); }
+    S.mode='admin'; return viewAdmin();
+  }
+  if(isAdmin){ S.rec={}; S.mode='teacher'; return viewTeacherHome(); }   // yönetici, öğretmen girişinden girince öğretmen paneli açılır
   const rec=(await db.ref('admin/teachers/'+user.uid).once('value')).val();
   if(!rec){ await auth.signOut(); throw new Error('Bu hesap için öğretmen kaydı bulunamadı. Yöneticinle iletişime geç.'); }
   if(rec.suspended){ await auth.signOut(); throw new Error('Bu hesap yönetici tarafından askıya alınmış.'); }
@@ -1262,7 +1284,7 @@ async function viewAdmin(){
     wn=(await db.ref(`${ROOT}/teachers`).once('value')).val()||{};
   }catch(e){ toast(friendly(e),'err'); }
   const rows=Object.keys(teachers).map(uid=>Object.assign({uid},teachers[uid])).sort((a,b)=>(a.email||'').localeCompare(b.email||''));
-  app.innerHTML=`${topbar(`<span class="chip warn">Yönetici</span><button class="btn ghost sm" id="lo">Çıkış</button>`)}
+  app.innerHTML=`${topbar(`<span class="chip warn">Yönetici</span><button class="btn ghost sm" id="goTeach">Öğretmen paneli</button><button class="btn ghost sm" id="lo">Çıkış</button>`)}
   <div class="page">
     <h1>Yönetici paneli</h1>
     <p class="lead">Öğretmen hesapları The Agents ve ClassClans ile ortaktır. Burada her öğretmen için <b>Who's Next? sınıf hakkını</b> ayarlarsın.</p>
@@ -1297,6 +1319,7 @@ async function viewAdmin(){
     </div>
   </div>`;
   $('#lo').onclick=logout;
+  $('#goTeach').onclick=()=>{ S.rec={}; S.mode='teacher'; viewTeacherHome(); };
   $('#brandHome').onclick=e=>{ e.preventDefault(); viewAdmin(); };
   $('#nAdd').onclick=adminCreateTeacher;
   $$('[data-a]').forEach(b=>b.onclick=()=>adminAction(b.dataset.a,b,teachers));
@@ -1371,11 +1394,19 @@ async function init(){
   splash();
   if(!fbOk){ app.innerHTML='<div class="auth-wrap"><div class="panel auth-card"><h2>Bağlantı kurulamadı</h2><p class="sub">Firebase yüklenemedi. İnternet bağlantını kontrol edip sayfayı yenile.</p></div></div>'; return; }
   const user=await new Promise(res=>{ const u=auth.onAuthStateChanged(x=>{ u(); res(x); }); });
+  const wantAdmin=location.hash==='#admin';
   if(user){
-    try{ await afterAuth(user,{}); }catch(e){ viewHome(); toast(friendly(e),'err'); }
-  }else if(!(await tryBoardResume())){
+    if(wantAdmin && user.uid!==ADMIN_UID) viewLogin('admin');
+    else{ try{ await afterAuth(user,{intent:wantAdmin?'admin':'teacher'}); }catch(e){ viewHome(); toast(friendly(e),'err'); } }
+  }else if(wantAdmin){ viewLogin('admin'); }
+  else if(!(await tryBoardResume())){
     if(location.hash==='#ogretmen') viewLogin('teacher'); else viewHome();
   }
+  window.addEventListener('hashchange',()=>{
+    if(location.hash!=='#admin') return;
+    if(S.user&&S.user.uid===ADMIN_UID){ S.mode='admin'; viewAdmin(); }
+    else if(S.mode!=='board') viewLogin('admin');
+  });
   auth.onAuthStateChanged(u=>{ if(!u && (S.mode==='teacher'||S.mode==='admin')){ S.user=null; S.rec=null; viewHome(); } });
 }
 
@@ -1402,6 +1433,7 @@ const IC={
   on:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>',
   off:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>',
   fs:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+  cup:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v6a4 4 0 0 1-8 0zM8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 14v4M8 20h8"/></svg>',
   menu:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg>'
 };
 
@@ -1420,13 +1452,18 @@ function viewGame(cid,role){
       <div class="c"><button class="play" id="gPlay">OYNAT</button></div>
       <div class="r"><span class="stat" id="gStat"></span>
         <button class="ibtn" id="gSnd" aria-label="Sesi aç/kapat"></button>
+        <button class="ibtn" id="gLb" aria-label="Liderlik tablosu" title="Liderlik tablosu">${IC.cup}</button>
         <button class="ibtn" id="gFs" aria-label="Tam ekran" title="Tam ekran">${IC.fs}</button>
         <button class="ibtn" id="gMenu" aria-label="Menü" title="Menü">${IC.menu}</button></div>
     </header>
-    <div class="gmain" id="gMain"><div class="grid" id="grid"></div></div>
+    <div class="gwrap"><div class="gcol" id="gcol"><div class="gmain" id="gMain"><div class="grid" id="grid"></div></div></div>
+      <aside class="lb" id="lb" aria-label="Liderlik tablosu"></aside></div>
     <footer class="dock" id="dock" aria-live="polite"></footer>
   </div>`;
+  GV.lbOpen=window.innerWidth>=1000;
   paintSnd();
+  $('#lb').hidden=!GV.lbOpen;
+  $('#gLb').onclick=()=>{ GV.lbOpen=!GV.lbOpen; $('#lb').hidden=!GV.lbOpen; layoutGrid(); };
   $('#gExit').onclick=async()=>{
     if(role==='board'){
       if(!(await confirmBox('Çıkış yapılsın mı?','Akıllı tahta oturumu kapanacak. Oyun durumu kaybolmaz.','Çıkış yap','blue'))) return;
@@ -1502,13 +1539,21 @@ function aliveVis(){ return GV.students.filter(s=>!isOutVis(s.id)); }
 function nameOf(id){ const s=GV.students.find(x=>x.id===id); return s?s.name:'?'; }
 function dphase(t){ if(!t) return 'idle'; if(t.phase==='spin') return GV.revealed===t.id?'reveal':'spin'; return t.phase; }
 function answerers(t){ return t.event==='together'?[t.studentId,t.targetId].filter(Boolean):(t.event==='pass'?[t.targetId].filter(Boolean):[t.studentId]); }
-function computeOver(){
-  const t=gTurn(), total=GV.students.length;
-  return total>=2 && (GV.G.round||0)>0 && aliveVis().length<=1 && (!t||t.phase==='done');
+function overState(){
+  const t=gTurn(), G=GV.G;
+  if(GV.students.length<2||(G.round||0)<=0) return null;
+  if(t&&t.phase!=='done') return null;
+  const alive=aliveVis().length;
+  if(alive===0) return 'none';
+  if(alive===1) return 'last';
+  const solved=G.solved||{};
+  if(!GV.meta.manualMode && GV.questions.length>0 && GV.questions.every(q=>solved[q.id])) return 'solved';
+  return null;
 }
+const computeOver=()=>!!overState();
 function refresh(){
   if(!GV||!GV.ready.st||!GV.ready.g||!GV.ready.meta) return;
-  applyStates(); renderTop(); renderDock(); renderModal(); syncOver();
+  applyStates(); renderTop(); renderDock(); renderModal(); renderLB(); syncOver();
   GV.primed=true;
 }
 
@@ -1606,10 +1651,22 @@ function renderTop(){
   const b=$('#gPlay');
   b.disabled=over||busy||total<2||alive<2;
   b.textContent=busy?'TUR SÜRÜYOR':((G.round||0)>0?'TURU BAŞLAT':'OYNAT');
-  $('#gStat').innerHTML=`${(G.round||0)>0?`Tur <b>${G.round}</b> &nbsp;·&nbsp; `:''}Kalan <b>${alive}</b>/${total}`;
+  const solvedN=G.solved||{}, left=GV.meta.manualMode?null:GV.questions.filter(q=>!solvedN[q.id]).length;
+  $('#gStat').innerHTML=`${(G.round||0)>0?`Tur <b>${G.round}</b> &nbsp;·&nbsp; `:''}Kalan <b>${alive}</b>/${total}${(left!=null&&GV.questions.length)?` &nbsp;·&nbsp; Soru <b>${left}</b>`:''}`;
 }
 
 /* ---------- Tur başlatma ve dönen çerçeve ---------- */
+/* Durum ağırlıkları (yüzde): Boş tur azaltıldı, artan pay "Soruyu Cevapla"ya gitti.
+   Oyunda bir bilet varken "Öğretmen Desteği Bileti" çıkmaz; payı "Soruyu Cevapla"ya gider. */
+const EVENT_W={answer:30,empty:10,pass:20,ticket:20,together:20};
+const ticketCount=g=>Object.values(g.tickets||{}).reduce((s,n)=>s+(n>0?n:0),0);
+function pickEvent(g){
+  const w=Object.assign({},EVENT_W);
+  if(ticketCount(g)>=1){ w.answer+=w.ticket; w.ticket=0; }
+  let r=Math.random()*EVENT_KEYS.reduce((s,k)=>s+w[k],0);
+  for(const k of EVENT_KEYS){ if(r<w[k]) return k; r-=w[k]; }
+  return 'answer';
+}
 function planSpin(g){
   const out=g.eliminated||{};
   const ids=GV.students.filter(s=>!out[s.id]).map(s=>s.id), n=ids.length;
@@ -1625,7 +1682,7 @@ function planSpin(g){
     tt+=base*dec; cum.push(Math.round(tt));
   }
   return {id:now()+'_'+Math.floor(Math.random()*1e6),studentId:path[steps],
-          event:EVENT_KEYS[Math.floor(Math.random()*EVENT_KEYS.length)],   // 5 durumun ihtimali eşit
+          event:pickEvent(g),
           t0:Math.round(now()+700),path,cum,phase:'spin'};
 }
 function startTurn(){
@@ -1670,7 +1727,7 @@ function finishSpin(t,silent){
       if(!GV) return;
       mutateGame(g=>{
         const tt=g.turn; if(!tt||tt.id!==t.id||tt.phase!=='spin') return;
-        if(tt.event==='ticket'){ g.tickets=g.tickets||{}; g.tickets[tt.studentId]=(g.tickets[tt.studentId]||0)+1; }
+        if(tt.event==='ticket' && ticketCount(g)<1){ g.tickets=g.tickets||{}; g.tickets[tt.studentId]=(g.tickets[tt.studentId]||0)+1; }
         tt.phase='done'; return g;
       });
     },silent?600:2800);
@@ -1724,14 +1781,13 @@ function openQuestion(){
     if((t.event==='pass'||t.event==='together')&&!t.targetId) return;
     let manual=!!GV.meta.manualMode, qid=null;
     if(!manual){
-      const pool=GV.questions.map(q=>q.id);
+      const solved=g.solved||{};
+      const pool=GV.questions.map(q=>q.id).filter(id=>!solved[id]);   // doğru cevaplanan soru bir daha gelmez
       if(!pool.length) manual=true;
       else{
-        g.used=g.used||{};
-        let avail=pool.filter(id=>!g.used[id]);
-        if(!avail.length){ g.used={}; avail=pool.slice(); }
+        let avail=pool.length>1?pool.filter(id=>id!==g.lastQ):pool;
         qid=avail[Math.floor(Math.random()*avail.length)];
-        g.used[qid]=true;
+        g.lastQ=qid;
       }
     }
     t.manual=manual; if(qid) t.questionId=qid; t.phase='question'; return g;
@@ -1754,7 +1810,11 @@ function submitResult(result,given){
     const q=t.questionId?GV.questions.find(x=>x.id===t.questionId):null;
     t.result=result; t.given=given||''; t.phase='result';
     if(q) t.correctText=answerLabel(q);
-    if(result!=='correct'){
+    if(result==='correct'){
+      g.scores=g.scores||{};
+      answerers(t).forEach(id=>{ g.scores[id]=(g.scores[id]||0)+1; });
+      if(t.questionId){ g.solved=g.solved||{}; g.solved[t.questionId]=true; }
+    }else{
       const v=answerers(t); g.eliminated=g.eliminated||{}; g.tickets=g.tickets||{};
       v.forEach(id=>{ g.eliminated[id]=true; delete g.tickets[id]; });
       t.victims=v;
@@ -1769,7 +1829,7 @@ function useTicket(holder){
     if(!(g.tickets&&g.tickets[holder]>0)) return;
     g.tickets[holder]--; if(g.tickets[holder]<=0) delete g.tickets[holder];
     const q=t.questionId?GV.questions.find(x=>x.id===t.questionId):null;
-    if(q) t.correctText=answerLabel(q);
+    if(q){ t.correctText=answerLabel(q); g.solved=g.solved||{}; g.solved[q.id]=true; }
     t.result='ticket'; t.ticketBy=holder; t.phase='result'; return g;
   });
 }
@@ -1838,6 +1898,25 @@ function renderModal(){
   }
 }
 
+/* ---------- Liderlik tablosu ---------- */
+const MEDALS={1:['#fff1a8','#f5b800','#8a5a00'],2:['#ffffff','#b4bdd6','#5b6480'],3:['#ffd3a6','#d07a30','#6b3a10']};
+function medal(rank){
+  const c=MEDALS[rank];
+  return `<svg class="md" viewBox="0 0 24 28" aria-label="${rank}. sıra madalyası" role="img"><path d="M5 0h5.5l2 9H8z" fill="#3a6df0"/><path d="M19 0h-5.5l-2 9H16z" fill="#e0334c"/><circle cx="12" cy="18" r="9" fill="${c[1]}" stroke="${c[2]}" stroke-width="1.5"/><circle cx="12" cy="18" r="6.3" fill="${c[0]}" stroke="${c[2]}" stroke-width=".8"/><text x="12" y="21.4" text-anchor="middle" font-size="9" font-weight="800" fill="${c[2]}" font-family="sans-serif">${rank}</text></svg>`;
+}
+function renderLB(){
+  const lb=$('#lb'); if(!lb) return;
+  const sc=GV.G.scores||{};
+  const rows=GV.students.filter(s=>(sc[s.id]||0)>0).sort((a,b)=>(sc[b.id]-sc[a.id])||(a.ord-b.ord));
+  let rank=0,prev=null,i=0;
+  const items=rows.map(s=>{
+    i++; if(sc[s.id]!==prev){ rank=i; prev=sc[s.id]; }
+    return `<li class="lbr r${rank<=3?rank:0}${isOutVis(s.id)?' out':''}"><span class="rk">${rank<=3?medal(rank):rank}</span><span class="ln" title="${esc(s.name)}">${esc(s.name)}</span><span class="ls"><b>${sc[s.id]}</b> doğru</span></li>`;
+  }).join('');
+  const h=`<h3>Liderlik tablosu</h3>${items?`<ol class="lbl">${items}</ol>`:'<p class="hint">Henüz doğru cevap yok. İlk doğru cevabı veren listeye girer.</p>'}`;
+  if(lb._h!==h){ lb._h=h; lb.innerHTML=h; }
+}
+
 /* ---------- Bitiş ve yardımcılar ---------- */
 function syncOver(){
   if(!computeOver()){
@@ -1847,14 +1926,15 @@ function syncOver(){
   if(GV.overShown||GV.overTimer) return;
   const show=()=>{
     GV.overTimer=0; if(!GV) return; GV.overShown=true;
-    const alive=aliveVis(), game=$('#game'); if(!game||$('#over')) return;
+    const st=overState(), alive=aliveVis(), game=$('#gcol'); if(!game||$('#over')||!st) return;
     const o=document.createElement('div'); o.id='over'; o.className='over';
-    o.innerHTML=alive.length===1
-      ?`<h2>Son kalan</h2><div class="win">${esc(alive[0].name)}</div><div class="row"><button class="btn amber lg" id="ovReset">Yeni oyun başlat</button></div>`
-      :`<h2>Herkes elendi</h2><div class="row"><button class="btn amber lg" id="ovReset">Yeni oyun başlat</button></div>`;
+    const rst=`<div class="row" style="justify-content:center"><button class="btn amber lg" id="ovReset">Yeni oyun başlat</button></div>`;
+    if(st==='none') o.innerHTML=`<h2>Herkes elendi</h2>${rst}`;
+    else if(st==='last') o.innerHTML=`<h2>Son kalan kazandı</h2><div class="win">${esc(alive[0].name)}</div>${rst}`;
+    else o.innerHTML=`<h2>Tüm sorular cevaplandı!</h2><p class="sub2">Elenmeyen herkes kazandı (${alive.length} öğrenci)</p><div class="winners">${alive.map(s=>`<span class="wchip">${esc(s.name)}</span>`).join('')}</div>${rst}`;
     game.appendChild(o);
     $('#ovReset',o).onclick=resetGame;
-    if(alive.length===1){ Snd.win(); confetti(120); }
+    if(st!=='none'){ Snd.win(); confetti(120); }
   };
   if(GV.primed) GV.overTimer=setTimeout(show,2300); else show();
 }
