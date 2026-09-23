@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bungee Jumping: Enerji Dönüşümü</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#eef3f8; --grid:rgba(15,34,56,.055); --paper:#ffffff; --ink:#0f2238; --muted:#566a80; --line:#cbd7e4;
+  --ep:#2563eb; --ek:#ea580c; --ey:#0d9488; --et:#7c3aed;
+  --sky1:#a9d6f5; --sky2:#e8f5fd; --ground:#8a9a76; --ground-top:#5f7050; --steel:#64748b;
+  --legs:#1e3a5f; --shirt:#e11d48; --skin:#f3c9a3;
+  --danger:#dc2626; --ok:#15803d; --soft:#f4f7fb;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0a1524; --grid:rgba(255,255,255,.04); --paper:#11233a; --ink:#e7eff9; --muted:#9db0c6; --line:#243a55;
+    --ep:#60a5fa; --ek:#fb923c; --ey:#2dd4bf; --et:#c4b5fd;
+    --sky1:#14264a; --sky2:#3a5a86; --ground:#33472f; --ground-top:#26361f; --steel:#8ea0b5;
+    --legs:#cbd5e1; --shirt:#fb7185; --skin:#f3c9a3;
+    --danger:#f87171; --ok:#4ade80; --soft:#0e1c30;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0a1524; --grid:rgba(255,255,255,.04); --paper:#11233a; --ink:#e7eff9; --muted:#9db0c6; --line:#243a55;
+  --ep:#60a5fa; --ek:#fb923c; --ey:#2dd4bf; --et:#c4b5fd;
+  --sky1:#14264a; --sky2:#3a5a86; --ground:#33472f; --ground-top:#26361f; --steel:#8ea0b5;
+  --legs:#cbd5e1; --shirt:#fb7185; --skin:#f3c9a3;
+  --danger:#f87171; --ok:#4ade80; --soft:#0e1c30;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*,*::before,*::after{box-sizing:inherit;}
+body{
+  margin:0; background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  color:var(--ink); font-family:Figtree,system-ui,-apple-system,"Segoe UI",sans-serif; font-size:16px; line-height:1.5;
+}
+.page{max-width:1240px;margin:0 auto;padding:18px 14px 40px;}
+h1,h2,.num{font-family:"Bricolage Grotesque",Figtree,system-ui,sans-serif;}
+h1{margin:0;font-size:clamp(1.6rem,4.4vw,2.6rem);line-height:1.08;letter-spacing:-.02em;font-weight:800;}
+.lede{margin:.5rem 0 0;color:var(--muted);max-width:62ch;}
+h2{margin:0 0 .6rem;font-size:1.1rem;font-weight:800;letter-spacing:-.01em;}
+.card{min-width:0;background:var(--paper);border:1.5px solid var(--line);border-radius:16px;padding:14px;}
+.stage{display:grid;gap:14px;margin-top:18px;grid-template-columns:minmax(0,1fr);}
+@media (min-width:960px){.stage{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);align-items:start;}}
+.sim-head{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.chip{display:inline-block;padding:.3em .8em;border-radius:999px;background:var(--soft);border:1.5px solid var(--line);font-weight:600;font-size:.88rem;}
+.chip.run{border-color:var(--ey);color:var(--ey);}
+.chip.bad{border-color:var(--danger);color:var(--danger);}
+.readout{font-size:.9rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+.readout b{color:var(--ink);font-weight:700;}
+.canvas-wrap{position:relative;border-radius:12px;overflow:hidden;border:1.5px solid var(--line);}
+canvas{display:block;width:100%;max-width:100%;}
+.banner{position:absolute;left:10px;right:10px;bottom:10px;padding:.55em .9em;border-radius:10px;background:var(--ink);color:var(--paper);font-weight:600;font-size:.9rem;text-align:center;}
+.banner[hidden]{display:none;}
+.banner.bad{background:var(--danger);color:#fff;}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;}
+.btn{font:inherit;font-weight:700;padding:.6em 1.15em;min-height:44px;border-radius:999px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;}
+.btn.primary{background:var(--ink);color:var(--paper);}
+.btn:disabled{opacity:.38;cursor:not-allowed;}
+.btn:focus-visible,.qtab:focus-visible,.seg button:focus-visible,.legend button:focus-visible,input:focus-visible{outline:3px solid var(--ep);outline-offset:2px;}
+.btn.small{min-height:38px;padding:.4em .95em;font-size:.9rem;border-width:1.5px;}
+.spacer{flex:1 1 8px;}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;}
+.seg button{font:inherit;font-size:.85rem;font-weight:600;padding:.45em .8em;min-height:40px;background:transparent;color:var(--muted);border:0;cursor:pointer;}
+.seg button[aria-pressed="true"]{background:var(--soft);color:var(--ink);box-shadow:inset 0 -3px 0 var(--ink);}
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.legend button{font:inherit;font-size:.85rem;font-weight:600;display:inline-flex;align-items:center;gap:.45em;padding:.3em .7em;border-radius:8px;border:1.5px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;}
+.legend button[aria-pressed="false"]{opacity:.45;text-decoration:line-through;}
+.legend i{display:inline-block;width:18px;height:4px;border-radius:2px;}
+.formulas{margin:10px 0 0;font-size:.88rem;color:var(--muted);}
+.cards4{display:grid;gap:12px;margin-top:14px;grid-template-columns:repeat(2,minmax(0,1fr));}
+@media (min-width:760px){.cards4{grid-template-columns:repeat(4,minmax(0,1fr));}}
+.ecard{position:relative;padding:12px 12px 12px 18px;overflow:hidden;}
+.ecard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7px;background:var(--c);}
+.ecard .lab{font-size:.84rem;font-weight:600;color:var(--muted);line-height:1.25;min-height:2.5em;}
+.ecard .sym{color:var(--c);font-weight:700;}
+.ecard .val{display:flex;align-items:baseline;gap:.35em;margin-top:6px;}
+.ecard .num{font-size:clamp(1.35rem,4.6vw,2.1rem);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.1;overflow-wrap:anywhere;}
+.ecard .unit{font-weight:700;color:var(--muted);}
+.meter{height:6px;border-radius:3px;background:var(--soft);margin-top:10px;overflow:hidden;}
+.meter i{display:block;height:100%;width:0;background:var(--c);}
+.check{margin:12px 2px 0;font-size:.95rem;font-variant-numeric:tabular-nums;}
+.check .okmark{color:var(--ok);font-weight:700;}
+.lower{display:grid;gap:14px;margin-top:14px;grid-template-columns:minmax(0,1fr);}
+@media (min-width:900px){.lower{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);align-items:start;}}
+.param{margin-bottom:14px;}
+.param .row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;}
+.param label{font-weight:600;}
+.param label small{color:var(--muted);font-weight:500;}
+.numbox{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-weight:600;}
+input[type=number],input[type=text]{font:inherit;color:var(--ink);background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:.4em .6em;min-height:40px;}
+input[type=number]{width:5.2em;text-align:right;font-variant-numeric:tabular-nums;}
+input[type=range]{width:100%;accent-color:var(--ep);min-height:28px;}
+.safety{margin:6px 0 0;padding:.6em .8em;border-radius:10px;font-weight:600;font-size:.92rem;border:1.5px solid var(--line);}
+.safety.ok{border-color:var(--ok);color:var(--ok);}
+.safety.bad{border-color:var(--danger);color:var(--danger);}
+.given{margin:0 0 10px;padding:.5em .8em;border-radius:10px;background:var(--soft);font-size:.9rem;font-variant-numeric:tabular-nums;}
+.qtabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.qtab{font:inherit;font-size:.85rem;font-weight:600;padding:.4em .75em;min-height:38px;border-radius:8px;border:1.5px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;}
+.qtab[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.qtext{margin:0 0 10px;font-size:1.02rem;}
+.answer{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.answer .inp{display:inline-flex;align-items:center;gap:6px;flex:1 1 150px;}
+.answer input[type=text]{flex:1;min-width:0;}
+.extra{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.fb{margin:10px 0 0;font-weight:600;min-height:1.5em;}
+.fb.ok{color:var(--ok);}
+.fb.bad{color:var(--danger);}
+.fb.info{color:var(--ink);}
+.box{margin-top:10px;padding:.7em .9em;border-radius:10px;background:var(--soft);border-left:5px solid var(--ep);font-size:.95rem;}
+.box[hidden]{display:none;}
+.box ol{margin:.3em 0 0;padding-left:1.3em;}
+.box li{margin:.25em 0;font-variant-numeric:tabular-nums;}
+.score{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:12px;padding-top:10px;border-top:1.5px dashed var(--line);font-weight:600;font-size:.92rem;}
+.score b{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-size:1.1rem;}
+.log{margin-top:14px;}
+.tablewrap{overflow-x:auto;}
+table{border-collapse:collapse;width:100%;min-width:560px;font-variant-numeric:tabular-nums;font-size:.92rem;}
+th,td{text-align:right;padding:.45em .7em;border-bottom:1.5px solid var(--line);white-space:nowrap;}
+th{font-weight:700;color:var(--muted);}
+th:first-child,td:first-child{text-align:left;}
+.empty{color:var(--muted);margin:.3em 0 0;}
+.head-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:.4rem;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Bungee Jumping: Enerji Dönüşümü</h1>
+    <p class="lede">Atlayıcıyı bırak, enerjinin üç biçim arasında nasıl el değiştirdiğini izle. İstediğin anda durdur, değerleri oku ve aşağıdaki görevlerle bağıntıları doğrula. (g = 10 m/s²)</p>
+  </header>
+
+  <section class="stage">
+    <div class="card">
+      <div class="sim-head">
+        <span id="chip" class="chip">Hazır</span>
+        <span class="readout">t <b id="ro_t">0,00</b> s · y <b id="ro_y">0</b> m · v <b id="ro_v">0,0</b> m/s · x <b id="ro_x">0,0</b> m</span>
+      </div>
+      <div class="canvas-wrap" id="sceneWrap">
+        <canvas id="scene" role="img" aria-label="Bungee atlayıcısının simülasyon alanı"></canvas>
+        <div id="banner" class="banner" hidden></div>
+      </div>
+      <div class="controls" role="group" aria-label="Kontrol paneli">
+        <button class="btn primary" id="btnStart" type="button">▶ Başlat</button>
+        <button class="btn" id="btnPause" type="button" disabled>⏸ Duraklat</button>
+        <button class="btn" id="btnReset" type="button">↺ Sıfırla</button>
+        <span class="spacer"></span>
+        <div class="seg" role="group" aria-label="Simülasyon hızı">
+          <button type="button" data-speed="0.25" aria-pressed="false">0,25×</button>
+          <button type="button" data-speed="0.5" aria-pressed="false">0,5×</button>
+          <button type="button" data-speed="1" aria-pressed="true">1×</button>
+          <button type="button" data-speed="2" aria-pressed="false">2×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Enerji – Zaman grafiği</h2>
+      <div class="legend" id="legend">
+        <button type="button" data-k="ep" aria-pressed="true"><i style="background:var(--ep)"></i>Ep_yer</button>
+        <button type="button" data-k="ek" aria-pressed="true"><i style="background:var(--ek)"></i>Ek</button>
+        <button type="button" data-k="ey" aria-pressed="true"><i style="background:var(--ey)"></i>Ep_yay</button>
+        <button type="button" data-k="et" aria-pressed="true"><i style="background:var(--et)"></i>E_toplam</button>
+      </div>
+      <div id="graphWrap"><canvas id="graph" role="img" aria-label="Enerji zaman grafiği"></canvas></div>
+      <p class="formulas">Ep_yer = m·g·y &nbsp;·&nbsp; Ek = ½·m·v² &nbsp;·&nbsp; Ep_yay = ½·k·x² &nbsp;·&nbsp; E_toplam = Ep_yer + Ek + Ep_yay</p>
+    </div>
+  </section>
+
+  <section class="cards4" aria-label="Anlık enerji değerleri">
+    <div class="card ecard" style="--c:var(--ep)">
+      <div class="lab">Yükseklik Potansiyel Enerjisi <span class="sym">(Ep_yer)</span></div>
+      <div class="val"><span class="num" id="v_ep">0</span><span class="unit">J</span></div>
+      <div class="meter"><i id="m_ep"></i></div>
+    </div>
+    <div class="card ecard" style="--c:var(--ek)">
+      <div class="lab">Kinetik Enerji <span class="sym">(Ek)</span></div>
+      <div class="val"><span class="num" id="v_ek">0</span><span class="unit">J</span></div>
+      <div class="meter"><i id="m_ek"></i></div>
+    </div>
+    <div class="card ecard" style="--c:var(--ey)">
+      <div class="lab">Yay (Esneklik) Potansiyel Enerjisi <span class="sym">(Ep_yay)</span></div>
+      <div class="val"><span class="num" id="v_ey">0</span><span class="unit">J</span></div>
+      <div class="meter"><i id="m_ey"></i></div>
+    </div>
+    <div class="card ecard" style="--c:var(--et)">
+      <div class="lab">Toplam Mekanik Enerji <span class="sym">(E_toplam)</span></div>
+      <div class="val"><span class="num" id="v_et">0</span><span class="unit">J</span></div>
+      <div class="meter"><i id="m_et"></i></div>
+    </div>
+  </section>
+  <p class="check" id="check"></p>
+
+  <section class="lower">
+    <div class="card">
+      <h2>Parametreler</h2>
+      <div class="param">
+        <div class="row"><label for="r_m">Atlayıcının kütlesi <small>(m)</small></label><span class="numbox"><input type="number" id="n_m" min="50" max="100" step="1" aria-label="Kütle değeri"> kg</span></div>
+        <input type="range" id="r_m" min="50" max="100" step="1" value="70">
+      </div>
+      <div class="param">
+        <div class="row"><label for="r_h">Platform yüksekliği <small>(h)</small></label><span class="numbox"><input type="number" id="n_h" min="20" max="100" step="1" aria-label="Yükseklik değeri"> m</span></div>
+        <input type="range" id="r_h" min="20" max="100" step="1" value="60">
+      </div>
+      <div class="param">
+        <div class="row"><label for="r_k">İpin esneklik katsayısı <small>(k)</small></label><span class="numbox"><input type="number" id="n_k" min="50" max="200" step="5" aria-label="Esneklik katsayısı değeri"> N/m</span></div>
+        <input type="range" id="r_k" min="50" max="200" step="5" value="100">
+      </div>
+      <div class="param">
+        <div class="row"><label for="r_L0">İpin serbest uzunluğu <small>(L₀)</small></label><span class="numbox"><input type="number" id="n_L0" min="10" max="30" step="1" aria-label="Serbest uzunluk değeri"> m</span></div>
+        <input type="range" id="r_L0" min="10" max="30" step="1" value="20">
+      </div>
+      <p class="safety" id="safety"></p>
+    </div>
+
+    <div class="card">
+      <h2>GÖREV / HESAPLAMA</h2>
+      <p class="given" id="given"></p>
+      <div class="qtabs" id="qtabs" role="tablist" aria-label="Sorular"></div>
+      <p class="qtext" id="qtext"></p>
+      <div class="answer">
+        <span class="inp"><input type="text" id="ans" inputmode="decimal" autocomplete="off" placeholder="Cevabın" aria-label="Cevabın (Joule)"><b>J</b></span>
+        <button class="btn primary" id="btnCheck" type="button">Cevabı Kontrol Et</button>
+      </div>
+      <div class="extra">
+        <button class="btn small" id="btnHint" type="button">İpucu</button>
+        <button class="btn small" id="btnShow" type="button">Simülasyonda göster</button>
+        <button class="btn small" id="btnSol" type="button">Çözümü göster</button>
+      </div>
+      <p class="fb" id="fb" aria-live="polite"></p>
+      <div class="box" id="hintBox" hidden></div>
+      <div class="box" id="solBox" hidden></div>
+      <div class="score"><span>Puan <b id="score">0</b></span><span>Çözülen <b id="solved">0/5</b></span><span>Rütbe <b id="rank">Çırak</b></span></div>
+    </div>
+  </section>
+
+  <section class="card log">
+    <div class="head-row">
+      <h2 style="margin:0">Ölçüm defteri</h2>
+      <span>
+        <button class="btn small" id="btnSnap" type="button">📌 Ölçüm al</button>
+        <button class="btn small" id="btnClear" type="button">Temizle</button>
+      </span>
+    </div>
+    <p class="empty" id="logEmpty">Henüz ölçüm yok. Simülasyonu istediğin anda duraklat ve “Ölçüm al”a bas; son sütun toplam enerjinin başlangıçtaki m·g·h değerinden ne kadar saptığını gösterir.</p>
+    <div class="tablewrap">
+      <table id="logTable" hidden>
+        <thead><tr><th>t (s)</th><th>Ep_yer (J)</th><th>Ek (J)</th><th>Ep_yay (J)</th><th>E_toplam (J)</th><th>E_toplam − m·g·h (J)</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Sabitler ve durum ---------- */
+const G = 10;
+const DT = 0.0005;
+const P = {m:70, h:60, k:100, L0:20};
+const S = {};
+let hist = [];
+const vis = {ep:true, ek:true, ey:true, et:true};
+const $ = id => document.getElementById(id);
+
+const nf0 = new Intl.NumberFormat('tr-TR',{maximumFractionDigits:0});
+const nf1 = new Intl.NumberFormat('tr-TR',{minimumFractionDigits:1,maximumFractionDigits:1});
+const nf2 = new Intl.NumberFormat('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const nfk = new Intl.NumberFormat('tr-TR',{maximumFractionDigits:1});
+const clean = x => Math.abs(x) < 0.05 ? 0 : x;
+const fJ = x => { x = clean(x); return (Math.abs(x) >= 1000 ? nf0 : nf1).format(x); };
+const n0 = x => nf0.format(Math.round(x));
+
+function derived(){
+  const mg = P.m*G;
+  const xmax = (mg + Math.sqrt(mg*mg + 2*P.k*mg*P.L0)) / P.k;
+  return {mg, xmax, dmax:P.L0+xmax, E0:mg*P.h};
+}
+
+function energies(){
+  const x = Math.max(0, S.d - P.L0);
+  const ep = P.m*G*(P.h - S.d);
+  const ek = 0.5*P.m*S.v*S.v;
+  const ey = 0.5*P.k*x*x;
+  return {x, ep, ek, ey, et: ep+ek+ey};
+}
+
+/* ---------- Fizik ---------- */
+function accel(d){ return G - P.k*Math.max(0, d-P.L0)/P.m; }
+
+function stepOnce(){
+  const a0 = accel(S.d);
+  S.d += S.v*DT + 0.5*a0*DT*DT;
+  const a1 = accel(S.d);
+  S.v += 0.5*(a0+a1)*DT;
+  S.t += DT;
+}
+
+function pushSample(){
+  const e = energies();
+  hist.push({t:S.t, ep:e.ep, ek:e.ek, ey:e.ey, et:e.et});
+  if(hist.length > 6000) hist.splice(0,1000);
+  S.next = S.t + 0.05;
+}
+
+function stopHere(msg){
+  S.status = 'paused'; S.stopAt = null;
+  pushSample();
+  showBanner(msg, 'info');
+  updateButtons();
+}
+
+function advance(simDt){
+  const n = Math.round(simDt/DT);
+  for(let i=0;i<n;i++){
+    stepOnce();
+    if(S.d > P.L0) S.stretched = true;
+    if(S.d >= P.h){
+      S.d = P.h; S.status = 'crashed'; pushSample();
+      showBanner('Atlayıcı yere çarptı! k’yi artır, m’yi azalt, L₀’ı kısalt ya da h’yi yükselt; sonra Sıfırla.', 'bad');
+      updateButtons(); return;
+    }
+    if(S.stretched && !S.bottom && S.v <= 0){
+      S.bottom = true; S.bottomD = S.d;
+      if(S.stopAt && S.stopAt.kind === 'bottom'){ stopHere(S.stopAt.msg); return; }
+    }
+    const sa = S.stopAt;
+    if(sa){
+      if(sa.kind === 'L0' && S.d >= P.L0){ stopHere(sa.msg); return; }
+      if(sa.kind === 'x' && S.d >= P.L0 + sa.xq){ stopHere(sa.msg); return; }
+    }
+    if(S.t >= S.next) pushSample();
+  }
+}
+
+function resetSim(){
+  S.status = 'idle'; S.t = 0; S.d = 0; S.v = 0; S.stopAt = null;
+  S.stretched = false; S.bottom = false; S.bottomD = 0; S.next = 0;
+  if(S.speed === undefined) S.speed = 1;
+  hist = []; pushSample();
+  hideBanner(); updateButtons();
+}
+
+/* ---------- Tuval kurulumu ---------- */
+const sceneCv = $('scene'), graphCv = $('graph');
+const sc = {w:600,h:480,ctx:null}, gs = {w:400,h:260,ctx:null};
+
+function setupCanvas(cv, w, h){
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  cv.style.height = h + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return ctx;
+}
+function resize(){
+  const w1 = Math.max(280, $('sceneWrap').clientWidth);
+  const h1 = Math.round(Math.min(540, Math.max(400, w1*0.9)));
+  sc.w = w1; sc.h = h1; sc.ctx = setupCanvas(sceneCv, w1, h1);
+  const w2 = Math.max(260, $('graphWrap').clientWidth);
+  const h2 = Math.round(Math.min(340, Math.max(240, w2*0.58)));
+  gs.w = w2; gs.h = h2; gs.ctx = setupCanvas(graphCv, w2, h2);
+}
+if(window.ResizeObserver){
+  const ro = new ResizeObserver(resize);
+  ro.observe($('sceneWrap')); ro.observe($('graphWrap'));
+}
+window.addEventListener('resize', resize);
+
+function tokens(){
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  return {
+    sky1:g('--sky1'), sky2:g('--sky2'), ground:g('--ground'), groundTop:g('--ground-top'), steel:g('--steel'),
+    ink:g('--ink'), muted:g('--muted'), line:g('--line'), paper:g('--paper'),
+    ep:g('--ep'), ek:g('--ek'), ey:g('--ey'), et:g('--et'),
+    legs:g('--legs'), shirt:g('--shirt'), skin:g('--skin')
+  };
+}
+function hexMix(a,b,t){
+  const pa = parseInt(a.slice(1),16), pb = parseInt(b.slice(1),16);
+  const r = Math.round(((pa>>16)&255)*(1-t) + ((pb>>16)&255)*t);
+  const g = Math.round(((pa>>8)&255)*(1-t) + ((pb>>8)&255)*t);
+  const bl = Math.round((pa&255)*(1-t) + (pb&255)*t);
+  return 'rgb('+r+','+g+','+bl+')';
+}
+
+/* ---------- Sahne çizimi ---------- */
+function drawJumper(c, x, y, phi, T){
+  const flap = S.status === 'running' ? Math.sin(S.t*9)*3 : 0;
+  c.save(); c.translate(x,y); c.rotate(phi);
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  c.strokeStyle = T.legs; c.lineWidth = 5;
+  c.beginPath(); c.moveTo(-3,0); c.lineTo(-3,-16); c.moveTo(3,0); c.lineTo(3,-16); c.stroke();
+  c.strokeStyle = T.shirt; c.lineWidth = 9;
+  c.beginPath(); c.moveTo(0,-16); c.lineTo(0,-31); c.stroke();
+  c.lineWidth = 4;
+  c.beginPath(); c.moveTo(0,-29); c.lineTo(-11,-21+flap); c.moveTo(0,-29); c.lineTo(11,-21-flap); c.stroke();
+  c.fillStyle = T.skin; c.beginPath(); c.arc(0,-40,7,0,Math.PI*2); c.fill();
+  c.strokeStyle = '#ffffff'; c.lineWidth = 2;
+  c.beginPath(); c.arc(0,-1,4,0,Math.PI*2); c.stroke();
+  c.restore();
+}
+
+function drawScene(T){
+  const c = sc.ctx, W = sc.w, H = sc.h;
+  const D = derived();
+  const yP = 60, yG = H - 44, ppm = (yG - yP)/P.h, xj = Math.round(W*0.56);
+  const yJ = yP + S.d*ppm;
+  c.clearRect(0,0,W,H);
+
+  const g = c.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,T.sky1); g.addColorStop(1,T.sky2);
+  c.fillStyle = g; c.fillRect(0,0,W,H);
+
+  c.fillStyle = T.ground; c.fillRect(0,yG,W,H-yG);
+  c.fillStyle = T.groundTop; c.fillRect(0,yG,W,4);
+  c.font = '600 12px Figtree, system-ui, sans-serif';
+  c.fillStyle = T.paper; c.textAlign = 'left'; c.textBaseline = 'middle';
+  c.fillText('yer seviyesi (y = 0)', 92, yG + (H-yG)/2 + 2);
+
+  // kule
+  const tw = 64;
+  c.strokeStyle = T.steel; c.lineWidth = 3; c.strokeRect(10, yP+12, tw, yG-yP-12);
+  c.lineWidth = 1.5;
+  const seg = 56;
+  for(let y = yP+12; y + seg <= yG; y += seg){
+    c.beginPath();
+    c.moveTo(10,y); c.lineTo(10+tw,y+seg); c.moveTo(10+tw,y); c.lineTo(10,y+seg);
+    c.stroke();
+  }
+  c.fillStyle = T.steel; c.fillRect(0, yP, xj+30, 12);
+  c.fillStyle = T.ink; c.beginPath(); c.arc(xj, yP, 4, 0, Math.PI*2); c.fill();
+
+  // cetvel
+  const xr = W - 12;
+  c.strokeStyle = T.ink; c.lineWidth = 1.5; c.globalAlpha = .55;
+  c.beginPath(); c.moveTo(xr, yP); c.lineTo(xr, yG); c.stroke();
+  const step = P.h <= 30 ? 5 : (P.h <= 60 ? 10 : 20);
+  c.font = '500 11px Figtree, system-ui, sans-serif'; c.textAlign = 'right'; c.textBaseline = 'middle';
+  for(let hh = 0; hh <= P.h + 1e-9; hh += step){
+    const y = yG - hh*ppm;
+    c.beginPath(); c.moveTo(xr-8, y); c.lineTo(xr, y); c.stroke();
+    c.fillStyle = T.ink; c.fillText(hh + ' m', xr-11, y);
+  }
+  c.globalAlpha = 1;
+  // platform etiketi
+  c.textAlign = 'left'; c.fillStyle = T.ink; c.font = '700 12px Figtree, system-ui, sans-serif';
+  c.fillText('Platform: h = ' + P.h + ' m', 84, yP - 12);
+
+  // L0 çizgisi
+  const yL = yP + P.L0*ppm;
+  if(yL < yG){
+    c.setLineDash([6,5]); c.strokeStyle = T.ey; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(xj-70, yL); c.lineTo(xr-58, yL); c.stroke(); c.setLineDash([]);
+    c.fillStyle = T.ey; c.font = '600 12px Figtree, system-ui, sans-serif'; c.textAlign = 'left';
+    c.fillText('L₀ = ' + P.L0 + ' m · ip burada gerilmeye başlar', Math.max(90, xj+14), yL - 8);
+  }
+  // en alt nokta
+  if(S.bottom){
+    const yB = yP + S.bottomD*ppm;
+    c.setLineDash([3,4]); c.strokeStyle = T.et; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(xj-70, yB); c.lineTo(xr-58, yB); c.stroke(); c.setLineDash([]);
+    c.fillStyle = T.et; c.font = '600 12px Figtree, system-ui, sans-serif'; c.textAlign = 'left';
+    c.fillText('en alt nokta: yerden ' + nf1.format(P.h - S.bottomD) + ' m', Math.max(90, xj+14), yB + 16);
+  }
+
+  // ip
+  const x = Math.max(0, S.d - P.L0);
+  const chordPx = Math.max(0, S.d*ppm);
+  if(x > 0){
+    const ten = Math.min(1, x/D.xmax);
+    c.strokeStyle = hexMix('#f59e0b','#dc2626',ten); c.lineWidth = 3 + ten*2.5; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(xj, yP); c.lineTo(xj, yJ); c.stroke();
+  } else {
+    const slack = P.L0 - S.d;
+    const amp = Math.min(26, 5 + slack*ppm*0.16);
+    const waves = Math.max(2, Math.round(slack*ppm/28));
+    c.strokeStyle = '#f59e0b'; c.lineWidth = 3; c.lineCap = 'round'; c.lineJoin = 'round';
+    if(chordPx > 2){
+      c.beginPath();
+      const N = 60;
+      for(let i=0;i<=N;i++){
+        const u = i/N;
+        const px = xj + amp*Math.sin(2*Math.PI*waves*u)*Math.sin(Math.PI*u);
+        const py = yP + u*chordPx;
+        if(i===0) c.moveTo(px,py); else c.lineTo(px,py);
+      }
+      c.stroke();
+    }
+    const a = Math.max(0, 1 - chordPx/40);
+    if(a > 0){
+      c.globalAlpha = a;
+      for(let i=0;i<3;i++){
+        c.beginPath(); c.ellipse(xj-26+i*3, yP-5-i*2, 15, 5, i*0.25, 0, Math.PI*2); c.stroke();
+      }
+      c.globalAlpha = 1;
+    }
+  }
+
+  // atlayıcı
+  const u = Math.min(1, S.d/3), phi = Math.PI*u*u*(3-2*u);
+  drawJumper(c, xj, yJ, phi, T);
+  c.fillStyle = T.ink; c.strokeStyle = '#fff'; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(xj, yJ, 3.5, 0, Math.PI*2); c.fill(); c.stroke();
+
+  if(S.status === 'crashed'){
+    c.strokeStyle = '#dc2626'; c.lineWidth = 3;
+    c.beginPath(); c.arc(xj, yG, 22, 0, Math.PI*2); c.stroke();
+    c.beginPath(); c.arc(xj, yG, 34, 0, Math.PI*2); c.globalAlpha = .5; c.stroke(); c.globalAlpha = 1;
+  }
+}
+
+/* ---------- Grafik çizimi ---------- */
+function axisE(e, E0){
+  if(e === 0) return '0';
+  return E0 >= 10000 ? nfk.format(e/1000) + ' kJ' : nf0.format(e) + ' J';
+}
+function drawGraph(T){
+  const c = gs.ctx, W = gs.w, H = gs.h;
+  c.clearRect(0,0,W,H);
+  const L = 58, R = 14, Tp = 12, B = 30, pw = W-L-R, ph = H-Tp-B;
+  const E0 = P.m*G*P.h, ymax = E0*1.06, win = 20;
+  const tMax = Math.max(win, S.t), tMin = tMax - win;
+  const X = t => L + (t-tMin)/win*pw;
+  const Y = e => Tp + (1 - e/ymax)*ph;
+  c.font = '500 11px Figtree, system-ui, sans-serif';
+  c.strokeStyle = T.line; c.lineWidth = 1; c.fillStyle = T.muted;
+  for(let i=0;i<=4;i++){
+    const e = E0*i/4, y = Y(e);
+    c.beginPath(); c.moveTo(L,y); c.lineTo(W-R,y); c.stroke();
+    c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillText(axisE(e,E0), L-6, y);
+  }
+  for(let t = Math.ceil(tMin/5)*5; t <= tMax + 1e-9; t += 5){
+    const x = X(t);
+    c.beginPath(); c.moveTo(x,Tp); c.lineTo(x,Tp+ph); c.stroke();
+    c.textAlign = 'center'; c.textBaseline = 'top'; c.fillText(t + ' s', x, Tp+ph+7);
+  }
+  c.save(); c.beginPath(); c.rect(L, Tp-3, pw, ph+6); c.clip();
+  const series = [
+    {k:'et', col:T.et, dash:[7,5], w:2},
+    {k:'ep', col:T.ep, dash:[], w:2.4},
+    {k:'ek', col:T.ek, dash:[], w:2.4},
+    {k:'ey', col:T.ey, dash:[], w:2.4}
+  ];
+  series.forEach(s => {
+    if(!vis[s.k]) return;
+    c.strokeStyle = s.col; c.lineWidth = s.w; c.setLineDash(s.dash); c.lineJoin = 'round';
+    c.beginPath();
+    let started = false;
+    for(let i=0;i<hist.length;i++){
+      const p = hist[i];
+      if(p.t < tMin - 0.1) continue;
+      const x = X(p.t), y = Y(p[s.k]);
+      if(!started){ c.moveTo(x,y); started = true; } else c.lineTo(x,y);
+    }
+    c.stroke(); c.setLineDash([]);
+    const last = hist[hist.length-1];
+    if(last){ c.fillStyle = s.col; c.beginPath(); c.arc(X(last.t), Y(last[s.k]), 3.5, 0, Math.PI*2); c.fill(); }
+  });
+  c.restore();
+  c.strokeStyle = T.ink; c.lineWidth = 1.5; c.globalAlpha = .6;
+  c.beginPath(); c.moveTo(L,Tp); c.lineTo(L,Tp+ph); c.lineTo(W-R,Tp+ph); c.stroke(); c.globalAlpha = 1;
+}
+
+/* ---------- Bilgi kutuları ve durum ---------- */
+function phase(){
+  if(S.status === 'idle') return {t:'Hazır: bırakmak için Başlat’a bas', k:''};
+  if(S.status === 'crashed') return {t:'Yere çarptı', k:'bad'};
+  const x = S.d - P.L0;
+  let msg;
+  if(x <= 0 && S.v >= 0) msg = 'Serbest düşüş: Ep_yer → Ek';
+  else if(x > 0 && S.v > 0) msg = 'İp geriliyor: Ep_yer ve Ek → Ep_yay';
+  else if(x > 0) msg = 'İp toparlıyor: Ep_yay → Ek ve Ep_yer';
+  else msg = 'İp gevşek, yükseliyor: Ek → Ep_yer';
+  if(S.status === 'paused') return {t:'Duraklatıldı · ' + msg, k:''};
+  return {t:msg, k:'run'};
+}
+
+function updateDom(){
+  const e = energies(), E0 = P.m*G*P.h;
+  $('v_ep').textContent = fJ(e.ep);
+  $('v_ek').textContent = fJ(e.ek);
+  $('v_ey').textContent = fJ(e.ey);
+  $('v_et').textContent = fJ(e.et);
+  const pc = v => Math.max(0, Math.min(100, v/E0*100)) + '%';
+  $('m_ep').style.width = pc(e.ep); $('m_ek').style.width = pc(e.ek);
+  $('m_ey').style.width = pc(e.ey); $('m_et').style.width = pc(e.et);
+  const ph = phase();
+  const chip = $('chip'); chip.textContent = ph.t; chip.className = 'chip' + (ph.k ? ' ' + ph.k : '');
+  $('ro_t').textContent = nf2.format(S.t);
+  $('ro_y').textContent = nf1.format(clean(P.h - S.d));
+  $('ro_v').textContent = (S.v > 0.05 ? '↓ ' : (S.v < -0.05 ? '↑ ' : '')) + nf1.format(Math.abs(clean(S.v)));
+  $('ro_x').textContent = nf1.format(clean(e.x));
+  const diff = e.et - E0;
+  const ok = Math.abs(diff) <= E0*0.005 + 1;
+  $('check').innerHTML = 'Ep_yer + Ek + Ep_yay = ' + fJ(e.ep) + ' + ' + fJ(e.ek) + ' + ' + fJ(e.ey) + ' = <b>' + fJ(e.et) + ' J</b> &nbsp;·&nbsp; başlangıç m·g·h = ' + fJ(E0) + ' J ' + (ok ? '<span class="okmark">✓ enerji korunuyor</span>' : '');
+}
+
+function updateButtons(){
+  $('btnStart').disabled = S.status !== 'idle';
+  const canPause = S.status === 'running' || S.status === 'paused';
+  $('btnPause').disabled = !canPause;
+  $('btnPause').textContent = S.status === 'paused' ? '▶ Devam et' : '⏸ Duraklat';
+}
+function showBanner(msg, kind){
+  const b = $('banner'); b.textContent = msg; b.className = 'banner' + (kind === 'bad' ? ' bad' : ''); b.hidden = false;
+}
+function hideBanner(){ $('banner').hidden = true; }
+
+/* ---------- Ana döngü ---------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  if(S.status === 'running') advance(dt*S.speed);
+  const T = tokens();
+  if(sc.ctx) drawScene(T);
+  if(gs.ctx) drawGraph(T);
+  updateDom();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Kontroller ---------- */
+$('btnStart').addEventListener('click', () => {
+  if(S.status !== 'idle') return;
+  S.status = 'running'; hideBanner(); updateButtons();
+});
+$('btnPause').addEventListener('click', () => {
+  if(S.status === 'running'){ S.status = 'paused'; pushSample(); }
+  else if(S.status === 'paused'){ S.status = 'running'; S.stopAt = null; hideBanner(); }
+  updateButtons();
+});
+$('btnReset').addEventListener('click', () => resetSim());
+document.querySelectorAll('.seg button').forEach(b => {
+  b.addEventListener('click', () => {
+    S.speed = parseFloat(b.dataset.speed);
+    document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+  });
+});
+document.querySelectorAll('#legend button').forEach(b => {
+  b.addEventListener('click', () => {
+    const k = b.dataset.k; vis[k] = !vis[k];
+    b.setAttribute('aria-pressed', vis[k] ? 'true' : 'false');
+  });
+});
+
+const defs = [
+  {key:'m', min:50, max:100, step:1},
+  {key:'h', min:20, max:100, step:1},
+  {key:'k', min:50, max:200, step:5},
+  {key:'L0', min:10, max:30, step:1}
+];
+defs.forEach(d => {
+  const r = $('r_'+d.key), n = $('n_'+d.key);
+  const apply = val => {
+    val = Math.min(d.max, Math.max(d.min, Math.round(val/d.step)*d.step));
+    P[d.key] = val; r.value = val; n.value = val; onParams();
+  };
+  r.value = P[d.key]; n.value = P[d.key];
+  r.addEventListener('input', () => apply(+r.value));
+  n.addEventListener('change', () => { if(isNaN(+n.value) || n.value === ''){ n.value = P[d.key]; return; } apply(+n.value); });
+});
+
+function updateSafety(){
+  const D = derived(), el = $('safety');
+  if(D.dmax < P.h){
+    el.className = 'safety ok'; el.textContent = 'Güvenli atlayış: ip yeterince uzar, atlayıcı yere çarpmaz.';
+  } else {
+    el.className = 'safety bad'; el.textContent = 'Tehlike: bu ayarlarda atlayıcı yere çarpar. Kütleyi azalt, k’yi artır, L₀’ı kısalt ya da platformu yükselt.';
+  }
+}
+function onParams(){
+  resetSim(); updateSafety(); resetQuestions(); renderMission();
+}
+
+/* ---------- Ölçüm defteri ---------- */
+let logRows = [];
+function renderLog(){
+  const E0 = P.m*G*P.h;
+  $('logEmpty').hidden = logRows.length > 0;
+  $('logTable').hidden = logRows.length === 0;
+  $('logBody').innerHTML = logRows.map(r =>
+    '<tr><td>' + nf2.format(r.t) + '</td><td>' + fJ(r.ep) + '</td><td>' + fJ(r.ek) + '</td><td>' + fJ(r.ey) + '</td><td>' + fJ(r.et) + '</td><td>' + (clean(r.et - r.E0) > 0 ? '+' : '') + nf1.format(clean(r.et - r.E0)) + '</td></tr>'
+  ).join('');
+}
+$('btnSnap').addEventListener('click', () => {
+  const e = energies();
+  logRows.unshift({t:S.t, ep:e.ep, ek:e.ek, ey:e.ey, et:e.et, E0:P.m*G*P.h});
+  if(logRows.length > 8) logRows.pop();
+  renderLog();
+});
+$('btnClear').addEventListener('click', () => { logRows = []; renderLog(); });
+
+/* ---------- Görev / Hesaplama ---------- */
+let qi = 0, score = 0, QS = {};
+
+function buildQs(){
+  const D = derived(), m = P.m, k = P.k, L0 = P.L0, h = P.h, mg = D.mg;
+  const xq = Math.max(1, Math.floor(D.xmax/2));
+  const eyMax = 0.5*k*D.xmax*D.xmax;
+  const ekq = mg*(L0+xq) - 0.5*k*xq*xq;
+  return [
+    {id:'ek0', tab:'Serbest boyda Ek',
+     text:'Atlayıcı ipin henüz gerilmediği tam serbest boy seviyesinden (platformun L₀ = ' + L0 + ' m altından) geçerken kinetik enerjisi kaç Joule’dür?',
+     ans: mg*L0, show:'L0', stopMsg:'İp tam serbest boyda, henüz gerilmiyor. Ek değerini kutudan oku.',
+     hint:'İp gerilmediği için enerji kaybolmaz: azalan Ep_yer, Ek’ye dönüşür. Ek = m·g·(düşülen yükseklik).',
+     steps:[
+       'İp gerilmediği için Ep_yay = 0 ve mekanik enerji korunur.',
+       'Düşülen yükseklik L₀ olduğundan Ek = m·g·L₀',
+       'Ek = ' + m + ' · 10 · ' + L0 + ' = ' + n0(mg*L0) + ' J']},
+    {id:'ep0', tab:'Serbest boyda Ep_yer',
+     text:'Aynı anda (ip serbest boyda), atlayıcının yer seviyesine göre yükseklik potansiyel enerjisi kaç Joule’dür?',
+     ans: Math.max(0, mg*(h-L0)), show:'L0', stopMsg:'İp serbest boyda. Ep_yer değerini kutudan oku.',
+     hint:'Atlayıcının yerden yüksekliği y = h − L₀. Ep_yer = m·g·y.',
+     steps:[
+       'Yerden yükseklik: y = h − L₀ = ' + h + ' − ' + L0 + ' = ' + (h-L0) + ' m',
+       'Ep_yer = m·g·y = ' + m + ' · 10 · ' + (h-L0) + ' = ' + n0(mg*(h-L0)) + ' J']},
+    {id:'eymax', tab:'Maks. yay enerjisi',
+     text:'En alt durma noktasında ipte depolanan maksimum yay potansiyel enerjisi kaç Joule’dür?',
+     ans: eyMax, show:'bottom', stopMsg:'En alt nokta: hız sıfır (Ek = 0). Değerleri kutulardan oku.',
+     hint:'En alt noktada Ek = 0. Simülasyonu o anda durdurup Ep_yer’i oku: Ep_yay = E_toplam − Ep_yer. Ya da hesapla: ½·k·x² = m·g·(L₀ + x).',
+     steps:[
+       'En alt noktada Ek = 0; kaybedilen Ep_yer tamamen Ep_yay olur: ½·k·x² = m·g·(L₀ + x)',
+       '½·' + k + '·x² − ' + n0(mg) + '·x − ' + n0(mg*L0) + ' = 0  →  x ≈ ' + nf1.format(D.xmax) + ' m',
+       'Ep_yay = ½·k·x² = ½ · ' + k + ' · (' + nf1.format(D.xmax) + ')² ≈ ' + n0(eyMax) + ' J']},
+    {id:'ekx', tab:'İp uzayınca Ek', xq:xq,
+     text:'İp ' + xq + ' m uzadığı anda (x = ' + xq + ' m) atlayıcının kinetik enerjisi kaç Joule’dür?',
+     ans: ekq, show:'x', stopMsg:'İp ' + xq + ' m uzadı. Ek değerini kutudan oku.',
+     hint:'E_toplam = m·g·h sabittir. Ek = E_toplam − Ep_yer − Ep_yay. Ya da düşülen yükseklik L₀ + x için: Ek = m·g·(L₀ + x) − ½·k·x².',
+     steps:[
+       'Düşülen yükseklik: L₀ + x = ' + L0 + ' + ' + xq + ' = ' + (L0+xq) + ' m',
+       'Ek = m·g·(L₀ + x) − ½·k·x²',
+       'Ek = ' + n0(mg) + ' · ' + (L0+xq) + ' − ½ · ' + k + ' · ' + xq + '² = ' + n0(mg*(L0+xq)) + ' − ' + n0(0.5*k*xq*xq) + ' = ' + n0(ekq) + ' J']},
+    {id:'etop', tab:'Toplam enerji',
+     text:'Atlayıcı platformdan bırakıldığı anda toplam mekanik enerjisi kaç Joule’dür? (Hava direncini ihmal et.)',
+     ans: mg*h, show:'start', stopMsg:'',
+     hint:'Bırakıldığı anda hız sıfır (Ek = 0) ve ip gerilmemiş (Ep_yay = 0). Geriye yalnızca Ep_yer kalır.',
+     steps:[
+       'Başlangıçta Ek = 0 ve Ep_yay = 0.',
+       'E_toplam = Ep_yer = m·g·h = ' + m + ' · 10 · ' + h + ' = ' + n0(mg*h) + ' J',
+       'Enerji korunduğu için bu değer bütün hareket boyunca sabit kalır.']}
+  ];
+}
+function resetQuestions(){
+  QS = {};
+  buildQs().forEach(q => { QS[q.id] = {solved:false, wrong:0, hint:false, revealed:false, msg:null}; });
+}
+function parseNum(s){
+  s = String(s).trim().replace(/\s/g,'');
+  if(!s) return NaN;
+  if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g,'').replace(',','.');
+  else s = s.replace(',','.');
+  return /^-?\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN;
+}
+function rankName(n){
+  return n >= 5 ? 'Enerji Ustası' : (n >= 4 ? 'Enerji Mühendisi' : (n >= 2 ? 'Laboratuvar Asistanı' : 'Çırak'));
+}
+
+function renderMission(){
+  const qs = buildQs(), q = qs[qi], st = QS[q.id], D = derived();
+  $('given').textContent = 'm = ' + P.m + ' kg · h = ' + P.h + ' m · k = ' + P.k + ' N/m · L₀ = ' + P.L0 + ' m · g = 10 m/s²';
+  const tabs = $('qtabs');
+  tabs.innerHTML = '';
+  qs.forEach((x,i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'qtab'; b.setAttribute('role','tab');
+    b.setAttribute('aria-selected', i === qi ? 'true' : 'false');
+    b.textContent = (QS[x.id].solved ? '✓ ' : '') + x.tab;
+    b.addEventListener('click', () => { qi = i; $('ans').value = ''; renderMission(); });
+    tabs.appendChild(b);
+  });
+  $('qtext').textContent = q.text + (D.dmax >= P.h ? ' (Uyarı: bu ayarlarda atlayıcı yere çarpar; ip yeterince uzayabilseymiş gibi hesapla.)' : '');
+  const fb = $('fb');
+  if(st.msg){ fb.textContent = st.msg.text; fb.className = 'fb ' + st.msg.kind; } else { fb.textContent = ''; fb.className = 'fb'; }
+  const hb = $('hintBox'); hb.hidden = !st.hint; hb.textContent = st.hint ? 'İpucu: ' + q.hint : '';
+  const sb = $('solBox'); sb.hidden = !st.revealed;
+  if(st.revealed){
+    sb.innerHTML = '<b>Çözüm</b><ol>' + q.steps.map(s => '<li>' + s + '</li>').join('') + '</ol>';
+  }
+  const n = qs.filter(x => QS[x.id].solved).length;
+  $('score').textContent = score; $('solved').textContent = n + '/' + qs.length; $('rank').textContent = rankName(n);
+}
+
+function checkAnswer(){
+  const q = buildQs()[qi], st = QS[q.id];
+  const val = parseNum($('ans').value);
+  if(isNaN(val)){ st.msg = {text:'Sayısal bir değer gir (örneğin 14000).', kind:'bad'}; renderMission(); return; }
+  const tol = Math.max(Math.abs(q.ans)*0.015, 1);
+  if(Math.abs(val - q.ans) <= tol){
+    st.solved = true;
+    const pts = st.revealed ? 0 : Math.max(2, 10 - 3*st.wrong - (st.hint ? 2 : 0));
+    score += pts;
+    st.msg = {text:'Doğru! ' + (pts ? '+' + pts + ' puan. ' : 'Çözümü görmeden cevapladığında puan kazanırsın. ') + 'Şimdi “Simülasyonda göster” ile aynı değeri kutuda gör.', kind:'ok'};
+  } else {
+    st.wrong++;
+    let t;
+    if(Math.abs(val - q.ans/10) <= Math.max(Math.abs(q.ans/10)*0.015, 0.5)) t = 'Yaklaştın ama g = 10 m/s² değerini katmayı unutmuş olabilirsin.';
+    else if(st.wrong >= 2) t = (val > q.ans ? 'Cevabın gerçek değerden büyük.' : 'Cevabın gerçek değerden küçük.') + ' İpucuna ya da simülasyona bakabilirsin.';
+    else t = 'Tam olmadı, tekrar dene. Takılırsan İpucu’na bas.';
+    st.msg = {text:t, kind:'bad'};
+  }
+  renderMission();
+}
+$('btnCheck').addEventListener('click', checkAnswer);
+$('ans').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); checkAnswer(); } });
+$('btnHint').addEventListener('click', () => { const q = buildQs()[qi]; QS[q.id].hint = true; renderMission(); });
+$('btnSol').addEventListener('click', () => { const q = buildQs()[qi]; QS[q.id].revealed = true; renderMission(); });
+$('btnShow').addEventListener('click', () => {
+  const q = buildQs()[qi];
+  resetSim();
+  if(q.show === 'start'){
+    showBanner('Başlangıç anı: hız sıfır, ip gevşek. Kutulardaki değerlere bak.', 'info');
+  } else {
+    S.stopAt = {kind:q.show, xq:q.xq, msg:q.stopMsg};
+    S.status = 'running'; updateButtons();
+  }
+  try{ $('sceneWrap').scrollIntoView({behavior:'smooth', block:'center'}); }catch(err){}
+});
+
+/* ---------- Başlat ---------- */
+resetSim();
+updateSafety();
+resetQuestions();
+renderMission();
+renderLog();
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

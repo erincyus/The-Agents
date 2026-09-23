@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kutup İstasyonu Erzak Operasyonu – Düşey Atış Simülasyonu</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Orbitron:wght@600;800&display=swap">
+<style>
+:root{
+  --night:#050f24; --deep:#0a2249; --glacier:#59c6f2; --ice:#bfe8ff; --frost:#f1faff;
+  --amber:#ffd45e; --coral:#ff7a6b; --mint:#7ff3c2; --lav:#c4b0ff;
+  --panel:rgba(8,26,56,.78); --line:rgba(150,210,255,.24); --muted:#a9cfe8;
+  color-scheme:dark;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0; min-height:100%; color:var(--frost);
+  font-family:'Lexend',system-ui,'Segoe UI',Roboto,Arial,sans-serif; line-height:1.5;
+  background:
+    radial-gradient(1100px 620px at 12% -8%, #17497f 0%, transparent 62%),
+    radial-gradient(900px 560px at 100% 0%, rgba(30,150,150,.32) 0%, transparent 60%),
+    linear-gradient(180deg,#061a3a 0%,#040d22 100%);
+  background-color:#050f24; background-attachment:fixed;
+}
+.page{max-width:1480px; margin:0 auto; padding:22px 20px 40px}
+.top{margin-bottom:18px}
+h1{margin:0; font-size:clamp(24px,3.2vw,36px); font-weight:700; letter-spacing:-.01em}
+.sub{margin:4px 0 0; color:var(--ice); font-size:clamp(14px,1.6vw,17px)}
+.story{margin:12px 0 0; max-width:78ch; color:#d7ecfa; font-size:15.5px}
+.layout{display:grid; grid-template-columns:minmax(0,1fr); gap:18px; align-items:start}
+@media(min-width:1040px){ .layout{grid-template-columns:minmax(0,1fr) 392px} .stage{position:sticky; top:14px} }
+
+.stage{background:var(--panel); border:1px solid var(--line); border-radius:20px; overflow:hidden; box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.canvas-wrap{position:relative; line-height:0}
+canvas{display:block; width:100%}
+.clock{position:absolute; top:12px; right:12px; line-height:1.2; text-align:right; padding:8px 14px 10px; border-radius:14px;
+  background:rgba(3,12,32,.78); border:1px solid rgba(170,225,255,.45); min-width:150px}
+.clock-label{display:block; font-size:12px; color:var(--ice)}
+.clock output{display:block; font-family:'Orbitron','Lexend',ui-monospace,Consolas,monospace; font-weight:800;
+  font-size:clamp(28px,4vw,40px); color:#f4fbff; text-shadow:0 0 14px rgba(89,198,242,.75); font-variant-numeric:tabular-nums}
+.status{margin:0; padding:13px 18px; font-size:15px; color:var(--ice); border-top:1px solid var(--line); min-height:52px}
+.status.warn{color:var(--amber)}
+
+.panel{display:flex; flex-direction:column; gap:14px}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px 16px 18px}
+.card h2{margin:0 0 12px; font-size:17px; font-weight:600}
+fieldset{border:0; margin:0; padding:0; min-width:0}
+legend{padding:0; font-size:14px; color:var(--muted); margin-bottom:8px}
+
+.mode{display:block; position:relative; margin-bottom:8px; cursor:pointer}
+.mode input,.seg input{position:absolute; opacity:0; inset:0; width:100%; height:100%; margin:0; cursor:pointer}
+.mode-body{display:block; padding:11px 13px; border-radius:12px; border:1px solid var(--line); background:rgba(90,160,220,.08)}
+.mode-body strong{display:block; font-size:15px; font-weight:600}
+.mode-body small{display:block; color:var(--muted); font-size:13px; margin-top:2px}
+.mode input:checked + .mode-body,.seg input:checked + span{border-color:var(--glacier); background:rgba(89,198,242,.2); box-shadow:inset 0 0 0 1px var(--glacier)}
+.mode input:focus-visible + .mode-body,.seg input:focus-visible + span{outline:2px solid var(--frost); outline-offset:2px}
+.chip{margin:2px 0 14px; font-size:14px; color:var(--amber)}
+
+.field{margin-bottom:14px}
+.field > label,.field > .lab{display:block; font-size:14px; color:var(--muted); margin-bottom:6px}
+.field .sym{color:var(--frost); font-weight:600}
+.stepper{display:flex; align-items:stretch; gap:8px}
+.stepper input{flex:1; min-width:0; width:100%; text-align:center; font:600 22px 'Lexend',system-ui,sans-serif; font-variant-numeric:tabular-nums;
+  color:var(--frost); background:rgba(2,10,28,.7); border:1px solid var(--line); border-radius:10px; padding:8px 6px; -moz-appearance:textfield; appearance:textfield}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+.stepper input:focus-visible{outline:2px solid var(--glacier); outline-offset:1px}
+.stepper .unit{align-self:center; min-width:38px; color:var(--ice); font-size:14px}
+.step{width:48px; min-height:48px; font:600 24px 'Lexend',system-ui,sans-serif; line-height:1; color:var(--frost); cursor:pointer;
+  background:rgba(89,198,242,.16); border:1px solid var(--line); border-radius:10px}
+.step:hover{background:rgba(89,198,242,.3)}
+.hint{margin:5px 0 0; color:var(--muted); font-size:12.5px}
+
+.segs{display:flex; gap:8px}
+.seg{position:relative; flex:1}
+.seg span{display:block; text-align:center; padding:11px 8px; border-radius:12px; border:1px solid var(--line); background:rgba(90,160,220,.08); font-weight:600; font-size:15px}
+.checks{display:grid; gap:4px; margin:6px 0 16px}
+.check{display:flex; align-items:center; gap:10px; padding:6px 2px; font-size:14.5px; cursor:pointer; min-height:36px}
+.check input{width:20px; height:20px; accent-color:var(--glacier); margin:0}
+
+button{font-family:inherit}
+.btn{cursor:pointer; border-radius:12px; font-size:15px; font-weight:600; padding:12px 14px; min-height:46px; color:var(--frost);
+  background:rgba(89,198,242,.14); border:1px solid var(--line)}
+.btn:hover:not(:disabled){background:rgba(89,198,242,.28)}
+.btn:focus-visible,.step:focus-visible{outline:2px solid var(--frost); outline-offset:2px}
+.btn:disabled{opacity:.42; cursor:not-allowed}
+.btn.primary{width:100%; font-size:17px; font-weight:700; color:#03142e; border:0;
+  background:linear-gradient(180deg,#a5e8ff,#45b8ec); box-shadow:0 8px 22px rgba(60,180,240,.3)}
+.btn.primary:hover:not(:disabled){background:linear-gradient(180deg,#c0f0ff,#5cc6f5)}
+.row{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px}
+
+.live{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.tile{padding:11px 13px; border-radius:12px; background:rgba(2,10,28,.62); border:1px solid var(--line)}
+.tile .k{display:block; font-size:13px; color:var(--muted)}
+.tile .val{display:block; font-size:27px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.25}
+.tile .u{font-size:14px; color:var(--ice); font-weight:400; margin-left:4px}
+
+.analysis.locked{opacity:.62}
+.lockmsg{margin:-4px 0 12px; font-size:13.5px; color:var(--muted)}
+.subh{margin:14px 0 8px; font-size:14px; color:var(--muted)}
+.replay{display:grid; grid-template-columns:1fr; gap:8px}
+.stepsel{display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:14px}
+.stepsel select{font:500 15px 'Lexend',system-ui,sans-serif; color:var(--frost); background:rgba(2,10,28,.7); border:1px solid var(--line); border-radius:10px; padding:8px 10px}
+dl.sum{margin:0; display:grid; gap:8px}
+dl.sum div{display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:9px 12px; border-radius:10px; background:rgba(2,10,28,.62); border:1px solid var(--line)}
+dl.sum dt{font-size:14px; color:var(--muted)}
+dl.sum dd{margin:0; font-size:19px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right}
+.formula{margin:12px 0 0; font-size:13px; color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Kutup İstasyonu Erzak Operasyonu</h1>
+    <p class="sub">11. Sınıf Fizik: Bir boyutta sabit ivmeli hareket (serbest düşme ve düşey atışlar)</p>
+    <p class="story" id="story"></p>
+  </header>
+
+  <main class="layout">
+    <section class="stage" aria-label="Simülasyon alanı">
+      <div class="canvas-wrap" id="wrap">
+        <canvas id="cv" role="img" aria-label="Düşey hareketin yükseklik ekseni üzerinde canlı gösterimi"></canvas>
+        <div class="clock"><span class="clock-label" id="clockLabel">Süre</span><output id="clock" aria-label="Geçen süre">0.0s</output></div>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <aside class="panel">
+      <section class="card" aria-labelledby="h-params">
+        <h2 id="h-params">Parametreler</h2>
+        <fieldset>
+          <legend>Atış türü</legend>
+          <label class="mode"><input type="radio" name="mode" value="down" checked>
+            <span class="mode-body"><strong>Serbest düşme / aşağı doğru düşey atış</strong><small>V₀ = 0 ise serbest düşme, V₀ &gt; 0 ise aşağı doğru atış</small></span></label>
+          <label class="mode"><input type="radio" name="mode" value="up">
+            <span class="mode-body"><strong>Aşağıdan yukarıya doğru düşey atış</strong><small>Zeminden ya da h₀ yüksekliğinden +V₀ hızıyla fırlatılır</small></span></label>
+        </fieldset>
+        <p class="chip" id="typeChip"></p>
+
+        <div class="field">
+          <label for="h0">Atış yüksekliği <span class="sym">h₀</span></label>
+          <div class="stepper">
+            <button type="button" class="step" data-target="h0" data-step="10" data-dir="-1" aria-label="Yüksekliği azalt">−</button>
+            <input type="number" id="h0" inputmode="decimal" min="0" max="500" step="any" value="100">
+            <span class="unit">m</span>
+            <button type="button" class="step" data-target="h0" data-step="10" data-dir="1" aria-label="Yüksekliği artır">+</button>
+          </div>
+          <p class="hint">0 ile 500 m arası. Düğmeler 10 m değiştirir.</p>
+        </div>
+
+        <div class="field">
+          <label for="v0">İlk hız <span class="sym">V₀</span></label>
+          <div class="stepper">
+            <button type="button" class="step" data-target="v0" data-step="5" data-dir="-1" aria-label="İlk hızı azalt">−</button>
+            <input type="number" id="v0" inputmode="decimal" min="0" max="100" step="any" value="0">
+            <span class="unit">m/s</span>
+            <button type="button" class="step" data-target="v0" data-step="5" data-dir="1" aria-label="İlk hızı artır">+</button>
+          </div>
+          <p class="hint">0 ile 100 m/s arası. Düğmeler 5 m/s değiştirir.</p>
+        </div>
+
+        <fieldset class="field">
+          <legend>Yerçekimi ivmesi g</legend>
+          <div class="segs">
+            <label class="seg"><input type="radio" name="g" value="10" checked><span>10 m/s²</span></label>
+            <label class="seg"><input type="radio" name="g" value="9.8"><span>9.8 m/s²</span></label>
+          </div>
+        </fieldset>
+
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="showV" checked> Hız vektörünü göster (V<sub>y</sub>)</label>
+          <label class="check"><input type="checkbox" id="showG" checked> Yerçekimi ivme vektörünü göster (g)</label>
+        </div>
+
+        <button type="button" class="btn primary" id="btnStart">Simülasyonu Başlat</button>
+        <div class="row">
+          <button type="button" class="btn" id="btnPause" disabled>Duraklat</button>
+          <button type="button" class="btn" id="btnReset">Sıfırla</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-live">
+        <h2 id="h-live">Canlı veri</h2>
+        <div class="live">
+          <div class="tile"><span class="k">Geçen süre t</span><span class="val"><span id="lt">0.00</span><span class="u">s</span></span></div>
+          <div class="tile"><span class="k">Yükseklik y</span><span class="val"><span id="ly">0.00</span><span class="u">m</span></span></div>
+          <div class="tile"><span class="k">Düşey hız V<sub>y</sub></span><span class="val"><span id="lv">0.00</span><span class="u">m/s</span></span></div>
+          <div class="tile"><span class="k">İvme a</span><span class="val"><span id="la">0.0</span><span class="u">m/s²</span></span></div>
+        </div>
+        <p class="hint" style="margin-top:10px">Yön işareti: yukarı (+), aşağı (−).</p>
+      </section>
+
+      <section class="card analysis locked" id="analysis" aria-labelledby="h-an">
+        <h2 id="h-an">Hareket analiz paneli</h2>
+        <p class="lockmsg" id="lockmsg">Animasyon bitince bu bölüm açılır.</p>
+
+        <p class="subh" style="margin-top:0">Tekrar oynat</p>
+        <div class="replay">
+          <button type="button" class="btn" id="btnReplay" disabled>Tekrar oynat (normal hız)</button>
+          <div class="row" style="margin-top:0">
+            <button type="button" class="btn" id="btnSlow50" disabled>Ağır çekim %50</button>
+            <button type="button" class="btn" id="btnSlow25" disabled>Ağır çekim %25</button>
+          </div>
+        </div>
+
+        <p class="subh">Kare kare ilerle</p>
+        <div class="stepsel">
+          <label for="stepSize">Adım</label>
+          <select id="stepSize" disabled><option value="0.1">0.1s</option><option value="1">1s</option></select>
+        </div>
+        <div class="row" style="margin-top:0">
+          <button type="button" class="btn" id="btnBack" disabled>◀ Kare geri</button>
+          <button type="button" class="btn" id="btnFwd" disabled>Kare ileri ▶</button>
+        </div>
+
+        <p class="subh">Teorik özet</p>
+        <dl class="sum">
+          <div><dt>Maksimum yükseklik h<sub>max</sub></dt><dd id="sHmax">-</dd></div>
+          <div><dt>Çıkış süresi t<sub>çıkış</sub></dt><dd id="sTup">-</dd></div>
+          <div><dt>Toplam uçuş süresi t<sub>uçuş</sub></dt><dd id="sTf">-</dd></div>
+          <div><dt>Yere çarpma hızı V<sub>çarpan</sub></dt><dd id="sV">-</dd></div>
+        </dl>
+        <p class="formula">Bağıntılar: V<sub>y</sub> = V₀<sub>y</sub> − g·t &nbsp; ve &nbsp; y = h₀ + V₀<sub>y</sub>·t − ½·g·t²</p>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $ = function(id){ return document.getElementById(id); };
+var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+var FONT = "'Lexend', system-ui, 'Segoe UI', Arial, sans-serif";
+
+var cv = $('cv'), ctx = cv.getContext('2d');
+var bg = document.createElement('canvas'), bctx = bg.getContext('2d');
+var W = 600, H = 500, dpr = 1, groundY = 478, topPad = 34;
+var scale = 1, yTop = 100, tickStep = 10, xObj = 200, narrow = false;
+var P = null, labels = [], flakes = [];
+var state = { status:'idle', t:0, speed:1, apex:false, impactAt:0, unlocked:false };
+var lastNow = 0;
+
+/* ---------- yardımcılar ---------- */
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function r2(x){ return Math.round(x * 100) / 100; }
+function fmt(x){ var v = r2(x); return (v === 0) ? '0' : String(v); }
+function sfmt(x){ var v = r2(x); if (v === 0) return '0'; return (v > 0 ? '+' : '') + v; }
+function fix2(x){ var s = x.toFixed(2); return (s === '-0.00') ? '0.00' : s; }
+function sfix2(x){ var s = fix2(x); return (x > 0.004 ? '+' : '') + s; }
+function clamp(x, a, b){ return Math.min(b, Math.max(a, x)); }
+function readNum(id, min, max, def){ var x = parseFloat($(id).value); if (isNaN(x)) x = def; return clamp(x, min, max); }
+function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+
+/* ---------- fizik ---------- */
+function computeP(){
+  var mode = document.querySelector('input[name=mode]:checked').value;
+  var g = parseFloat(document.querySelector('input[name=g]:checked').value);
+  var h0 = readNum('h0', 0, 500, 100), v0 = readNum('v0', 0, 100, 0);
+  var up = mode === 'up';
+  var v0s = up ? v0 : -v0;
+  var tf = (v0s + Math.sqrt(v0s * v0s + 2 * g * h0)) / g;
+  var tup = (up && v0 > 0) ? v0 / g : 0;
+  var hmax = h0 + (up ? v0 * v0 / (2 * g) : 0);
+  var valid = tf > 1e-9;
+  return { mode:mode, up:up, g:g, h0:h0, v0:v0, v0s:v0s, tf:valid ? tf : 0, tup:tup, hmax:hmax,
+           vimp:v0s - g * (valid ? tf : 0), valid:valid };
+}
+function yAt(t){ return Math.max(0, P.h0 + P.v0s * t - 0.5 * P.g * t * t); }
+function vAt(t){ return P.v0s - P.g * t; }
+
+/* ---------- yerleşim ---------- */
+function computeScale(){
+  var plotH = groundY - topPad, hm = Math.max(P.hmax, 10);
+  var steps = [5, 10, 20, 25, 50, 100, 200];
+  for (var i = 0; i < steps.length; i++){
+    var s = steps[i], yt = Math.ceil(hm * 1.08 / s) * s, sc = plotH / yt;
+    if (s * sc >= 44 || s === 200){ yTop = yt; scale = sc; tickStep = s; break; }
+  }
+}
+function y2px(y){ return groundY - y * scale; }
+
+function buildLabels(){
+  labels = [];
+  if (!P || !P.valid) return;
+  var n = Math.floor(P.tf + 1e-9), minGap = narrow ? 23 : 25;
+  for (var k = 1; k <= n; k++){
+    var y = yAt(k), asc = P.up && k <= P.tup + 1e-9;
+    var py = y2px(y);
+    labels.push({ k:k, y:y, v:vAt(k), asc:asc, py:py, ly:py, side:(asc && !narrow) ? 'L' : 'R' });
+  }
+  ['L', 'R'].forEach(function(side){
+    var arr = labels.filter(function(l){ return l.side === side; }).sort(function(a, b){ return a.py - b.py; });
+    var lo = topPad + 12, hi = groundY - 14;
+    for (var it = 0; it < 80; it++){
+      var moved = false;
+      for (var i = 1; i < arr.length; i++){
+        var gap = arr[i].ly - arr[i-1].ly;
+        if (gap < minGap - 0.01){ var d = (minGap - gap) / 2; arr[i-1].ly -= d; arr[i].ly += d; moved = true; }
+      }
+      arr.forEach(function(l){ l.ly = clamp(l.ly, lo, hi); });
+      if (!moved) break;
+    }
+  });
+}
+
+/* ---------- arka plan (bir kez çizilir) ---------- */
+function mountains(c, base, color, hMax, seed){
+  var rnd = mulberry32(seed), n = 14, step = W / n;
+  c.beginPath(); c.moveTo(0, base);
+  for (var i = 0; i <= n; i++){
+    var h = hMax * (0.35 + 0.65 * rnd());
+    c.lineTo(i * step, base - (i % 2 ? h * 0.35 : h));
+  }
+  c.lineTo(W, base); c.closePath(); c.fillStyle = color; c.fill();
+}
+function buildBg(){
+  bg.width = Math.round(W * dpr); bg.height = Math.round(H * dpr);
+  var c = bctx; c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
+  var gy = groundY;
+  var g = c.createLinearGradient(0, 0, 0, gy);
+  g.addColorStop(0, '#020a1f'); g.addColorStop(.35, '#07214a'); g.addColorStop(.72, '#0f4a80'); g.addColorStop(1, '#4b9cc8');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+
+  var rnd = mulberry32(11), ns = Math.round(W * gy / 3600), i, x, y, r, a;
+  for (i = 0; i < ns; i++){
+    x = rnd() * W; y = rnd() * gy * .72; r = .4 + rnd() * 1.1; a = .35 + rnd() * .65;
+    c.fillStyle = 'rgba(235,246,255,' + a + ')'; c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill();
+  }
+  var bands = [
+    { y:gy*.16, amp:gy*.05, f:1.3, ph:.4, len:gy*.34, col:'90,255,200', a:.30 },
+    { y:gy*.24, amp:gy*.06, f:.9, ph:2.1, len:gy*.30, col:'120,190,255', a:.22 },
+    { y:gy*.12, amp:gy*.04, f:1.8, ph:4, len:gy*.26, col:'170,140,255', a:.16 }
+  ];
+  c.globalCompositeOperation = 'lighter';
+  bands.forEach(function(b){
+    for (var xx = 0; xx < W; xx += 3){
+      var u = xx / W * Math.PI * 2 * b.f + b.ph;
+      var top = b.y + Math.sin(u) * b.amp + Math.sin(u * 2.3 + 1) * b.amp * .4;
+      var len = b.len * (.7 + .3 * Math.sin(u * 1.7 + b.ph));
+      var gr = c.createLinearGradient(0, top, 0, top + len);
+      gr.addColorStop(0, 'rgba(' + b.col + ',0)'); gr.addColorStop(.2, 'rgba(' + b.col + ',' + b.a + ')'); gr.addColorStop(1, 'rgba(' + b.col + ',0)');
+      c.fillStyle = gr; c.fillRect(xx, top, 3.2, len);
+    }
+  });
+  c.globalCompositeOperation = 'source-over';
+
+  mountains(c, gy, '#1a5088', gy * .22, 5);
+  mountains(c, gy, '#0d3562', gy * .12, 9);
+
+  var gg = c.createLinearGradient(0, gy, 0, H);
+  gg.addColorStop(0, '#f6fcff'); gg.addColorStop(1, '#b9ddf2');
+  c.fillStyle = gg; c.fillRect(0, gy, W, H - gy);
+
+  if (W >= 520){
+    var cab = [[.64, 56, 28], [.72, 44, 22], [.79, 62, 30], [.88, 46, 24]];
+    cab.forEach(function(d, idx){
+      var cx = W * d[0], w = d[1], h = d[2];
+      c.fillStyle = '#c9e2f2'; c.fillRect(cx, gy - h, w, h);
+      c.fillStyle = '#e9f7ff'; c.beginPath(); c.moveTo(cx - 3, gy - h); c.lineTo(cx + w / 2, gy - h - 9); c.lineTo(cx + w + 3, gy - h); c.closePath(); c.fill();
+      c.fillStyle = 'rgba(255,200,90,.95)'; c.fillRect(cx + 7, gy - h + 7, 9, 8); c.fillRect(cx + w - 16, gy - h + 7, 9, 8);
+      if (idx === 2){ c.strokeStyle = '#d8ecf8'; c.lineWidth = 2; c.beginPath(); c.moveTo(cx + w - 6, gy - h); c.lineTo(cx + w - 6, gy - h - 26); c.stroke(); }
+    });
+  }
+  c.fillStyle = 'rgba(255,255,255,.95)'; c.fillRect(0, gy - 1, W, 2);
+}
+function initSnow(){
+  flakes = []; var rnd = mulberry32(3), n = Math.round(W * H / 9500);
+  for (var i = 0; i < n; i++) flakes.push({ x:rnd() * W, y:rnd() * H, r:.8 + rnd() * 1.8, s:14 + rnd() * 26, d:rnd() * 6.28 });
+}
+
+/* ---------- yeniden boyutlandırma ---------- */
+function resize(){
+  var wrap = $('wrap'), cw = Math.max(280, wrap.clientWidth);
+  W = cw; H = Math.round(clamp(cw * .74, 470, 720));
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  groundY = H - 22;
+  narrow = W < 640;
+  xObj = narrow ? 96 : Math.max(300, Math.round(W * .36));
+  if (P) computeScale();
+  buildBg(); initSnow(); buildLabels();
+}
+
+/* ---------- çizim yardımcıları ---------- */
+function outlined(text, x, y, font, fill, align, base){
+  ctx.font = font; ctx.textAlign = align || 'left'; ctx.textBaseline = base || 'alphabetic';
+  ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(2,10,28,.92)';
+  ctx.strokeText(text, x, y); ctx.fillStyle = fill; ctx.fillText(text, x, y);
+}
+function pill(text, x, y, align, color, fs){
+  ctx.font = '600 ' + fs + 'px ' + FONT;
+  var w = ctx.measureText(text).width + 16, h = fs + 10;
+  var x0 = align === 'left' ? x : (align === 'right' ? x - w : x - w / 2);
+  x0 = clamp(x0, 2, W - w - 2);
+  rr(ctx, x0, y - h / 2, w, h, 8);
+  ctx.fillStyle = 'rgba(4,14,34,.88)'; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = color; ctx.stroke();
+  ctx.fillStyle = '#f1faff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, x0 + 8, y + 0.5);
+  return { x0:x0, w:w };
+}
+function arrow(x, y1, y2, color){
+  var dir = y2 < y1 ? -1 : 1;
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x, y2 - dir * 5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y2); ctx.lineTo(x - 7, y2 - dir * 12); ctx.lineTo(x + 7, y2 - dir * 12); ctx.closePath(); ctx.fill();
+}
+
+/* ---------- sahne ---------- */
+function drawGrid(){
+  ctx.lineWidth = 1;
+  for (var v = 0; v <= yTop + 1e-9; v += tickStep){
+    var py = y2px(v);
+    if (v > 0){ ctx.strokeStyle = 'rgba(190,232,255,.13)'; ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(230,246,255,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(12, py); ctx.stroke(); ctx.lineWidth = 1;
+    outlined(v + ' m', 18, py - 4, '600 12.5px ' + FONT, '#f1faff', 'left', 'alphabetic');
+  }
+  ctx.strokeStyle = '#d8f1ff'; ctx.lineWidth = 3; ctx.lineCap = 'butt';
+  ctx.beginPath(); ctx.moveTo(1.5, groundY); ctx.lineTo(1.5, topPad - 14); ctx.stroke();
+  ctx.fillStyle = '#d8f1ff'; ctx.beginPath(); ctx.moveTo(1.5, topPad - 22); ctx.lineTo(-4, topPad - 12); ctx.lineTo(7, topPad - 12); ctx.closePath(); ctx.fill();
+  outlined('y (yükseklik)', 18, 15, '600 12.5px ' + FONT, '#bfe8ff', 'left', 'middle');
+  ctx.font = '500 12.5px ' + FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#0a2d55';
+  ctx.fillText('Zemin (y = 0 m)', W - 12, H - 6);
+}
+function drawGuides(){
+  var t = state.t;
+  if (P.h0 > 0){
+    var hy = y2px(P.h0);
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(120,205,250,.7)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, hy); ctx.lineTo(xObj - 40, hy); ctx.stroke(); ctx.setLineDash([]);
+    outlined('h₀ = ' + fmt(P.h0) + ' m', 64, hy + 16, '600 12.5px ' + FONT, '#9fe0ff', 'left', 'middle');
+    var lg = ctx.createLinearGradient(0, hy, 0, hy + 7); lg.addColorStop(0, '#dbe9f3'); lg.addColorStop(1, '#7d96ab');
+    ctx.fillStyle = lg; ctx.fillRect(xObj - 40, hy, 80, 7);
+    ctx.fillStyle = '#5f7a91'; ctx.fillRect(xObj - 34, hy + 7, 4, 12); ctx.fillRect(xObj + 30, hy + 7, 4, 12);
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.ellipse(xObj, groundY + 1, 30, 6, 0, 0, 7); ctx.fill();
+  }
+  if (P.tup > 0 && t >= P.tup - 1e-9){
+    var ay = y2px(P.hmax);
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(255,212,94,.85)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, ay); ctx.lineTo(xObj + 44, ay); ctx.stroke(); ctx.setLineDash([]);
+    outlined('h_max = ' + fmt(P.hmax) + ' m', 64, ay - 14, '600 12.5px ' + FONT, '#ffe08a', 'left', 'middle');
+  }
+}
+function drawTrail(){
+  var t = state.t; if (t <= 0) return;
+  ctx.lineCap = 'round';
+  var y0 = y2px(P.h0);
+  if (P.tup > 0){
+    var tA = Math.min(t, P.tup), yA = y2px(yAt(tA));
+    ctx.strokeStyle = 'rgba(255,190,70,.28)'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(xObj, y0); ctx.lineTo(xObj, yA); ctx.stroke();
+    ctx.strokeStyle = '#ffc94a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(xObj, y0); ctx.lineTo(xObj, yA); ctx.stroke();
+    if (t > P.tup){
+      var yT = y2px(P.hmax), yN = y2px(yAt(t));
+      ctx.strokeStyle = 'rgba(110,215,255,.30)'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(xObj, yT); ctx.lineTo(xObj, yN); ctx.stroke();
+      ctx.strokeStyle = '#e6f8ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xObj, yT); ctx.lineTo(xObj, yN); ctx.stroke();
+    }
+  } else {
+    var yN2 = y2px(yAt(t));
+    ctx.strokeStyle = 'rgba(110,215,255,.30)'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(xObj, y0); ctx.lineTo(xObj, yN2); ctx.stroke();
+    ctx.strokeStyle = '#e6f8ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(xObj, y0); ctx.lineTo(xObj, yN2); ctx.stroke();
+  }
+}
+function drawPoints(){
+  var t = state.t, fs = narrow ? 11.5 : 13;
+  labels.forEach(function(l){
+    if (l.k > t + 1e-9) return;
+    var col = l.asc ? '#ffd45e' : '#ff7a6b';
+    var text = '(t: ' + l.k + 's, y: ' + fmt(l.y) + 'm, Vy: ' + sfmt(l.v) + 'm/s)';
+    var edge = l.side === 'L' ? xObj - 34 : xObj + 34;
+    ctx.strokeStyle = col; ctx.globalAlpha = .75; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(xObj + (l.side === 'L' ? -8 : 8), l.py); ctx.lineTo(edge, l.ly); ctx.stroke(); ctx.globalAlpha = 1;
+    pill(text, edge, l.ly, l.side === 'L' ? 'right' : 'left', col, fs);
+    ctx.fillStyle = 'rgba(4,14,34,.9)'; ctx.beginPath(); ctx.arc(xObj, l.py, 8, 0, 7); ctx.fill();
+    ctx.lineWidth = 3.5; ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(xObj, l.py, 8, 0, 7); ctx.stroke();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(xObj, l.py, 2.6, 0, 7); ctx.fill();
+  });
+}
+function drawObject(){
+  var y = yAt(state.t), py = y2px(y), v = vAt(state.t), cy;
+  if (P.up){
+    cy = py - 15;
+    var gl = ctx.createRadialGradient(xObj, cy, 2, xObj, cy, 36);
+    gl.addColorStop(0, 'rgba(255,120,90,.85)'); gl.addColorStop(1, 'rgba(255,120,90,0)');
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(xObj, cy, 36, 0, 7); ctx.fill();
+    if (state.status === 'running' && v > 0 && !reduce){
+      var fl = 12 + Math.random() * 10;
+      ctx.fillStyle = '#ffd45e'; ctx.beginPath(); ctx.moveTo(xObj - 4, py - 1); ctx.lineTo(xObj + 4, py - 1); ctx.lineTo(xObj, py - 1 + fl); ctx.closePath(); ctx.fill();
+    }
+    rr(ctx, xObj - 6, py - 30, 12, 30, 4); ctx.fillStyle = '#e5432f'; ctx.fill();
+    ctx.fillStyle = '#fff3d6'; ctx.fillRect(xObj - 6, py - 30, 12, 7);
+    ctx.strokeStyle = '#7a1c10'; ctx.lineWidth = 1.5; rr(ctx, xObj - 6, py - 30, 12, 30, 4); ctx.stroke();
+  } else {
+    cy = py - 15;
+    var cg = ctx.createLinearGradient(0, py - 30, 0, py); cg.addColorStop(0, '#ffc266'); cg.addColorStop(1, '#e58a24');
+    rr(ctx, xObj - 15, py - 30, 30, 30, 4); ctx.fillStyle = cg; ctx.fill();
+    ctx.strokeStyle = '#7a4a10'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = '#fff6e0'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(xObj, py - 30); ctx.lineTo(xObj, py); ctx.moveTo(xObj - 15, py - 15); ctx.lineTo(xObj + 15, py - 15); ctx.stroke();
+  }
+  return { cy:cy, v:v, py:py };
+}
+function drawVectors(o){
+  var showV = $('showV').checked, showG = $('showG').checked, fs = narrow ? 11.5 : 13;
+  if (showV){
+    var ax = xObj + 32, v = o.v, len = Math.min(130, Math.abs(v) * 0.9);
+    if (Math.abs(v) > 0.05) len = Math.max(len, 8);
+    var endY = o.cy - (v > 0 ? 1 : -1) * len;
+    if (Math.abs(v) > 0.05) arrow(ax, o.cy, endY, '#7ff3c2');
+    var ly = clamp(Math.abs(v) > 0.05 ? endY : o.cy, topPad + 10, groundY - 12);
+    pill('Vy = ' + sfmt(v) + ' m/s', ax + 12, ly, 'left', '#7ff3c2', fs);
+  }
+  if (showG){
+    var gx = xObj - 32, gy1 = o.cy, gy2 = o.cy + 46;
+    arrow(gx, gy1, gy2, '#c4b0ff');
+    pill('g = ' + fmt(P.g) + ' m/s²', gx - 12, clamp(gy2 + 4, topPad + 10, groundY - 12), 'right', '#c4b0ff', fs);
+  }
+}
+function drawImpact(now){
+  if (!state.impactAt) return;
+  var p = (now - state.impactAt) / 900; if (p >= 1 || reduce) return;
+  var e = 1 - Math.pow(1 - p, 3);
+  for (var i = 0; i < 14; i++){
+    var a = Math.PI + (i / 13) * Math.PI, d = e * (26 + (i % 3) * 12);
+    ctx.fillStyle = 'rgba(255,255,255,' + (1 - p) + ')';
+    ctx.beginPath(); ctx.arc(xObj + Math.cos(a) * d, groundY + Math.sin(a) * d * .8, 3.2 * (1 - p) + .5, 0, 7); ctx.fill();
+  }
+}
+function drawSnow(dt, now){
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  for (var i = 0; i < flakes.length; i++){
+    var f = flakes[i];
+    if (!reduce){
+      f.y += f.s * dt; f.x += Math.sin(now / 1500 + f.d) * 8 * dt;
+      if (f.y > groundY){ f.y = -4; f.x = Math.random() * W; }
+    }
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 7); ctx.fill();
+  }
+}
+function draw(dt, now){
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(bg, 0, 0, W, H);
+  drawSnow(dt, now);
+  drawGrid(); drawGuides(); drawTrail(); drawPoints();
+  var o = drawObject(); drawVectors(o); drawImpact(now);
+}
+
+/* ---------- arayüz ---------- */
+function setStatus(text, warn){ var s = $('status'); s.textContent = text; s.className = 'status' + (warn ? ' warn' : ''); }
+function typeText(){
+  var v0 = readNum('v0', 0, 100, 0), h0 = readNum('h0', 0, 500, 100);
+  var mode = document.querySelector('input[name=mode]:checked').value;
+  if (mode === 'down') return v0 > 0 ? 'Hareket türü: aşağı doğru düşey atış' : 'Hareket türü: serbest düşme (V₀ = 0)';
+  if (v0 === 0) return 'V₀ = 0 girildi: cisim yalnızca bırakılır. Yukarı atış için V₀ > 0 gir.';
+  return 'Hareket türü: yukarı doğru düşey atış (' + (h0 > 0 ? 'h₀ yüksekliğinden' : 'zeminden') + ')';
+}
+function storyText(){
+  return document.querySelector('input[name=mode]:checked').value === 'up'
+    ? 'Kar fırtınası helikopterin kalkışını engelliyor. Antarktika istasyonunda mahsur kalan bilim insanları yardım çağrısı için işaret fişeğini zeminden ya da kuleden yukarı doğru fırlatıyor. Fişeğin yükselişini, tepe noktasını ve dönüşünü saniye saniye izle.'
+    : 'Antarktika araştırma istasyonunda mahsur kalan bilim insanlarına lojistik kulesinden erzak paketi ulaştırılıyor. Paketi bırak ya da aşağı doğru fırlat, hareketini saniye saniye izle.';
+}
+function idleText(){ return P.valid ? 'Parametreleri ayarla ve “Simülasyonu Başlat” düğmesine bas.' : 'Bu değerlerde hareket oluşmaz: cismin düşeceği bir yükseklik ya da yukarı doğru bir ilk hız gir.'; }
+function startText(){
+  if (P.mode === 'down') return P.v0 > 0 ? 'Paket aşağı doğru fırlatıldı.' : 'Paket kuleden bırakıldı, serbest düşüyor.';
+  return P.v0 > 0 ? 'İşaret fişeği yukarı doğru fırlatıldı.' : 'Cisim bırakıldı, serbest düşüyor.';
+}
+function fillSummary(on){
+  if (!on){ ['sHmax', 'sTup', 'sTf', 'sV'].forEach(function(id){ $(id).textContent = '-'; }); return; }
+  $('sHmax').textContent = fix2(P.hmax) + ' m';
+  $('sTup').textContent = P.tup > 0 ? fix2(P.tup) + ' s' : '-';
+  $('sTf').textContent = fix2(P.tf) + ' s';
+  $('sV').textContent = sfix2(P.vimp) + ' m/s';
+}
+function updateUI(){
+  var st = state.status, running = st === 'running', paused = st === 'paused';
+  $('btnStart').disabled = running;
+  $('btnPause').disabled = !(running || paused);
+  $('btnPause').textContent = paused ? 'Devam et' : 'Duraklat';
+  $('btnReset').disabled = (st === 'idle' && state.t === 0);
+  var u = state.unlocked;
+  ['btnReplay', 'btnSlow50', 'btnSlow25', 'btnBack', 'btnFwd', 'stepSize'].forEach(function(id){ $(id).disabled = !u; });
+  $('analysis').classList.toggle('locked', !u);
+  $('lockmsg').style.display = u ? 'none' : 'block';
+  ['h0', 'v0'].forEach(function(id){ $(id).disabled = running; });
+  document.querySelectorAll('.step').forEach(function(b){ b.disabled = running; });
+  document.querySelectorAll('input[name=mode], input[name=g]').forEach(function(i){ i.disabled = running; });
+}
+function updateLive(){
+  var t = state.t, y = yAt(t), v = vAt(t);
+  $('clock').textContent = t.toFixed(1) + 's';
+  $('lt').textContent = t.toFixed(2); $('ly').textContent = y.toFixed(2);
+  $('lv').textContent = sfix2(v); $('la').textContent = fix2(-P.g).replace(/0$/, '');
+  $('clockLabel').textContent = state.speed < 1 ? 'Süre (%' + Math.round(state.speed * 100) + ' hız)' : 'Süre';
+}
+
+function softReset(){
+  state.status = 'idle'; state.t = 0; state.speed = 1; state.apex = false; state.impactAt = 0; state.unlocked = false;
+  P = computeP(); computeScale(); buildLabels(); fillSummary(false);
+  $('typeChip').textContent = typeText(); $('story').textContent = storyText();
+  setStatus(idleText(), !P.valid); updateUI(); updateLive();
+}
+function normalizeInputs(){
+  $('h0').value = readNum('h0', 0, 500, 100); $('v0').value = readNum('v0', 0, 100, 0);
+}
+function begin(speed, keepUnlocked){
+  normalizeInputs(); P = computeP(); computeScale(); buildLabels();
+  if (!P.valid){ state.status = 'idle'; state.t = 0; setStatus(idleText(), true); updateUI(); updateLive(); return; }
+  state.t = 0; state.speed = speed; state.apex = false; state.impactAt = 0; state.status = 'running';
+  if (!keepUnlocked){ state.unlocked = false; fillSummary(false); }
+  setStatus(startText()); updateUI();
+}
+function finish(){
+  state.t = P.tf; state.status = 'done'; state.unlocked = true; state.impactAt = performance.now();
+  fillSummary(true);
+  setStatus('Cisim zemine çarptı: t = ' + fix2(P.tf) + ' s, Vy = ' + sfix2(P.vimp) + ' m/s. Hareket analiz panelini kullanabilirsin.');
+  updateUI();
+}
+function stepBy(dir){
+  if (!state.unlocked) return;
+  var s = parseFloat($('stepSize').value);
+  state.status = 'paused'; state.impactAt = 0;
+  state.t = Math.round(clamp(state.t + dir * s, 0, P.tf) * 1000) / 1000;
+  setStatus('Kare kare inceleme: t = ' + fmt(state.t) + 's, y = ' + fmt(yAt(state.t)) + ' m, Vy = ' + sfmt(vAt(state.t)) + ' m/s');
+  updateUI();
+}
+
+/* ---------- ana döngü ---------- */
+function frame(now){
+  var dt = Math.min(0.05, (now - lastNow) / 1000); lastNow = now;
+  if (state.status === 'running'){
+    state.t += dt * state.speed;
+    if (P.tup > 0 && !state.apex && state.t >= P.tup){
+      state.apex = true; setStatus('Tepe noktası: Vy = 0 m/s, h_max = ' + fix2(P.hmax) + ' m. Cisim şimdi aşağı iniyor.');
+    }
+    if (state.t >= P.tf) finish();
+  }
+  draw(dt, now); updateLive();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- olaylar ---------- */
+document.querySelectorAll('.step').forEach(function(b){
+  b.addEventListener('click', function(){
+    var inp = $(b.dataset.target), min = parseFloat(inp.min), max = parseFloat(inp.max);
+    var cur = parseFloat(inp.value); if (isNaN(cur)) cur = 0;
+    inp.value = Math.round(clamp(cur + parseFloat(b.dataset.dir) * parseFloat(b.dataset.step), min, max) * 100) / 100;
+    softReset();
+  });
+});
+['h0', 'v0'].forEach(function(id){
+  $(id).addEventListener('input', softReset);
+  $(id).addEventListener('change', function(){ normalizeInputs(); softReset(); });
+});
+document.querySelectorAll('input[name=mode], input[name=g]').forEach(function(i){ i.addEventListener('change', softReset); });
+$('btnStart').addEventListener('click', function(){ begin(1, false); });
+$('btnReset').addEventListener('click', softReset);
+$('btnPause').addEventListener('click', function(){
+  if (state.status === 'running'){ state.status = 'paused'; setStatus('Duraklatıldı. t = ' + fmt(state.t) + 's'); }
+  else if (state.status === 'paused'){
+    if (state.t >= P.tf - 1e-9){ state.t = 0; state.apex = false; }
+    state.status = 'running'; state.impactAt = 0; setStatus(startText());
+  }
+  updateUI();
+});
+$('btnReplay').addEventListener('click', function(){ begin(1, true); });
+$('btnSlow50').addEventListener('click', function(){ begin(.5, true); });
+$('btnSlow25').addEventListener('click', function(){ begin(.25, true); });
+$('btnBack').addEventListener('click', function(){ stepBy(-1); });
+$('btnFwd').addEventListener('click', function(){ stepBy(1); });
+
+if (window.ResizeObserver){ new ResizeObserver(function(){ resize(); }).observe($('wrap')); }
+window.addEventListener('resize', resize);
+
+resize(); softReset();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ /* yazı tipi yüklenince sonraki kare doğru çizer */ });
+requestAnimationFrame(function(t){ lastNow = t; requestAnimationFrame(frame); });
+})();
+</script>
+</body>
+</html>

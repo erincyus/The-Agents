@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Half-Pipe Enerji Laboratuvarı</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EEF1EC; --panel:#FFFFFF; --ink:#16212B; --muted:#5B6873; --line:#D3DADD;
+  --sky1:#CDE8F1; --sky2:#F4F8EF; --concrete:#BAC1C7; --concrete-dk:#7F8990;
+  --ep:#2A6BDD; --ek:#E4572E; --q:#D99A00; --em:#1F7A5C;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131A20; --panel:#1C252D; --ink:#EAF0F3; --muted:#9AA8B2; --line:#34434E;
+    --sky1:#1E3948; --sky2:#2B4B58; --concrete:#56636C; --concrete-dk:#3B464E;
+    --ep:#6FA0FF; --ek:#FF8A63; --q:#F2C14E; --em:#4FCB9F;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131A20; --panel:#1C252D; --ink:#EAF0F3; --muted:#9AA8B2; --line:#34434E;
+  --sky1:#1E3948; --sky2:#2B4B58; --concrete:#56636C; --concrete-dk:#3B464E;
+  --ep:#6FA0FF; --ek:#FF8A63; --q:#F2C14E; --em:#4FCB9F;
+}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.45}
+.wrap{max-width:1120px;margin:0 auto;padding:16px 14px 40px}
+h1{font-family:"Bricolage Grotesque",Figtree,system-ui,sans-serif;font-weight:800;font-size:clamp(26px,5vw,38px);line-height:1.05;margin:4px 0 4px;letter-spacing:-0.02em}
+.sub{margin:0 0 16px;color:var(--muted);max-width:60ch}
+.top{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:860px){.top{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1.5px solid var(--ink);border-radius:16px;padding:12px}
+.card h2{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-size:19px;font-weight:700;margin:0 0 8px}
+.cwrap{position:relative;width:100%;border-radius:10px;overflow:hidden}
+.cwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.sim-wrap{aspect-ratio:21/18}
+.chart-wrap{aspect-ratio:16/11}
+.info{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 2px 2px;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:600}
+.info b{color:var(--ink)}
+.badge{background:var(--em);color:#fff;border-radius:999px;padding:1px 10px;font-weight:700;font-size:14px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.btn{font:inherit;font-weight:700;min-height:44px;padding:0 18px;border-radius:12px;border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--panel)}
+.btn:active{transform:scale(.98)}
+.btn:focus-visible,input:focus-visible{outline:3px solid var(--ep);outline-offset:2px}
+.btn.sm{min-height:36px;padding:0 12px;font-size:14px;border-radius:10px}
+.btn[aria-pressed="true"]{background:var(--ep);color:#fff;border-color:var(--ep)}
+.seg{display:flex;gap:6px;margin-left:auto;align-items:center;color:var(--muted);font-size:14px;font-weight:600}
+.boxes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:1000px){.boxes{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.box{background:var(--panel);border:1.5px solid var(--ink);border-radius:12px;padding:10px 12px}
+.box .lb{font-size:13px;font-weight:600;color:var(--muted);line-height:1.25;min-height:34px}
+.box .vl{font-family:"Bricolage Grotesque",Figtree,sans-serif;font-weight:800;font-size:clamp(22px,3.4vw,28px);font-variant-numeric:tabular-nums;letter-spacing:-0.02em;margin-top:2px}
+.box .vl small{font-size:14px;font-weight:600;color:var(--muted);margin-left:4px}
+.meter{height:6px;border-radius:3px;background:var(--line);margin-top:8px;overflow:hidden}
+.meter i{display:block;height:100%;border-radius:3px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:14px;font-weight:600}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:5px;border-radius:3px;display:inline-block}
+.sl{margin-bottom:12px}
+.sl .row{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.sl .row output{font-variant-numeric:tabular-nums;font-weight:800}
+input[type=range]{width:100%;height:32px;accent-color:var(--ep);margin:2px 0 0}
+.note{font-size:13px;color:var(--muted);margin:4px 0 0}
+.quiz{margin-top:14px}
+.quiz .qtext{font-size:17px;line-height:1.5;margin:6px 0 10px;max-width:70ch}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.chip{border:1.5px solid var(--ink);border-radius:999px;padding:2px 12px;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.ans{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ans input{font:inherit;min-height:44px;width:min(220px,100%);padding:0 12px;border-radius:12px;border:1.5px solid var(--ink);background:var(--bg);color:var(--ink);font-variant-numeric:tabular-nums}
+.fb{margin-top:10px;padding:10px 12px;border-radius:12px;font-weight:600}
+.fb.ok{background:rgba(31,122,92,.16);border:1.5px solid var(--em)}
+.fb.bad{background:rgba(228,87,46,.14);border:1.5px solid var(--ek)}
+.fb.info{background:rgba(42,107,221,.12);border:1.5px solid var(--ep)}
+.hint{margin-top:10px;padding:10px 12px;border-left:5px solid var(--q);background:var(--bg);border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+(function(){
+const {useState,useRef,useEffect}=React;
+const el=React.createElement;
+const G=10, A=0.2; // g = 10 m/s², rampa: y = A·x²
+
+const fmt=(n,d=1)=>Number(n).toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const V=(cs,n)=>cs.getPropertyValue(n).trim();
+
+/* ---------- Fizik ---------- */
+function initSim(h){
+  return {x:Math.sqrt(h/A), v:0, q:0, t:0, ls:-1, stopped:false, e0:G*h, face:-1};
+}
+// Tüm büyüklükler birim kütle başına; Joule'e çevirmek için m ile çarpılır.
+function stepSim(S,k,dt){
+  S.t+=dt;
+  if(S.stopped){ S.x*=Math.exp(-dt*5); S.q=S.e0-G*A*S.x*S.x; S.v=0; return; }
+  const th=Math.atan(2*A*S.x), s=Math.sin(th), c=Math.cos(th);
+  const kap=2*A/Math.pow(1+4*A*A*S.x*S.x,1.5);
+  const acc=-G*s;
+  const fr=k*(G*c+S.v*S.v*kap);
+  let v=S.v;
+  if(Math.abs(v)<=fr*dt){
+    if(Math.abs(acc)<=fr){ S.stopped=true; S.v=0; S.q=S.e0-G*A*S.x*S.x; return; }
+    v+=(acc-Math.sign(acc)*fr)*dt;
+  } else {
+    v+=(acc-Math.sign(v)*fr)*dt;
+  }
+  S.x+=v*Math.cos(th)*dt;
+  const xm=Math.sqrt(S.e0/G/A);
+  if(Math.abs(S.x)>xm){ S.x=Math.sign(S.x)*xm; v=0; }
+  S.q+=fr*Math.abs(v)*dt;
+  const ek=S.e0-G*A*S.x*S.x-S.q;
+  v=ek<=0?0:Math.sign(v)*Math.sqrt(2*ek);
+  S.v=v;
+  if(v!==0) S.face=Math.sign(v);
+}
+function computeRd(S,m){
+  const epS=G*A*S.x*S.x;
+  const ekS=S.stopped?0:Math.max(0,S.e0-epS-S.q);
+  const qS=S.stopped?Math.max(0,S.e0-epS):Math.min(Math.max(0,S.q),S.e0);
+  return {ep:m*epS, ek:m*ekS, q:m*qS, em:m*(epS+ekS), e0:m*S.e0, hgt:A*S.x*S.x, v:Math.sqrt(2*ekS), t:S.t};
+}
+
+/* ---------- Çizim yardımcıları ---------- */
+function prep(cv){
+  if(!cv) return null;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const W=cv.clientWidth,H=cv.clientHeight;
+  if(!W||!H) return null;
+  const pw=Math.round(W*dpr),ph=Math.round(H*dpr);
+  if(cv.width!==pw||cv.height!==ph){cv.width=pw;cv.height=ph;}
+  const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  return {ctx,W,H};
+}
+
+function drawSkater(ctx,px,py,th,sc,f,cs){
+  const u=sc*1.4;
+  const shirt=V(cs,'--ek'),pants='#26384D',skin='#E9B48B',helmet=V(cs,'--ep'),board=V(cs,'--em'),wheel='#16212B';
+  ctx.save(); ctx.translate(px,py); ctx.rotate(-th); ctx.lineCap='round'; ctx.lineJoin='round';
+  const L=(x1,y1,x2,y2,w,c)=>{ctx.strokeStyle=c;ctx.lineWidth=w*u;ctx.beginPath();ctx.moveTo(x1*u,-y1*u);ctx.lineTo(x2*u,-y2*u);ctx.stroke();};
+  L(-0.85,0.37,0.85,0.37,0.12,board);
+  ctx.fillStyle=wheel;
+  [-0.5,0.5].forEach(function(wx){ctx.beginPath();ctx.arc(wx*u,-0.16*u,0.15*u,0,Math.PI*2);ctx.fill();});
+  L(-0.4*f,0.44,-0.12*f,0.85,0.2,pants); L(-0.12*f,0.85,0,1.2,0.2,pants);
+  L(0.45*f,0.44,0.4*f,0.85,0.2,pants);   L(0.4*f,0.85,0,1.2,0.2,pants);
+  L(0,1.2,0.12*f,1.95,0.42,shirt);
+  L(0.1*f,1.85,0.8*f,1.7,0.14,skin); L(0.1*f,1.85,-0.55*f,1.6,0.14,skin);
+  ctx.fillStyle=skin; ctx.beginPath(); ctx.arc(0.18*f*u,-2.28*u,0.24*u,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=helmet; ctx.beginPath(); ctx.arc(0.18*f*u,-2.3*u,0.27*u,Math.PI,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawSim(cv,S,P,rd,cs){
+  const pr=prep(cv); if(!pr) return;
+  const {ctx,W,H}=pr;
+  const sc=W/21;
+  const X=function(x){return W/2+x*sc;};
+  const Y=function(y){return H-(y+1.4)*sc;};
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,V(cs,'--sky1')); g.addColorStop(1,V(cs,'--sky2'));
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  const h=P.h, x0=Math.sqrt(h/A);
+  // Rampa gövdesi
+  ctx.beginPath(); ctx.moveTo(X(-10.5),Y(h)); ctx.lineTo(X(-x0),Y(h));
+  for(let i=0;i<=70;i++){const x=-x0+2*x0*i/70; ctx.lineTo(X(x),Y(A*x*x));}
+  ctx.lineTo(X(10.5),Y(h)); ctx.lineTo(X(10.5),Y(-1.4)); ctx.lineTo(X(-10.5),Y(-1.4)); ctx.closePath();
+  ctx.fillStyle=V(cs,'--concrete'); ctx.fill();
+  // Yüzey çizgisi
+  ctx.strokeStyle=V(cs,'--concrete-dk'); ctx.lineWidth=Math.max(3,sc*0.16); ctx.lineJoin='round';
+  ctx.beginPath(); ctx.moveTo(X(-10.5),Y(h)); ctx.lineTo(X(-x0),Y(h));
+  for(let i=0;i<=70;i++){const x=-x0+2*x0*i/70; ctx.lineTo(X(x),Y(A*x*x));}
+  ctx.lineTo(X(10.5),Y(h)); ctx.stroke();
+  // Referans seviyeleri
+  const fs=Math.max(11,W/56);
+  ctx.font='700 '+fs+'px Figtree, system-ui, sans-serif';
+  ctx.fillStyle=V(cs,'--ink'); ctx.strokeStyle=V(cs,'--ink'); ctx.lineWidth=1.2; ctx.setLineDash([6,5]);
+  [[h,'h = '+fmt(h,h%1?1:0)+' m'],[h/2,'h/2 = '+fmt(h/2,(h/2)%1?1:0)+' m']].forEach(function(r){
+    const xx=Math.sqrt(r[0]/A);
+    ctx.globalAlpha=0.55; ctx.beginPath(); ctx.moveTo(X(-xx),Y(r[0])); ctx.lineTo(X(xx),Y(r[0])); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.textAlign='left'; ctx.fillText(r[1],X(-xx)+8,Y(r[0])-6);
+  });
+  ctx.setLineDash([]);
+  ctx.textAlign='center'; ctx.fillText('en alt nokta (h = 0, Ep = 0)',X(0),Y(-0.7));
+  // Kaykaycı
+  const th=Math.atan(2*A*S.x);
+  drawSkater(ctx,X(S.x),Y(A*S.x*S.x),th,sc,S.face,cs);
+}
+
+function drawChart(cv,S,hist,rd,cs){
+  const pr=prep(cv); if(!pr) return;
+  const {ctx,W,H}=pr;
+  const fs=Math.max(10,Math.min(12,W/34));
+  ctx.font='600 '+fs+'px Figtree, system-ui, sans-serif';
+  const bx=10,bw=Math.min(34,W*0.09),px0=Math.min(96,W*0.27),px1=W-12,py0=22,py1=H-26;
+  const e0=rd.e0||1;
+  const yy=function(v){return py1-Math.max(0,Math.min(1.02,v/e0))*(py1-py0);};
+  ctx.fillStyle=V(cs,'--muted'); ctx.textAlign='left'; ctx.fillText('E (J)',px0-6,12);
+  // Sütun grafiği: başlangıç enerjisinin dağılımı
+  const segs=[[rd.ep,'--ep'],[rd.ek,'--ek'],[rd.q,'--q']];
+  let acc=0;
+  segs.forEach(function(s){
+    const y1=yy(acc+s[0]),y2=yy(acc);
+    ctx.fillStyle=V(cs,s[1]); ctx.fillRect(bx,y1,bw,Math.max(0,y2-y1)); acc+=s[0];
+  });
+  ctx.strokeStyle=V(cs,'--ink'); ctx.lineWidth=1.5; ctx.strokeRect(bx,py0,bw,py1-py0);
+  ctx.fillStyle=V(cs,'--muted'); ctx.textAlign='center'; ctx.fillText('dağılım',bx+bw/2,py1+16);
+  // Izgara
+  ctx.strokeStyle=V(cs,'--line'); ctx.lineWidth=1; ctx.textAlign='right';
+  [0,0.5,1].forEach(function(f){
+    const y=yy(e0*f); ctx.beginPath(); ctx.moveTo(px0,y); ctx.lineTo(px1,y); ctx.stroke();
+    ctx.fillStyle=V(cs,'--muted'); ctx.fillText(fmt(e0*f,0),px0-6,y+4);
+  });
+  const tmax=Math.max(12,S.t), tmin=tmax-12;
+  const xx=function(t){return px0+(t-tmin)/12*(px1-px0);};
+  ctx.textAlign='center';
+  for(let i=0;i<=6;i++){
+    const t=tmin+i*2; const x=px0+i/6*(px1-px0);
+    ctx.fillStyle=V(cs,'--muted'); ctx.fillText(fmt(t,0),x,py1+16);
+  }
+  ctx.textAlign='right'; ctx.fillText('t (s)',px1,py1+16-14+0);
+  // Çizgiler
+  const series=[['ep','--ep',false],['ek','--ek',false],['q','--q',false],['em','--em',true]];
+  series.forEach(function(s){
+    ctx.strokeStyle=V(cs,s[1]); ctx.lineWidth=s[2]?2:2.6; ctx.setLineDash(s[2]?[7,5]:[]);
+    ctx.beginPath(); let first=true;
+    hist.forEach(function(p){ if(p.t<tmin) return; const x=xx(p.t),y=yy(p[s[0]]); if(first){ctx.moveTo(x,y);first=false;} else ctx.lineTo(x,y); });
+    ctx.stroke(); ctx.setLineDash([]);
+  });
+}
+
+/* ---------- Soru ve puanlama ---------- */
+function parseTR(s){
+  s=String(s).trim().replace(/\s/g,'');
+  if(!s) return NaN;
+  if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(',','.');
+  if(!/^[-+]?\d*\.?\d+$/.test(s)) return NaN;
+  return parseFloat(s);
+}
+const QS=[
+  {text:function(m,h){return 'Sürtünmesiz ortamda m = '+m+' kg kütleli kaykaycı, h = '+fmt(h,h%1?1:0)+' m yüksekliğindeki rampanın kenarından bırakılıyor (g = 10 m/s²). Rampanın en alt noktasındaki kinetik enerjisi kaç Joule\'dür?';},
+   ans:function(m,h){return m*G*h;}, unit:'J', hint:'Sürtünme yokken başlangıçtaki potansiyel enerjinin tamamı en alt noktada kinetik enerjiye dönüşür: Ek = m · g · h.'},
+  {text:function(){return 'Sürtünmesiz ortamda kaykaycı yüksekliğin tam yarısındayken (h/2) kinetik enerjisinin potansiyel enerjisine oranı (Ek / Ep) kaçtır?';},
+   ans:function(){return 1;}, unit:'', hint:'h/2 yüksekliğinde Ep = m·g·h/2 olur. Toplam enerji m·g·h olduğundan Ek = m·g·h − m·g·h/2 = m·g·h/2. İkisi eşittir.'},
+  {text:function(m,h){return 'Sürtünmesiz ortamda m = '+m+' kg, h = '+fmt(h,h%1?1:0)+' m için kaykaycı yüksekliğin yarısındayken (h/2) kinetik enerjisi kaç Joule\'dür? (g = 10 m/s²)';},
+   ans:function(m,h){return m*G*h/2;}, unit:'J', hint:'Toplam mekanik enerji m·g·h sabittir. h/2 noktasında Ep = m·g·h/2 olur, kalan yarısı Ek\'dır.'},
+  {text:function(m,h){return 'Sürtünmesiz ortamda h = '+fmt(h,h%1?1:0)+' m yüksekliğinden bırakılan kaykaycının en alt noktadaki hızı kaç m/s\'dir? (g = 10 m/s²)';},
+   ans:function(m,h){return Math.sqrt(2*G*h);}, unit:'m/s', hint:'m·g·h = ½·m·v² eşitliğinde kütle sadeleşir: v = √(2·g·h).'},
+  {text:function(){return 'Sürtünmesiz ortamda kaykaycı başlangıç yüksekliğinin dörtte birine indiğinde (h/4) kinetik enerjisinin potansiyel enerjisine oranı (Ek / Ep) kaçtır?';},
+   ans:function(){return 3;}, unit:'', hint:'h/4 yüksekliğinde Ep = m·g·h/4 olur. Ek = m·g·h − m·g·h/4 = 3·m·g·h/4. Oran 3 çıkar.'},
+  {text:function(m,h){return 'Sürtünme katsayısını 0\'dan büyük yap ve izle: kaykaycı her salınımda daha az yükselip sonunda dip noktada duruyor. m = '+m+' kg, h = '+fmt(h,h%1?1:0)+' m ise durana kadar ısıya dönüşen toplam enerji kaç Joule\'dür? (g = 10 m/s²)';},
+   ans:function(m,h){return m*G*h;}, unit:'J', hint:'Kaykaycı dipte durunca Ek = 0 ve Ep = 0 olur. Başlangıçtaki m·g·h enerjisinin tamamı ısıya dönüşmüştür.'},
+  {live:function(r){return r.ep<1?null:r.ek/r.ep;}, dec:2,
+   text:function(){return 'Uygulamalı soru: Simülasyonu oynat ve istediğin bir anda Durdur\'a bas. Alt kutulardaki Ep ve Ek değerlerinden Ek / Ep oranını hesapla ve yaz.';},
+   unit:'', hint:'Kutulardaki Ek değerini Ep değerine böl. Kaykaycı h/2 seviyesindeyse oran 1\'e yakın çıkar.'},
+  {live:function(r){return r.em;}, dec:1,
+   text:function(){return 'Uygulamalı soru: Simülasyonu istediğin bir anda Durdur\'a bas. Kutulardaki Ep ve Ek değerlerini toplayarak Toplam Mekanik Enerjiyi (Joule) hesapla. Sürtünmeyi açarsan bu değer ne oluyor, dikkat et.';},
+   unit:'J', hint:'E_toplam = Ep + Ek. Sürtünmesizken hep aynı kalır. Sürtünmede fark, E_ısı kutusuna gider.'}
+];
+
+function Quiz(props){
+  const m=props.m,h=props.h,status=props.status,rdRef=props.rdRef;
+  const s1=useState(0),qi=s1[0],setQi=s1[1];
+  const s2=useState(''),val=s2[0],setVal=s2[1];
+  const s3=useState(0),tries=s3[0],setTries=s3[1];
+  const s4=useState(null),fb=s4[0],setFb=s4[1];
+  const s5=useState(0),score=s5[0],setScore=s5[1];
+  const s6=useState(0),streak=s6[0],setStreak=s6[1];
+  const s7=useState(false),solved=s7[0],setSolved=s7[1];
+  const s8=useState(false),hintOn=s8[0],setHintOn=s8[1];
+  const s9=useState(0),okCount=s9[0],setOk=s9[1];
+  const q=QS[qi];
+  const paused=status==='paused'||status==='done';
+  const rank=score>=120?'Half-Pipe Şampiyonu':score>=70?'Enerji Ustası':score>=30?'Kaykaycı':'Çaylak';
+
+  function check(){
+    if(solved) return;
+    const u=parseTR(val);
+    if(isNaN(u)){ setFb({t:'info',x:'Cevabını sayı olarak yaz. Örnek: 3000 veya 12,5'}); return; }
+    let ans;
+    if(q.live){
+      if(!paused){ setFb({t:'info',x:'Bu soru için önce Oynat\'a bas, sonra istediğin anda Durdur\'a bas. Ekrandaki değerlerle hesabını yap.'}); return; }
+      const a=q.live(rdRef.current);
+      if(a===null){ setFb({t:'info',x:'Ep sıfıra çok yakın, oran hesaplanamıyor. Kaykaycıyı başka bir anda durdur.'}); return; }
+      ans=a;
+    } else ans=q.ans(m,h);
+    const tol=Math.max(Math.abs(ans)*0.025,0.05);
+    if(Math.abs(u-ans)<=tol){
+      const pts=tries===0?10:tries===1?6:3;
+      const bonus=tries===0?Math.min(streak,5)*2:0;
+      setScore(score+pts+bonus); setStreak(tries===0?streak+1:0); setSolved(true); setOk(okCount+1);
+      setFb({t:'ok',x:'Doğru! +'+(pts+bonus)+' puan'+(bonus?' (seri bonusu +'+bonus+')':'')});
+    } else {
+      const nt=tries+1; setTries(nt);
+      if(nt>=3){
+        setSolved(true); setStreak(0);
+        setFb({t:'bad',x:'Olmadı. Doğru cevap: '+fmt(ans,q.dec!==undefined?q.dec:(ans%1?1:0))+(q.unit?' '+q.unit:'')+'. İpucundaki formüle bak, sonra sonraki soruya geç.'});
+      } else setFb({t:'bad',x:'Bu sefer olmadı, '+(3-nt)+' hakkın kaldı. Takılırsan İpucu\'na bas.'});
+    }
+  }
+  function next(){ setQi((qi+1)%QS.length); setVal(''); setTries(0); setFb(null); setSolved(false); setHintOn(false); }
+
+  return el('section',{className:'card quiz','aria-label':'Soru ve görev paneli'},
+    el('h2',null,'Soru ve Görev Paneli'),
+    el('div',{className:'chips'},
+      el('span',{className:'chip'},'Soru '+(qi+1)+' / '+QS.length),
+      el('span',{className:'chip'},'Puan: '+score),
+      el('span',{className:'chip'},'Seri: '+streak),
+      el('span',{className:'chip'},'Doğru: '+okCount),
+      el('span',{className:'chip',style:{background:'var(--ink)',color:'var(--panel)'}},rank)
+    ),
+    el('p',{className:'qtext'},q.text(m,h)),
+    el('div',{className:'ans'},
+      el('input',{type:'text',inputMode:'decimal',value:val,placeholder:'Cevabın'+(q.unit?' ('+q.unit+')':''),'aria-label':'Cevap',disabled:solved,
+        onChange:function(e){setVal(e.target.value);},
+        onKeyDown:function(e){if(e.key==='Enter') check();}}),
+      el('button',{className:'btn primary',onClick:check,disabled:solved,style:solved?{opacity:.5}:null},'Cevabı kontrol et'),
+      el('button',{className:'btn',onClick:function(){setHintOn(!hintOn);}},hintOn?'İpucunu gizle':'İpucu'),
+      solved?el('button',{className:'btn primary',onClick:next},'Sonraki soru'):null
+    ),
+    fb?el('div',{className:'fb '+fb.t,role:'status','aria-live':'polite'},fb.x):null,
+    hintOn?el('div',{className:'hint'},q.hint):null,
+    el('p',{className:'note'},'İlk denemede doğru: 10 puan (seri bonusu ile daha fazla). İkinci denemede 6, üçüncüde 3 puan. Sayılar sürgülerdeki m ve h değerlerine göre değişir; %2,5 hata payı kabul edilir.')
+  );
+}
+
+/* ---------- Ana uygulama ---------- */
+function Slider(props){
+  return el('div',{className:'sl'},
+    el('div',{className:'row'},el('label',{htmlFor:props.id},props.label),el('output',{htmlFor:props.id},props.shown)),
+    el('input',{id:props.id,type:'range',min:props.min,max:props.max,step:props.step,value:props.value,onChange:function(e){props.onChange(Number(e.target.value));}})
+  );
+}
+
+function App(){
+  const a1=useState(10),h=a1[0],setH=a1[1];
+  const a2=useState(60),m=a2[0],setM=a2[1];
+  const a3=useState(0),k=a3[0],setK=a3[1];
+  const a4=useState(1),speed=a4[0],setSpeed=a4[1];
+  const a5=useState('idle'),status=a5[0],setStatus=a5[1];
+  const P=useRef({}); P.current={h:h,m:m,k:k,speed:speed};
+  const S=useRef(initSim(10));
+  const hist=useRef([]);
+  const st=useRef('idle');
+  const simCv=useRef(null),chCv=useRef(null);
+  const rdRef=useRef(computeRd(S.current,60));
+  const a6=useState(rdRef.current),rd=a6[0],setRd=a6[1];
+
+  function setSt(s){st.current=s;setStatus(s);}
+  function snap(){const r=rdRef.current,s=S.current;return {t:s.t,ep:r.ep,ek:r.ek,q:r.q,em:r.em};}
+  function resetSim(){
+    const p=P.current;
+    S.current=initSim(p.h);
+    rdRef.current=computeRd(S.current,p.m);
+    hist.current=[snap()];
+    setRd(rdRef.current);
+  }
+  useEffect(function(){ resetSim(); setSt('idle'); },[h,m,k]);
+
+  useEffect(function(){
+    let raf,last=performance.now(),lastUI=0;
+    function loop(now){
+      const dtReal=Math.min(0.05,(now-last)/1000); last=now;
+      const p=P.current,s=S.current;
+      if(st.current==='running'){
+        const dt=dtReal*p.speed, n=Math.max(1,Math.ceil(dt/0.0005)), d=dt/n;
+        for(let i=0;i<n;i++) stepSim(s,p.k,d);
+        rdRef.current=computeRd(s,p.m);
+        if(s.t-s.ls>=0.03){
+          s.ls=s.t; hist.current.push(snap());
+          while(hist.current.length>1&&hist.current[0].t<s.t-13) hist.current.shift();
+        }
+        if(s.stopped&&Math.abs(s.x)<0.003){ setSt('done'); setRd(rdRef.current); }
+        else if(now-lastUI>60){ lastUI=now; setRd(rdRef.current); }
+      }
+      const cs=getComputedStyle(document.documentElement);
+      drawSim(simCv.current,s,p,rdRef.current,cs);
+      drawChart(chCv.current,s,hist.current,rdRef.current,cs);
+      raf=requestAnimationFrame(loop);
+    }
+    raf=requestAnimationFrame(loop);
+    return function(){cancelAnimationFrame(raf);};
+  },[]);
+
+  function onPlay(){
+    if(status==='running'){ setSt('paused'); setRd(rdRef.current); }
+    else if(status==='paused'){ setSt('running'); }
+    else { resetSim(); setSt('running'); }
+  }
+  function onReset(){ resetSim(); setSt('idle'); }
+  const playLabel=status==='running'?'Durdur':status==='paused'?'Devam Et':'Oynat';
+
+  const e0=rd.e0||1;
+  const boxes=[
+    {lb:'Yerçekimi Potansiyel Enerjisi (Ep)',v:rd.ep,c:'--ep'},
+    {lb:'Kinetik Enerji (Ek)',v:rd.ek,c:'--ek'},
+    {lb:'Sürtünmeye Giden Isı Enerjisi (E_ısı)',v:rd.q,c:'--q'},
+    {lb:'Toplam Mekanik Enerji (E_toplam)',v:rd.em,c:'--em'}
+  ];
+  const equal=status!=='idle'&&rd.ep>1&&Math.abs(rd.ep-rd.ek)<=0.015*e0;
+
+  return el('div',{className:'wrap'},
+    el('h1',null,'Half-Pipe Enerji Laboratuvarı'),
+    el('p',{className:'sub'},'Kaykaycı rampada kayarken potansiyel, kinetik ve ısı enerjisi birbirine nasıl dönüşüyor? Değerleri değiştir, durdur, hesapla, karşılaştır.'),
+    el('div',{className:'top'},
+      el('div',{className:'col'},
+        el('section',{className:'card','aria-label':'Simülasyon'},
+          el('div',{className:'cwrap sim-wrap'},el('canvas',{ref:simCv,role:'img','aria-label':'Half-pipe rampasında kayan kaykaycı'})),
+          el('div',{className:'info'},
+            el('span',null,'Yükseklik: ',el('b',null,fmt(rd.hgt,2)+' m')),
+            el('span',null,'Hız: ',el('b',null,fmt(rd.v,2)+' m/s')),
+            el('span',null,'Süre: ',el('b',null,fmt(rd.t,1)+' s')),
+            equal?el('span',{className:'badge'},'Ek = Ep'):null,
+            status==='done'?el('span',{className:'badge',style:{background:'var(--q)',color:'#16212B'}},'Kaykaycı durdu'):null
+          ),
+          el('div',{className:'btns'},
+            el('button',{className:'btn primary',onClick:onPlay},playLabel),
+            el('button',{className:'btn',onClick:onReset},'Baştan Başlat'),
+            el('div',{className:'seg',role:'group','aria-label':'Simülasyon hızı'},
+              el('span',null,'Hız'),
+              [0.25,0.5,1].map(function(s){return el('button',{key:s,className:'btn sm','aria-pressed':speed===s,onClick:function(){setSpeed(s);}},String(s).replace('.',',')+'×');})
+            )
+          )
+        ),
+        el('div',{className:'boxes','aria-label':'Anlık enerji değerleri'},
+          boxes.map(function(b){
+            return el('div',{key:b.lb,className:'box',style:{borderLeft:'8px solid var(--'+b.c.slice(2)+')'}},
+              el('div',{className:'lb'},b.lb),
+              el('div',{className:'vl'},fmt(b.v,1),el('small',null,'J')),
+              el('div',{className:'meter'},el('i',{style:{width:Math.max(0,Math.min(100,b.v/e0*100))+'%',background:'var('+b.c+')'}}))
+            );
+          })
+        )
+      ),
+      el('div',{className:'col'},
+        el('section',{className:'card','aria-label':'Enerji grafiği'},
+          el('h2',null,'Enerji Grafiği'),
+          el('div',{className:'cwrap chart-wrap'},el('canvas',{ref:chCv,role:'img','aria-label':'Enerji zaman grafiği'})),
+          el('div',{className:'legend'},
+            el('span',null,el('i',{style:{background:'var(--ep)'}}),'Ep'),
+            el('span',null,el('i',{style:{background:'var(--ek)'}}),'Ek'),
+            el('span',null,el('i',{style:{background:'var(--q)'}}),'E_ısı'),
+            el('span',null,el('i',{style:{background:'var(--em)'}}),'E_toplam (Ep + Ek)')
+          ),
+          el('p',{className:'note'},'Soldaki sütun, başlangıç enerjisinin Ep, Ek ve ısı olarak nasıl paylaşıldığını gösterir. Sürtünme varken E_toplam düşer, E_ısı artar.')
+        ),
+        el('section',{className:'card','aria-label':'Parametreler'},
+          el('h2',null,'Parametreler'),
+          el(Slider,{id:'sl-h',label:'Rampa yüksekliği (h)',min:2,max:15,step:0.5,value:h,shown:fmt(h,h%1?1:0)+' m',onChange:setH}),
+          el(Slider,{id:'sl-m',label:'Kaykaycının kütlesi (m)',min:30,max:90,step:1,value:m,shown:m+' kg',onChange:setM}),
+          el(Slider,{id:'sl-k',label:'Sürtünme katsayısı (k)',min:0,max:0.2,step:0.01,value:k,shown:k===0?'0 (sürtünmesiz)':fmt(k,2),onChange:setK}),
+          el('div',{className:'btns',style:{marginTop:0}},
+            el('button',{className:'btn sm','aria-pressed':k===0,onClick:function(){setK(0);}},'Sürtünmesiz'),
+            el('button',{className:'btn sm','aria-pressed':k>0,onClick:function(){if(k===0) setK(0.1);}},'Sürtünmeli')
+          ),
+          el('p',{className:'note'},'Bir değeri değiştirince simülasyon baştan başlar. Hesaplarda g = 10 m/s² alınır.')
+        )
+      )
+    ),
+    el(Quiz,{m:m,h:h,status:status,rdRef:rdRef})
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(el(App));
+})();
+</script>
+</body>
+</html>

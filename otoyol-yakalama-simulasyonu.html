@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Otoyolda Yakalama – Sabit İvmeli Hareket</title>
+<style>
+  :root{
+    --bg:#090c13; --card:#111725; --line:#222c40; --txt:#e7ecf6; --muted:#8b96ac;
+    --red:#ff4d4d; --blue:#3d8bff; --green:#39ff88; --amber:#ffc44d;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:radial-gradient(1100px 520px at 15% -10%, #16203a 0%, var(--bg) 62%) fixed;
+    color:var(--txt);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.45; padding:18px;
+  }
+  .wrap{max-width:1280px;margin:0 auto}
+  header{margin-bottom:14px}
+  h1{margin:0 0 6px;font-size:1.55rem;letter-spacing:.2px}
+  .story{margin:0;color:var(--muted);max-width:860px;font-size:.95rem}
+  .story b.r{color:var(--red)} .story b.b{color:var(--blue)}
+
+  [hidden]{display:none!important}
+  .app{
+    display:grid; gap:14px; align-items:start;
+    grid-template-columns:minmax(0,1fr) 340px;
+  }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .left{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .sim{min-width:0}
+  .panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .graphs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .graphs .card{padding:8px;min-width:0}
+
+  canvas{display:block;width:100%;border-radius:10px}
+  #cvMain{height:380px}
+  #cvV,#cvX{height:320px}
+
+  .result{margin-top:10px;min-height:76px;padding:10px 12px;border-radius:10px;background:#0c1220;border:1px solid var(--line)}
+  .result .idle{color:var(--muted);font-size:.92rem}
+  .result .msg{font-weight:700;font-size:1.05rem}
+  .result .msg.ok{color:var(--green)} .result .msg.bad{color:var(--red)}
+  .result .note{color:var(--muted);font-size:.85rem;margin-top:4px}
+
+  h2{margin:0 0 10px;font-size:1rem;color:#cfd8ea}
+  .param{margin-bottom:12px}
+  .param label{display:block;font-size:.88rem;margin-bottom:5px;color:#d5dcec}
+  .param label small{color:var(--muted)}
+  .stepper{display:flex;align-items:center;gap:6px}
+  .stepper button{
+    width:38px;height:38px;border-radius:9px;border:1px solid #33405c;background:#182034;color:var(--txt);
+    font-size:1.25rem;line-height:1;cursor:pointer
+  }
+  .stepper button:hover{background:#212c46}
+  .stepper input{
+    flex:1;min-width:0;height:38px;border-radius:9px;border:1px solid #33405c;background:#0b1020;color:var(--txt);
+    font-size:1rem;text-align:center;font-variant-numeric:tabular-nums
+  }
+  .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .stepper input{-moz-appearance:textfield;appearance:textfield}
+  .unit{min-width:44px;color:var(--muted);font-size:.85rem}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+  .btn-start{
+    width:100%;height:46px;border:0;border-radius:11px;cursor:pointer;font-size:1rem;font-weight:700;
+    background:linear-gradient(180deg,#ffd166,#f4a300);color:#241800
+  }
+  .btn-start:hover{filter:brightness(1.06)}
+
+  .analysis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .analysis button{
+    min-height:42px;border-radius:9px;border:1px solid #33405c;background:#182034;color:var(--txt);
+    font-size:.86rem;cursor:pointer;padding:6px 8px
+  }
+  .analysis button:hover:not(:disabled){background:#212c46}
+  .analysis button:disabled{opacity:.38;cursor:not-allowed}
+  .analysis button.on{border-color:var(--amber);color:var(--amber)}
+  .rate{margin:8px 0 0;color:var(--muted);font-size:.82rem}
+
+  table.live{width:100%;border-collapse:collapse;font-size:.9rem;font-variant-numeric:tabular-nums}
+  table.live th,table.live td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:right}
+  table.live th:first-child,table.live td:first-child{text-align:left;color:var(--muted)}
+  table.live th.r{color:var(--red)} table.live th.b{color:var(--blue)}
+  table.live td.c{text-align:center}
+
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .seg button{
+    min-height:46px;border-radius:9px;border:1px solid #33405c;background:#182034;color:var(--txt);
+    font-size:.84rem;cursor:pointer;padding:6px 8px
+  }
+  .seg button.on{border-color:var(--amber);color:var(--amber);background:#1f2740}
+  .h2b{margin-top:16px}
+  .btn-confirm{
+    width:100%;height:42px;border-radius:10px;border:1px solid #4b78d6;background:#1b3b7a;color:#fff;
+    font-size:.95rem;font-weight:600;cursor:pointer
+  }
+  .btn-confirm:hover{background:#224a99}
+  .btn-confirm.alt{background:#182034;border-color:#33405c;color:var(--txt)}
+  .btn-start:disabled{opacity:.4;cursor:not-allowed;filter:none}
+  .hint{margin:8px 0 0;color:var(--muted);font-size:.83rem}
+  .given{margin:0 0 8px;color:var(--muted);font-size:.85rem}
+  .qtext{margin:0 0 10px;font-size:.95rem}
+  .err{min-height:18px;margin:6px 0;color:#ff8f8f;font-size:.82rem}
+  .stepper input:disabled{opacity:.6}
+  .stepper button:disabled{opacity:.4;cursor:not-allowed}
+  .fb{margin-top:8px;padding:8px 10px;border-radius:8px;font-size:.9rem;border-left:4px solid}
+  .fb.good{background:rgba(57,255,136,.08);border-color:var(--green)}
+  .fb.miss{background:rgba(255,196,77,.09);border-color:var(--amber)}
+  .sel{margin-top:10px;padding:8px 10px;border-radius:8px;background:#0c1220;border:1px solid var(--line);font-size:.86rem;color:var(--muted)}
+  .sel b{color:var(--txt)}
+
+  @media (max-width:1000px){
+    .app{grid-template-columns:minmax(0,1fr);grid-template-areas:"sim" "panel" "graphs"}
+    .left{display:contents}
+    .sim{grid-area:sim}
+    .panel{grid-area:panel}
+    .graphs{grid-area:graphs;grid-template-columns:minmax(0,1fr)}
+  }
+  @media (max-width:520px){ body{padding:10px} h1{font-size:1.25rem} #cvMain{height:340px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Otoyolda Yakalama: Sabit İvmeli Hareket</h1>
+    <p class="story">
+      Gece otoyolunda hız sınırını ihlal eden <b class="r">kırmızı araç</b>, x = 0 noktasında devriye bekleyen
+      <b class="b">mavi polis aracının</b> yanından V<sub>suçlu</sub> sabit hızıyla geçer. Geçtiği anda (t = 0s)
+      polis aracı sabit a<sub>polis</sub> ivmesiyle harekete geçer. Polis, şehir sınırına varmadan suçluyu yakalayabilecek mi?
+    </p>
+  </header>
+
+  <main class="app">
+    <div class="left">
+      <section class="card sim">
+        <canvas id="cvMain"></canvas>
+        <div class="result" id="result"></div>
+      </section>
+
+      <section class="graphs">
+        <div class="card"><canvas id="cvV"></canvas></div>
+        <div class="card"><canvas id="cvX"></canvas></div>
+      </section>
+    </div>
+
+    <aside class="panel">
+      <div class="card" id="paramCard">
+        <h2>Etkinlik Türü</h2>
+        <div class="seg" role="group" aria-label="Etkinlik türü">
+          <button type="button" id="modeT" class="on">Yakalama süresini tahmin et</button>
+          <button type="button" id="modeA">Polis aracı ivmesini hesapla</button>
+        </div>
+
+        <h2 class="h2b">Girdi Parametreleri</h2>
+
+        <div class="param">
+          <label for="inV">Suçlu Aracın Hızı <small>(V<sub>suçlu</sub>)</small></label>
+          <div class="stepper">
+            <button type="button" data-id="inV" data-dir="-1" aria-label="Azalt">−</button>
+            <input type="number" id="inV" value="30" step="1" min="1" max="100" inputmode="decimal">
+            <button type="button" data-id="inV" data-dir="1" aria-label="Artır">+</button>
+            <span class="unit">m/s</span>
+          </div>
+        </div>
+
+        <div class="param" id="rowA">
+          <label for="inA">Polis Aracının İvmesi <small>(a<sub>polis</sub>)</small></label>
+          <div class="stepper">
+            <button type="button" data-id="inA" data-dir="-1" aria-label="Azalt">−</button>
+            <input type="number" id="inA" value="4" step="0.5" min="0.1" max="20" inputmode="decimal">
+            <button type="button" data-id="inA" data-dir="1" aria-label="Artır">+</button>
+            <span class="unit">m/s²</span>
+          </div>
+        </div>
+
+        <div class="param">
+          <label for="inL">Şehir Sınırı Mesafesi <small>(x<sub>limit</sub>)</small></label>
+          <div class="stepper">
+            <button type="button" data-id="inL" data-dir="-1" aria-label="Azalt">−</button>
+            <input type="number" id="inL" value="500" step="50" min="50" max="5000" inputmode="decimal">
+            <button type="button" data-id="inL" data-dir="1" aria-label="Artır">+</button>
+            <span class="unit">m</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn-confirm" id="btnConfirmParams">Parametreleri Onayla</button>
+      </div>
+
+      <div class="card" id="qCard" hidden>
+        <h2>Öğrenci Sorusu</h2>
+        <p class="given" id="qGiven"></p>
+        <p class="qtext" id="qText"></p>
+        <div class="stepper">
+          <input type="text" id="inAns" inputmode="decimal" autocomplete="off" aria-label="Cevabınız">
+          <span class="unit" id="ansUnit"></span>
+        </div>
+        <div class="err" id="ansErr" role="alert"></div>
+        <button type="button" class="btn-confirm" id="btnAns">Cevabı Onayla</button>
+      </div>
+
+      <div class="card">
+        <button type="button" class="btn-start" id="btnStart" disabled>Simülasyonu Başlat</button>
+        <p class="hint" id="hint"></p>
+      </div>
+
+      <div class="card">
+        <h2>Anlık Değerler</h2>
+        <table class="live">
+          <thead><tr><th></th><th class="r">Suçlu</th><th class="b">Polis</th></tr></thead>
+          <tbody>
+            <tr><td>Zaman [s]</td><td class="c" colspan="2" id="lt">0.00s</td></tr>
+            <tr><td>Konum [m]</td><td id="lxs">0.0</td><td id="lxp">0.0</td></tr>
+            <tr><td>Hız [m/s]</td><td id="lvs">0.0</td><td id="lvp">0.0</td></tr>
+            <tr><td>Aradaki fark [m]</td><td class="c" colspan="2" id="ldx">0.0</td></tr>
+          </tbody>
+        </table>
+        <div class="sel" id="lsel"></div>
+      </div>
+
+      <div class="card">
+        <h2>Analiz Paneli</h2>
+        <div class="analysis">
+          <button type="button" id="btnReplay" disabled>Tekrar Oynat</button>
+          <button type="button" id="btnSlow" disabled>Yavaş Çekim (%50)</button>
+          <button type="button" id="btnBack" disabled>◀ Kare Geri Sür (0.5s)</button>
+          <button type="button" id="btnFwd" disabled>Kare İlerle (0.5s) ▶</button>
+        </div>
+        <p class="rate" id="rate"></p>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Yardımcılar ---------- */
+const $ = id => document.getElementById(id);
+const FONT = '"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif';
+const MONO = 'Consolas,"Courier New",monospace';
+const RED = '#ff4d4d', BLUE = '#3d8bff', GREEN = '#39ff88', AMBER = '#ffc44d';
+
+function niceStep(range, target){
+  const raw = range / target;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / p;
+  const n = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
+  return n * p;
+}
+function decs(step){ return step >= 1 ? 0 : Math.min(3, Math.ceil(-Math.log10(step) - 1e-9)); }
+function rr(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function makeCanvas(id){
+  const c = $(id);
+  const o = { c, ctx:c.getContext('2d'), w:0, h:0 };
+  const fit = () => {
+    const r = c.getBoundingClientRect();
+    const d = window.devicePixelRatio || 1;
+    o.w = r.width; o.h = r.height;
+    c.width = Math.max(1, Math.round(r.width * d));
+    c.height = Math.max(1, Math.round(r.height * d));
+    o.ctx.setTransform(d,0,0,d,0,0);
+  };
+  new ResizeObserver(fit).observe(c);
+  fit();
+  return o;
+}
+
+/* ---------- Durum ---------- */
+const P = { V:30, a:4, L:500 };
+const S = { t:0, tEnd:0, tc:0, xc:0, caught:false, playing:false, finished:false, slow:false, base:1 };
+
+/* Etkinlik: mode 't' = yakalama süresini tahmin et, 'a' = polis ivmesini hesapla */
+const A = { mode:'t', paramsOk:false, answerOk:false, answer:null };
+let sel = null;   // seçili iz noktası: { who:'s'|'p', n:saniye }
+
+function recompute(){
+  S.tc = 2 * P.V / P.a;            // ½·a·t² = V·t  =>  t = 2V/a
+  S.xc = P.V * S.tc;               // x = V·t = 2V²/a
+  S.caught = S.tc <= P.L / P.V + 1e-9;
+  S.tEnd = S.caught ? S.tc : P.L / P.V;
+  S.base = Math.max(1, S.tEnd / 45); // çok uzun simülasyonları makul sürede oynat
+}
+
+/* ---------- Girdi kutuları ---------- */
+const CFG = {
+  inV:{ key:'V', min:1,   max:100,  step:1,   dec:0 },
+  inA:{ key:'a', min:0.1, max:20,   step:0.5, dec:2 },
+  inL:{ key:'L', min:50,  max:5000, step:50,  dec:0 }
+};
+function clampVal(cfg, v){
+  if (!isFinite(v)) v = P[cfg.key];
+  v = Math.min(cfg.max, Math.max(cfg.min, v));
+  const k = Math.pow(10, cfg.dec);
+  return Math.round(v * k) / k;
+}
+function commitInputs(){
+  let changed = false;
+  for (const id in CFG){
+    if (id === 'inA' && A.mode === 'a') continue;   // ivmeyi öğrenci bulacak
+    const cfg = CFG[id];
+    const v = clampVal(cfg, parseFloat($(id).value.replace(',', '.')));
+    $(id).value = String(v);
+    if (v !== P[cfg.key]){ P[cfg.key] = v; changed = true; }
+  }
+  return changed;
+}
+function resetSim(){
+  S.t = 0; S.playing = false; S.finished = false; S.slow = false; sel = null;
+  recompute(); updateButtons();
+}
+document.querySelectorAll('.stepper button').forEach(b => {
+  b.addEventListener('click', () => {
+    const id = b.dataset.id, cfg = CFG[id], dir = parseInt(b.dataset.dir, 10);
+    const cur = parseFloat($(id).value.replace(',', '.'));
+    const base = isFinite(cur) ? cur : P[cfg.key];
+    $(id).value = String(clampVal(cfg, base + dir * cfg.step));
+    commitInputs(); resetSim();
+  });
+});
+Object.keys(CFG).forEach(id => {
+  $(id).addEventListener('change', () => { commitInputs(); resetSim(); });
+});
+
+/* ---------- Kontroller ---------- */
+$('btnStart').addEventListener('click', () => {
+  if (!A.answerOk) return;
+  recompute();
+  S.t = 0; S.slow = false; S.finished = false; S.playing = true; sel = null;  updateButtons();
+});
+$('btnReplay').addEventListener('click', () => {
+  if (!S.finished) return;
+  S.t = 0; S.slow = false; S.playing = true; updateButtons();
+});
+$('btnSlow').addEventListener('click', () => {
+  if (!S.finished) return;
+  S.t = 0; S.slow = true; S.playing = true; updateButtons();
+});
+function step(dir){
+  if (!S.finished) return;
+  S.playing = false;
+  S.t = Math.min(S.tEnd, Math.max(0, S.t + dir * 0.5));
+  updateButtons();
+}
+$('btnBack').addEventListener('click', () => step(-1));
+$('btnFwd').addEventListener('click', () => step(1));
+
+function updateButtons(){
+  ['btnReplay','btnSlow','btnBack','btnFwd'].forEach(id => { $(id).disabled = !S.finished; });
+  $('btnSlow').classList.toggle('on', S.slow && S.finished);
+  refreshUI();
+}
+
+/* ---------- Etkinlik akışı: parametre onayı -> öğrenci cevabı -> başlat ---------- */
+function refreshUI(){
+  const locked = A.paramsOk;
+  document.querySelectorAll('#paramCard .stepper input, #paramCard .stepper button')
+    .forEach(e => { e.disabled = locked; });
+  $('rowA').hidden = (A.mode === 'a');
+  $('modeT').classList.toggle('on', A.mode === 't');
+  $('modeA').classList.toggle('on', A.mode === 'a');
+  $('btnConfirmParams').textContent = locked ? 'Parametreleri Değiştir' : 'Parametreleri Onayla';
+  $('btnConfirmParams').classList.toggle('alt', locked);
+  $('qCard').hidden = !locked;
+  $('inAns').disabled = A.answerOk;
+  $('btnAns').textContent = A.answerOk ? 'Cevabı Değiştir' : 'Cevabı Onayla';
+  $('btnAns').classList.toggle('alt', A.answerOk);
+  $('btnStart').disabled = !A.answerOk;
+  $('hint').textContent = !A.paramsOk ? '1) Parametreleri seçip onaylayın.'
+    : !A.answerOk ? '2) Öğrenci sorusuna cevabı yazıp onaylayın.'
+    : '3) Hazırsınız. Simülasyonu başlatabilirsiniz.';
+}
+function fmt(v){ return String(+v.toFixed(2)); }
+function buildQuestion(){
+  if (A.mode === 't'){
+    $('qGiven').innerHTML = 'Verilenler: V<sub>suçlu</sub> = ' + P.V + ' m/s, a<sub>polis</sub> = ' + fmt(P.a) +
+      ' m/s², x<sub>limit</sub> = ' + P.L + ' m';
+    $('qText').textContent = 'Polis aracı, suçlu aracı kaç saniye sonra yakalar? Tahmininizi saniye cinsinden yazın.';
+    $('ansUnit').textContent = 's';
+    $('inAns').placeholder = 'örn. 12.5';
+  } else {
+    $('qGiven').innerHTML = 'Verilenler: V<sub>suçlu</sub> = ' + P.V + ' m/s, x<sub>limit</sub> = ' + P.L + ' m';
+    $('qText').textContent = 'Polis aracının, suçlu araç şehir sınırını geçmeden onu yakalayabilmesi için ivmesi en az kaç m/s² olmalıdır? Cevabınızı yazın.';
+    $('ansUnit').textContent = 'm/s²';
+    $('inAns').placeholder = 'örn. 2.5';
+  }
+}
+function setMode(m){
+  if (A.mode === m) return;
+  A.mode = m; A.paramsOk = false; A.answerOk = false; A.answer = null;
+  if (m === 't') commitInputs(); else P.a = 1;   // ivme değeri öğrenciden gelene kadar tarafsız önizleme
+  resetSim();
+}
+$('modeT').addEventListener('click', () => setMode('t'));
+$('modeA').addEventListener('click', () => setMode('a'));
+
+$('btnConfirmParams').addEventListener('click', () => {
+  if (!A.paramsOk){
+    commitInputs();
+    if (A.mode === 'a') P.a = 1;
+    A.paramsOk = true; A.answerOk = false; A.answer = null;
+    $('inAns').value = ''; $('ansErr').textContent = '';
+    buildQuestion(); resetSim();
+    $('qCard').scrollIntoView({ behavior:'smooth', block:'nearest' });
+    setTimeout(() => $('inAns').focus(), 60);
+  } else {
+    A.paramsOk = false; A.answerOk = false; A.answer = null;
+    resetSim();
+  }
+});
+
+$('btnAns').addEventListener('click', () => {
+  if (A.answerOk){                       // cevabı değiştir
+    A.answerOk = false; A.answer = null;
+    if (A.mode === 'a') P.a = 1;
+    resetSim();
+    setTimeout(() => $('inAns').focus(), 30);
+    return;
+  }
+  const raw = $('inAns').value.trim();
+  const v = /^\d+([.,]\d+)?$/.test(raw) ? parseFloat(raw.replace(',', '.')) : NaN;
+  const ok = A.mode === 't' ? (isFinite(v) && v > 0 && v <= 100000) : (isFinite(v) && v >= 0.01 && v <= 1000);
+  if (!ok){
+    $('ansErr').textContent = A.mode === 't'
+      ? 'Lütfen saniye cinsinden 0’dan büyük bir sayı yazın (örn. 12.5).'
+      : 'Lütfen 0.01 ile 1000 arasında bir sayı yazın (örn. 2.5).';
+    return;
+  }
+  $('ansErr').textContent = '';
+  A.answer = v; A.answerOk = true;
+  if (A.mode === 'a') P.a = v;           // simülasyon öğrencinin bulduğu ivmeyle çalışır
+  resetSim();
+});
+$('inAns').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnAns').click(); });
+
+/* ---------- Tuvaller ---------- */
+const M = makeCanvas('cvMain');
+const GV = makeCanvas('cvV');
+const GX = makeCanvas('cvX');
+
+/* Yıldızlar (sabit tohum) */
+const stars = [];
+(function(){
+  let s = 12345;
+  const rnd = () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  for (let i = 0; i < 80; i++) stars.push({ x:rnd(), y:rnd(), r:rnd()*1.2+.3, p:rnd()*6.28 });
+})();
+
+/* ---------- Seçilebilir iz noktaları ---------- */
+function selData(){
+  if (!sel || sel.n > S.t + 1e-9) return null;
+  const n = sel.n, s = sel.who === 's';
+  return { who:sel.who, n, x: s ? P.V * n : 0.5 * P.a * n * n, v: s ? P.V : P.a * n,
+           name: s ? 'Suçlu Araç' : 'Polis Aracı', col: s ? RED : BLUE };
+}
+function callout(ctx, x, y, lines, col, W, H){
+  ctx.save();
+  ctx.font = 'bold 12px ' + FONT; ctx.textAlign = 'left';
+  const lh = 16, pad = 9;
+  const w = Math.max.apply(null, lines.map(l => ctx.measureText(l).width)) + pad * 2;
+  const h = lines.length * lh + pad * 2 - 4;
+  let bx = x + 14, by = y - h - 14;
+  if (bx + w > W - 4) bx = x - 14 - w;
+  if (bx < 4) bx = 4;
+  if (by < 4) by = y + 14;
+  if (by + h > H - 4) by = H - 4 - h;
+  ctx.fillStyle = 'rgba(8,12,22,.95)'; rr(ctx, bx, by, w, h, 8); ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 1.5; rr(ctx, bx, by, w, h, 8); ctx.stroke();
+  lines.forEach((l, i) => {
+    ctx.fillStyle = i === 0 ? col : '#e7ecf6';
+    ctx.fillText(l, bx + pad, by + pad + 9 + i * lh);
+  });
+  ctx.restore();
+}
+function attachPick(G){
+  const c = G.c;
+  const find = e => {
+    const r = c.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    let best = null, bd = 16 * 16;
+    (G.hits || []).forEach(h => {
+      const d = (h.x - mx) * (h.x - mx) + (h.y - my) * (h.y - my);
+      if (d <= bd){ bd = d; best = h; }
+    });
+    return best;
+  };
+  c.addEventListener('click', e => {
+    const h = find(e);
+    if (h && sel && sel.who === h.who && sel.n === h.n) sel = null;
+    else sel = h ? { who:h.who, n:h.n } : null;
+  });
+  c.addEventListener('pointermove', e => { c.style.cursor = find(e) ? 'pointer' : 'default'; });
+}
+
+/* ---------- Araç çizimi ---------- */
+function drawCar(ctx, cx, cy, body, roof, police, flash){
+  const L = 60, Wd = 28;
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // far ışığı
+  const bg = ctx.createLinearGradient(L/2, 0, L/2 + 80, 0);
+  bg.addColorStop(0, 'rgba(255,240,170,.32)');
+  bg.addColorStop(1, 'rgba(255,240,170,0)');
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.moveTo(L/2 - 2, -8); ctx.lineTo(L/2 + 80, -28); ctx.lineTo(L/2 + 80, 28); ctx.lineTo(L/2 - 2, 8);
+  ctx.closePath(); ctx.fill();
+
+  // gölge
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  rr(ctx, -L/2 + 2, -Wd/2 + 4, L, Wd, 8); ctx.fill();
+
+  // gövde
+  ctx.fillStyle = body;
+  rr(ctx, -L/2, -Wd/2, L, Wd, 8); ctx.fill();
+
+  // tavan
+  ctx.fillStyle = roof;
+  rr(ctx, -14, -Wd/2 + 4, 26, Wd - 8, 5); ctx.fill();
+
+  // ön ve arka cam
+  ctx.fillStyle = 'rgba(190,225,255,.6)';
+  rr(ctx, 12, -Wd/2 + 5, 8, Wd - 10, 3); ctx.fill();
+  rr(ctx, -22, -Wd/2 + 5, 7, Wd - 10, 3); ctx.fill();
+
+  // farlar ve stop lambaları
+  ctx.fillStyle = '#fff6c0';
+  ctx.fillRect(L/2 - 4, -Wd/2 + 3, 4, 6);
+  ctx.fillRect(L/2 - 4, Wd/2 - 9, 4, 6);
+  ctx.fillStyle = '#ff2a2a';
+  ctx.fillRect(-L/2, -Wd/2 + 3, 3, 6);
+  ctx.fillRect(-L/2, Wd/2 - 9, 3, 6);
+
+  if (police){
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.fillRect(-L/2 + 5, -1, L - 10, 2);
+    // çakar lambalar
+    const cA = flash ? '#3d8bff' : '#ff3b3b';
+    const cB = flash ? '#ff3b3b' : '#3d8bff';
+    const glow = ctx.createRadialGradient(0,0,2,0,0,44);
+    glow.addColorStop(0, flash ? 'rgba(61,139,255,.45)' : 'rgba(255,59,59,.45)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(0,0,44,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = cA; ctx.fillStyle = cA; ctx.fillRect(-4, -11, 8, 11);
+    ctx.shadowColor = cB; ctx.fillStyle = cB; ctx.fillRect(-4, 0, 8, 11);
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+}
+
+/* ---------- Ana simülasyon çizimi ---------- */
+function drawMain(){
+  const ctx = M.ctx, W = M.w, H = M.h;
+  if (!W) return;
+  M.hits = [];
+  const t = S.t, V = P.V, L = P.L;
+  const xs = V * t, vs = V;
+  const xp = 0.5 * P.a * t * t, vp = P.a * t;
+  const now = performance.now();
+
+  // arka plan
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#060912'); g.addColorStop(1, '#0c1222');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const s of stars){
+    ctx.globalAlpha = 0.35 + 0.35 * Math.sin(now / 900 + s.p);
+    ctx.fillStyle = '#dbe6ff';
+    ctx.beginPath(); ctx.arc(s.x * W, s.y * (H * 0.3), s.r, 0, 6.283); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  const padL = W < 520 ? 58 : 84, padR = W < 520 ? 48 : 72;
+  const roadTop = 96, roadBot = H - 46, roadH = roadBot - roadTop;
+  const yS = roadTop + roadH * 0.27, yP = roadTop + roadH * 0.73;
+  const mx = x => padL + x / L * (W - padL - padR);
+
+  // asfalt
+  const rg = ctx.createLinearGradient(0, roadTop, 0, roadBot);
+  rg.addColorStop(0, '#2b2e35'); rg.addColorStop(1, '#202329');
+  ctx.fillStyle = rg; ctx.fillRect(0, roadTop, W, roadH);
+  ctx.strokeStyle = 'rgba(225,230,240,.85)'; ctx.lineWidth = 3; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(0, roadTop + 6); ctx.lineTo(W, roadTop + 6);
+  ctx.moveTo(0, roadBot - 6); ctx.lineTo(W, roadBot - 6); ctx.stroke();
+  ctx.strokeStyle = 'rgba(240,230,170,.75)'; ctx.lineWidth = 3; ctx.setLineDash([28, 22]);
+  ctx.beginPath(); ctx.moveTo(0, (yS + yP) / 2); ctx.lineTo(W, (yS + yP) / 2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // konum işaretleri
+  const ts = niceStep(L, 8);
+  ctx.font = '11px ' + FONT; ctx.textAlign = 'center'; ctx.fillStyle = '#9aa5bb';
+  for (let i = 0; i * ts <= L + 1e-9; i++){
+    const x = i * ts, px = mx(x);
+    ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, roadTop); ctx.lineTo(px, roadBot); ctx.stroke();
+    ctx.strokeStyle = '#6f7a92';
+    ctx.beginPath(); ctx.moveTo(px, roadBot); ctx.lineTo(px, roadBot + 6); ctx.stroke();
+    ctx.fillText(x + ' m', px, roadBot + 20);
+  }
+
+  // başlangıç çizgisi
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(mx(0), roadTop); ctx.lineTo(mx(0), roadBot); ctx.stroke();
+  ctx.fillStyle = '#cfd8ea'; ctx.font = '11px ' + FONT; ctx.textAlign = 'left';
+  ctx.fillText('Başlangıç (x = 0 m)', Math.max(6, mx(0) - 20), roadTop - 10);
+
+  // şehir sınırı (damalı şerit)
+  const lx = mx(L);
+  for (let yy = roadTop, r = 0; yy < roadBot; yy += 6, r++){
+    const hh = Math.min(6, roadBot - yy);
+    for (let c = 0; c < 2; c++){
+      ctx.fillStyle = ((r + c) % 2) ? '#ffffff' : '#d21f1f';
+      ctx.fillRect(lx - 6 + c * 6, yy, 6, hh);
+    }
+  }
+  ctx.fillStyle = '#ff9a9a'; ctx.textAlign = 'right';
+  ctx.fillText('Şehir Sınırı (x = ' + L + ' m)', Math.min(W - 6, lx + 30), roadTop - 10);
+
+  // iz çizgileri
+  ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(255,77,77,.4)';
+  ctx.beginPath(); ctx.moveTo(mx(0), yS); ctx.lineTo(mx(xs), yS); ctx.stroke();
+  ctx.strokeStyle = 'rgba(61,139,255,.45)';
+  ctx.beginPath(); ctx.moveTo(mx(0), yP); ctx.lineTo(mx(xp), yP); ctx.stroke();
+  ctx.lineCap = 'butt';
+
+  // saniyelik iz noktaları
+  function trace(isCrim){
+    const lane = isCrim ? yS : yP;
+    const col = isCrim ? RED : BLUE;
+    let lastLabel = -1e9;
+    ctx.font = '10px ' + FONT; ctx.textAlign = 'center';
+    for (let n = 1; n <= t + 1e-9; n++){
+      const x = isCrim ? V * n : 0.5 * P.a * n * n;
+      const px = mx(x);
+      M.hits.push({ x:px, y:lane, who:isCrim ? 's' : 'p', n });
+      ctx.fillStyle = col; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px, lane, 4.5, 0, 6.283); ctx.fill(); ctx.stroke();
+      if (px - lastLabel >= 26){
+        ctx.fillStyle = isCrim ? '#ffb3b3' : '#a9caff';
+        ctx.fillText(n + 's', px, isCrim ? lane + 20 : lane - 12);
+        lastLabel = px;
+      }
+    }
+  }
+  trace(true); trace(false);
+  const sv = selData();
+  if (sv){
+    const sx = mx(sv.x), sy = sv.who === 's' ? yS : yP;
+    ctx.strokeStyle = AMBER; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(sx, sy, 10, 0, 6.283); ctx.stroke();
+  }
+
+  // yakalama anı vurgusu
+  const atEnd = S.finished && !S.playing && S.t >= S.tEnd - 1e-9;
+  if (atEnd && S.caught){
+    const px = mx(S.xc);
+    ctx.strokeStyle = AMBER; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(px, yS); ctx.lineTo(px, yP); ctx.stroke(); ctx.setLineDash([]);
+    const p = (now / 1200) % 1;
+    ctx.strokeStyle = 'rgba(255,196,77,' + (1 - p) + ')'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(px, (yS + yP) / 2, 12 + p * 46, 0, 6.283); ctx.stroke();
+  }
+
+  // araçlar
+  const flash = Math.floor(now / 170) % 2 === 0;
+  drawCar(ctx, mx(xs), yS, '#e02a2a', '#8f1414', false, false);
+  drawCar(ctx, mx(xp), yP, '#1f66ea', '#0d3a99', true, flash);
+
+  // hız etiketleri
+  ctx.font = 'bold 12px ' + FONT; ctx.textAlign = 'center';
+  ctx.fillStyle = '#ff8f8f';
+  ctx.fillText('v = ' + vs.toFixed(1) + ' m/s', mx(xs), yS - 24);
+  ctx.fillStyle = '#8fbaff';
+  ctx.fillText('v = ' + vp.toFixed(1) + ' m/s', mx(xp), yP + 34);
+
+  // dijital kronometre
+  const bw = 200, bh = 66, bx = W / 2 - bw / 2, by = 10;
+  ctx.fillStyle = '#04070c'; rr(ctx, bx, by, bw, bh, 12); ctx.fill();
+  ctx.strokeStyle = 'rgba(57,255,136,.45)'; ctx.lineWidth = 1.5; rr(ctx, bx, by, bw, bh, 12); ctx.stroke();
+  ctx.fillStyle = '#6d8a78'; ctx.font = '10px ' + FONT; ctx.textAlign = 'center';
+  ctx.fillText('KRONOMETRE', W / 2, by + 15);
+  ctx.font = 'bold 36px ' + MONO;
+  ctx.shadowColor = GREEN; ctx.shadowBlur = 14; ctx.fillStyle = GREEN;
+  ctx.fillText(t.toFixed(1) + 's', W / 2, by + 52);
+  ctx.shadowBlur = 0;
+
+  if (sv){
+    callout(ctx, mx(sv.x), sv.who === 's' ? yS : yP,
+      [sv.name, 't = ' + sv.n + 's', 'x = ' + sv.x.toFixed(1) + ' m', 'v = ' + sv.v.toFixed(1) + ' m/s'],
+      sv.col, W, H);
+  }
+}
+
+/* ---------- Grafik çizimi ---------- */
+function drawGraph(G, kind){
+  const ctx = G.ctx, w = G.w, h = G.h;
+  if (!w) return;
+  const isV = kind === 'v';
+  ctx.clearRect(0, 0, w, h);
+  G.hits = [];
+  ctx.fillStyle = '#0e1420'; ctx.fillRect(0, 0, w, h);
+
+  const pl = 62, pr = 18, pt = 52, pb = 44, pw = w - pl - pr, ph = h - pt - pb;
+  const yData = isV ? Math.max(P.V, P.a * S.tEnd) : Math.max(P.V * S.tEnd, 0.5 * P.a * S.tEnd * S.tEnd);
+  const xst = niceStep(S.tEnd, 8), xMax = Math.ceil(S.tEnd * 1.02 / xst) * xst;
+  const yst = niceStep(yData, 6),  yMax = Math.ceil(yData * 1.06 / yst) * yst;
+  const px = t => pl + t / xMax * pw;
+  const py = v => pt + ph - v / yMax * ph;
+  const fP = t => isV ? P.a * t : 0.5 * P.a * t * t;
+  const fC = t => isV ? P.V : P.V * t;
+
+  // başlık ve gösterge
+  ctx.textAlign = 'left'; ctx.fillStyle = '#dfe6f5'; ctx.font = 'bold 14px ' + FONT;
+  ctx.fillText(isV ? 'Hız – Zaman Grafiği (v – t)' : 'Konum – Zaman Grafiği (x – t)', pl - 40, 20);
+  ctx.font = '12px ' + FONT;
+  let lgx = pl - 40;
+  [['Polis Aracı', BLUE], ['Suçlu Araç', RED]].forEach(([name, col]) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(lgx, 38); ctx.lineTo(lgx + 22, 38); ctx.stroke();
+    ctx.fillStyle = '#c5cee0'; ctx.fillText(name, lgx + 28, 42);
+    lgx += 28 + ctx.measureText(name).width + 18;
+  });
+
+  // ızgara ve eksen değerleri
+  ctx.font = '11px ' + FONT;
+  ctx.textAlign = 'right';
+  const yd = decs(yst);
+  for (let i = 0; i * yst <= yMax + 1e-9; i++){
+    const v = i * yst, y = py(v);
+    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pl, y); ctx.lineTo(pl + pw, y); ctx.stroke();
+    ctx.fillStyle = '#9aa5bb'; ctx.fillText(v.toFixed(yd), pl - 8, y + 4);
+  }
+  ctx.textAlign = 'center';
+  const xd = decs(xst);
+  for (let i = 0; i * xst <= xMax + 1e-9; i++){
+    const tt = i * xst, x = px(tt);
+    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, pt); ctx.lineTo(x, pt + ph); ctx.stroke();
+    ctx.fillStyle = '#9aa5bb'; ctx.fillText(tt.toFixed(xd), x, pt + ph + 16);
+  }
+  ctx.strokeStyle = '#7d889f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pl, pt); ctx.lineTo(pl, pt + ph); ctx.lineTo(pl + pw, pt + ph); ctx.stroke();
+
+  // eksen başlıkları
+  ctx.fillStyle = '#cfd8ea'; ctx.font = '12px ' + FONT; ctx.textAlign = 'center';
+  ctx.fillText('Zaman (s)', pl + pw / 2, h - 8);
+  ctx.save(); ctx.translate(14, pt + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText(isV ? 'Hız (m/s)' : 'Konum (m)', 0, 0); ctx.restore();
+
+  const t = S.t;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(pl, pt - 2, pw + 2, ph + 4); ctx.clip();
+
+  // yakalama zamanı çizgisi
+  if (S.caught && t >= S.tc - 1e-9){
+    ctx.strokeStyle = 'rgba(255,196,77,.6)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(px(S.tc), pt); ctx.lineTo(px(S.tc), pt + ph); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // eğriler
+  const n = Math.max(2, Math.ceil(t / S.tEnd * 260));
+  [[fC, RED], [fP, BLUE]].forEach(([f, col]) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let k = 0; k <= n; k++){
+      const tt = t * k / n;
+      if (k === 0) ctx.moveTo(px(tt), py(f(tt))); else ctx.lineTo(px(tt), py(f(tt)));
+    }
+    ctx.stroke();
+  });
+
+  // saniyelik noktalar
+  for (let s = 1; s <= t + 1e-9; s++){
+    [[fC, RED, 's'], [fP, BLUE, 'p']].forEach(([f, col, who]) => {
+      G.hits.push({ x:px(s), y:py(f(s)), who, n:s });
+      ctx.fillStyle = col; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px(s), py(f(s)), 4, 0, 6.283); ctx.fill(); ctx.stroke();
+    });
+  }
+
+  // zaman imleci
+  ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(px(t), pt); ctx.lineTo(px(t), pt + ph); ctx.stroke();
+  ctx.restore();
+
+  // anlık noktalar
+  [[fC, RED, -10], [fP, BLUE, 16]].forEach(([f, col, dy]) => {
+    const x = px(t), y = py(f(t));
+    ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(x, y, 6, 0, 6.283); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = 'bold 11px ' + FONT; ctx.fillStyle = col === RED ? '#ff9c9c' : '#9cc4ff';
+    const right = x > pl + pw - 60;
+    ctx.textAlign = right ? 'right' : 'left';
+    ctx.fillText(f(t).toFixed(1), x + (right ? -10 : 10), y + dy);
+  });
+
+  // yakalama halkası (x–t)
+  if (!isV && S.caught && t >= S.tc - 1e-9){
+    ctx.strokeStyle = AMBER; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(px(S.tc), py(S.xc), 11, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = AMBER; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'right';
+    ctx.fillText('Yakalama', px(S.tc) - 16, py(S.xc) + 18);
+  }
+
+  // zaman etiketi
+  ctx.font = 'bold 11px ' + FONT; ctx.fillStyle = '#e7ecf6';
+  const tx = Math.min(pl + pw - 30, Math.max(pl + 30, px(t)));
+  ctx.textAlign = 'center';
+  ctx.fillText('t = ' + t.toFixed(1) + 's', tx, pt + 12);
+
+  // seçili iz noktası: eksenlere kılavuz çizgileri ve bilgi balonu
+  const sv = selData();
+  if (sv){
+    const val = isV ? sv.v : sv.x, vx = px(sv.n), vy = py(val);
+    ctx.strokeStyle = sv.col; ctx.lineWidth = 1.2; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(vx, pt + ph); ctx.moveTo(vx, vy); ctx.lineTo(pl, vy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = AMBER; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(vx, vy, 9, 0, 6.283); ctx.stroke();
+    callout(ctx, vx, vy,
+      [sv.name, 't = ' + sv.n + 's', (isV ? 'v = ' : 'x = ') + val.toFixed(1) + (isV ? ' m/s' : ' m')],
+      sv.col, w, h);
+  }
+}
+
+/* ---------- Sonuç kutusu ve tablo ---------- */
+let lastResultKey = '';
+function feedback(){
+  if (!A.answerOk) return '';
+  const f2 = v => v.toFixed(2);
+  if (A.mode === 't'){
+    const diff = Math.abs(A.answer - S.tc), ok = diff <= Math.max(0.1, 0.02 * S.tc);
+    return '<div class="fb ' + (ok ? 'good' : 'miss') + '">' + (ok ? 'Tahminin doğru! ' : 'Tahmininle gerçek değer farklı. ') +
+      'Senin tahminin: ' + f2(A.answer) + 's, hesaplanan yakalama zamanı: ' + f2(S.tc) + 's.' +
+      (ok ? '' : ' Fark: ' + f2(diff) + 's. İpucu: ½·a·t² = V·t denklemini çöz.') +
+      (S.caught ? '' : ' Not: Bu değerlerde polis şehir sınırına kadar yakalayamıyor.') + '</div>';
+  }
+  const amin = 2 * P.V * P.V / P.L, ans = A.answer;
+  const near = Math.abs(ans - amin) <= 0.01 * amin, enough = ans >= amin * (1 - 1e-9);
+  const formula = 'a<sub>min</sub> = 2V²/x<sub>limit</sub> = ' + f2(amin) + ' m/s²';
+  let msg, ok = false;
+  if (near && enough){ ok = true; msg = 'Doğru! En küçük ivme ' + formula + '. Polis, suçluyu tam şehir sınırında yakalar.'; }
+  else if (near){ msg = 'Çok yakın! Ama yazdığın ivme (' + f2(ans) + ' m/s²) biraz küçük olduğu için polis sınırda yakalayamadı. Doğru değer: ' + formula + '.'; }
+  else if (enough){ msg = 'Yazdığın ivme (' + f2(ans) + ' m/s²) yakalamak için yeterli, ama en küçük değer değil: polis sınıra varmadan yakaladı. Doğru değer: ' + formula + '.'; }
+  else { msg = 'Yazdığın ivme (' + f2(ans) + ' m/s²) yetersiz: polis suçluyu sınıra kadar yakalayamadı. Doğru değer: ' + formula + '.'; }
+  return '<div class="fb ' + (ok ? 'good' : 'miss') + '">' + msg + '</div>';
+}
+function updateResult(){
+  const atEnd = S.finished && S.t >= S.tEnd - 1e-9;
+  let key, html;
+  if (atEnd){
+    key = 'end' + P.V + '|' + P.a + '|' + P.L + '|' + A.mode + '|' + A.answer;
+    if (key !== lastResultKey){
+      if (S.caught){
+        html = '<div class="msg ok">Tebrikler! Suçlu Araç t = ' + S.tc.toFixed(2) + 's anında, x = ' + S.xc.toFixed(1) + 'm konumunda Yakalandı.</div>' +
+               '<div class="note">Çözüm: x<sub>polis</sub> = x<sub>suçlu</sub> ⇒ ½·a·t² = V·t ⇒ t = 2V/a = ' + S.tc.toFixed(2) +
+               's ve x = V·t = ' + S.xc.toFixed(1) + 'm. Yakalanma anında polisin hızı v = a·t = ' + (P.a * S.tc).toFixed(1) + ' m/s (suçlunun hızının 2 katı).</div>';
+      } else {
+        const xp = 0.5 * P.a * S.tEnd * S.tEnd, vp = P.a * S.tEnd;
+        html = '<div class="msg bad">Suçlu Şehir Sınırını Geçti!</div>' +
+               '<div class="note">Suçlu, sınıra t = ' + S.tEnd.toFixed(2) + 's anında ulaştı; polis o anda x = ' + xp.toFixed(1) +
+               'm konumunda ve ' + vp.toFixed(1) + ' m/s hızındaydı. Yakalama için t = 2V/a = ' + S.tc.toFixed(2) +
+               's ve x = ' + S.xc.toFixed(1) + 'm gerekirdi, ancak sınır x = ' + P.L + 'm.</div>';
+      }
+      $('result').innerHTML = html + feedback(); lastResultKey = key;
+    }
+  } else {
+    key = S.finished ? 'analysis' : (S.playing ? 'run' : (!A.paramsOk ? 'p0' : (!A.answerOk ? 'p1' : 'ready')));
+    if (key !== lastResultKey){
+      const txt = key === 'analysis' ? 'Analiz modu: kare kare ileri veya geri giderek hareketi inceleyebilirsiniz.'
+                : key === 'run' ? 'Simülasyon çalışıyor…'
+                : key === 'p0' ? 'Önce parametreleri seçip «Parametreleri Onayla» düğmesine basın.'
+                : key === 'p1' ? 'Öğrenci Sorusu bölümüne cevabınızı yazıp onaylayın.'
+                : 'Hazır. «Simülasyonu Başlat» düğmesine basın.';
+      $('result').innerHTML = '<div class="idle">' + txt + '</div>';
+      lastResultKey = key;
+    }
+  }
+}
+function updateTable(){
+  const t = S.t, xs = P.V * t, xp = 0.5 * P.a * t * t;
+  $('lt').textContent = t.toFixed(2) + 's';
+  $('lxs').textContent = xs.toFixed(1);
+  $('lxp').textContent = xp.toFixed(1);
+  $('lvs').textContent = P.V.toFixed(1);
+  $('lvp').textContent = (P.a * t).toFixed(1);
+  $('ldx').textContent = Math.max(0, xs - xp).toFixed(1);
+  const sv = selData();
+  $('lsel').innerHTML = sv
+    ? '<b style="color:' + sv.col + '">' + sv.name + '</b> · t = <b>' + sv.n + 's</b><br>' +
+      'Konum–zaman: x = <b>' + sv.x.toFixed(1) + ' m</b><br>Hız–zaman: v = <b>' + sv.v.toFixed(1) + ' m/s</b>'
+    : 'Yolda veya grafiklerde bir iz noktasına dokunun; o andaki konum ve hız değerleri burada görünür.';
+  const rate = S.base * (S.slow ? 0.5 : 1);
+  $('rate').textContent = 'Oynatma hızı: ' + (Math.abs(rate - 1) < 1e-9 ? 'gerçek zaman (×1)'
+    : (rate < 1 ? 'yavaş çekim (×0.5)' : '×' + rate.toFixed(2) + ' (uzun sürdüğü için hızlandırıldı)'));
+}
+
+/* ---------- Ana döngü ---------- */
+let last = null;
+function frame(ts){
+  if (last === null) last = ts;
+  const dt = Math.min(0.1, (ts - last) / 1000);
+  last = ts;
+  if (S.playing){
+    S.t += dt * S.base * (S.slow ? 0.5 : 1);
+    if (S.t >= S.tEnd){
+      S.t = S.tEnd; S.playing = false; S.finished = true; updateButtons();
+    }
+  }
+  drawMain();
+  drawGraph(GV, 'v');
+  drawGraph(GX, 'x');
+  updateResult();
+  updateTable();
+  requestAnimationFrame(frame);
+}
+
+attachPick(M); attachPick(GV); attachPick(GX);
+commitInputs();
+resetSim();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

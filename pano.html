@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mantar Pano – Beyin Fırtınası</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&family=Patrick+Hand&display=swap" rel="stylesheet">
+
+<!--
+=====================================================================
+  KURULUM ADIMLARI (Firebase) – Adım adım, teknik bilgi gerekmez
+=====================================================================
+  Zaten The Agents, ClassClans ve Who's Next için bir Firebase projen var.
+  BU PANO DA AYNI PROJEYİ KULLANIR. Yeni proje açmana gerek yok.
+
+  1) console.firebase.google.com adresine git, mevcut projeni aç.
+  2) Sol üstte "Proje ayarları" (dişli simgesi) → "Genel" sekmesi →
+     aşağıda "Uygulamalarınız" bölümünde daha önce kullandığın web
+     uygulamasının "firebaseConfig" değerlerini bul. Aşağıdaki
+     firebaseConfig alanına aynen kopyala (diğer oyunlarında kullandığın
+     değerlerin aynısı).
+  3) Sol menü → Build → Authentication → Sign-in method:
+       • "E-posta/Şifre" zaten açık (öğretmen hesapların bunu kullanıyor).
+       • "Anonim" (Anonymous) seçeneğini AÇ. Öğrenciler hesapsız,
+         sadece kod + isim ile bu sayede katılır.
+  4) Sol menü → Build → Firestore Database → "Rules" (Kurallar) sekmesi.
+     Mevcut kurallarının SİLMEDEN, en alta (son "}" işaretinden önce,
+     "match /databases/{database}/documents { ... }" içine) şu bloğu ekle:
+
+       match /boards/{boardId} {
+         allow read: if request.auth != null;
+         allow create: if request.auth != null
+                       && request.auth.token.firebase.sign_in_provider != 'anonymous';
+         allow update, delete: if request.auth != null
+                       && request.auth.uid == resource.data.owner;
+         match /cards/{cardId} { allow read, write: if request.auth != null; }
+         match /links/{linkId} { allow read, write: if request.auth != null; }
+       }
+
+     "Yayınla" (Publish) düğmesine bas.
+  5) Authentication → Settings → "Yetkili alanlar" (Authorized domains)
+     listesinde thegamifyclass.com ve www.thegamifyclass.com olduğundan emin ol
+     (diğer oyunlar çalışıyorsa zaten vardır).
+  6) Bu dosyayı (pano.html) sitenin GitHub deposuna, diğer HTML dosyalarının
+     yanına yükle. Vercel otomatik yayınlar. Adres: www.thegamifyclass.com/pano.html
+     "Sınıf Araçları" bölümüne bir kart olarak bağlantıyı ekleyebilirsin.
+
+  ÖNEMLİ: firebaseConfig doldurulmazsa uygulama otomatik olarak "yerel mod"da
+  (yalnızca bu tarayıcıda, localStorage) çalışır. Test için idealdir ama
+  farklı cihazlar arasında canlı senkron olmaz.
+=====================================================================
+-->
+
+<style>
+:root{
+  --ink:#2b2118; --paper:#fffaf0; --line:rgba(43,33,24,.16);
+  --accent:#b5302a; --accent2:#1f6f6b; --ui:#fff8ea; --shadow:0 6px 16px rgba(40,25,10,.28);
+  --yellow:#ffe27a; --green:#b9e6a3; --blue:#a9d6f5; --pink:#ffb8cf; --orange:#ffc48a; --purple:#d6bff5;
+  --font-ui:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-note:'Patrick Hand','Comic Sans MS',cursive;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font-ui);color:var(--ink);background:#2a1f16;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[contenteditable]:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
+.hidden{display:none!important}
+
+/* ---------- Butonlar ---------- */
+.btn{border:2px solid var(--ink);background:var(--ui);border-radius:10px;padding:8px 14px;font-weight:600;box-shadow:2px 3px 0 var(--ink);transition:transform .08s,box-shadow .08s}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:3px 4px 0 var(--ink)}
+.btn:active{transform:translate(2px,3px);box-shadow:0 0 0 var(--ink)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.teal{background:var(--accent2);color:#fff}
+.btn.small{padding:5px 10px;font-size:.85rem}
+.btn.icon{padding:6px 10px;min-width:38px}
+.btn.on{background:var(--ink);color:var(--paper)}
+input,select,textarea{font:inherit;color:var(--ink);background:#fff;border:2px solid var(--ink);border-radius:8px;padding:9px 11px;width:100%}
+label{font-weight:600;font-size:.9rem;display:block;margin:12px 0 5px}
+
+/* ---------- Giriş ekranı ---------- */
+#entry,#dash{position:fixed;inset:0;overflow:auto;padding:24px;display:flex;align-items:center;justify-content:center;
+  background:
+   radial-gradient(circle at 20% 30%,rgba(255,255,255,.10) 0 1.5px,transparent 2px) 0 0/9px 9px,
+   radial-gradient(circle at 70% 60%,rgba(0,0,0,.14) 0 1.5px,transparent 2px) 0 0/13px 13px,
+   #b98352}
+.entry-wrap{width:min(920px,100%);display:grid;grid-template-columns:1.1fr 1fr;gap:28px;align-items:center}
+.hero h1{font-size:clamp(2.2rem,6vw,3.8rem);line-height:1;margin:0 0 14px;font-weight:800;color:#fff;text-shadow:2px 3px 0 rgba(0,0,0,.35)}
+.hero p{font-size:1.1rem;color:#fff4e0;max-width:34ch;margin:0}
+.hero .demo{position:relative;height:150px;margin-top:22px}
+.demo .card{position:absolute;width:150px}
+.panel{background:var(--paper);border:2px solid var(--ink);border-radius:14px;padding:22px;box-shadow:6px 8px 0 rgba(0,0,0,.35);position:relative}
+.panel h2{margin:0 0 4px;font-size:1.25rem}
+.panel .sub{margin:0 0 6px;color:#6b5a48;font-size:.9rem}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;border:2px solid var(--ink);background:transparent;border-radius:8px;padding:8px;font-weight:600}
+.tabs button.on{background:var(--ink);color:var(--paper)}
+.err{color:var(--accent);font-weight:600;min-height:1.3em;margin:8px 0 0;font-size:.9rem}
+.notice{background:#fff0c2;border:2px dashed var(--ink);border-radius:8px;padding:8px 10px;font-size:.85rem;margin-bottom:12px}
+@media(max-width:760px){.entry-wrap{grid-template-columns:1fr}.hero .demo{display:none}}
+
+/* ---------- Panolarım ---------- */
+#dash{align-items:flex-start}
+.dash-wrap{width:min(900px,100%);margin:auto}
+.dash-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.dash-head h1{margin:0;color:#fff;text-shadow:2px 3px 0 rgba(0,0,0,.35)}
+.board-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;margin-top:18px}
+.bcard{background:var(--paper);border:2px solid var(--ink);border-radius:12px;padding:16px;box-shadow:4px 5px 0 rgba(0,0,0,.3);display:flex;flex-direction:column;gap:6px}
+.bcard h3{margin:0;font-size:1.1rem}
+.bcard .code{font-family:var(--font-note);font-size:1.3rem;letter-spacing:.12em;color:var(--accent2)}
+.bcard .row{display:flex;gap:6px;margin-top:6px}
+
+/* ---------- Pano ekranı ---------- */
+#boardScreen{position:fixed;inset:0;display:flex;flex-direction:column}
+#topbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:var(--ui);border-bottom:2px solid var(--ink);z-index:30}
+#topbar h1{font-size:1.1rem;margin:0 6px 0 0;max-width:30vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{font-family:var(--font-note);font-size:1.2rem;letter-spacing:.1em;border:2px dashed var(--ink);border-radius:8px;padding:0 8px;background:#fff}
+#q{width:190px;padding:6px 10px}
+.spacer{flex:1}
+#stage{position:relative;flex:1;overflow:hidden;touch-action:none;cursor:grab;--px:0px;--py:0px;--z:1}
+#stage.panning{cursor:grabbing}
+#stage[data-theme=cork]{background:
+  radial-gradient(circle at 25% 35%,rgba(255,255,255,.16) 0 1.6px,transparent 2.2px) 0 0/10px 10px,
+  radial-gradient(circle at 65% 70%,rgba(60,30,5,.22) 0 1.8px,transparent 2.4px) 0 0/14px 14px,
+  radial-gradient(circle at 45% 15%,rgba(60,30,5,.16) 0 1px,transparent 1.6px) 0 0/7px 7px,#b98352;
+  box-shadow:inset 0 0 0 10px #7a4a24,inset 0 0 40px rgba(0,0,0,.4)}
+#stage[data-theme=grid]{background:
+  linear-gradient(rgba(43,33,24,.13) 1px,transparent 1px) var(--px) var(--py)/calc(32px*var(--z)) calc(32px*var(--z)),
+  linear-gradient(90deg,rgba(43,33,24,.13) 1px,transparent 1px) var(--px) var(--py)/calc(32px*var(--z)) calc(32px*var(--z)),#f3efe4}
+#stage[data-theme=dark]{background:
+  radial-gradient(rgba(255,255,255,.12) 1.2px,transparent 1.6px) var(--px) var(--py)/calc(28px*var(--z)) calc(28px*var(--z)),#232b36;color:#fff}
+#stage[data-theme=white]{background:#fbfbf8;box-shadow:inset 0 0 0 8px #c9ccd1,inset 0 -14px 0 8px #aeb2b9}
+#world{position:absolute;left:0;top:0;transform-origin:0 0;width:4000px;height:3000px}
+#free{position:absolute;inset:0}
+#cols{position:absolute;left:0;top:0;display:flex;gap:22px;padding:40px;align-items:flex-start}
+.col{width:310px;background:rgba(255,250,240,.72);border:2px solid var(--ink);border-radius:12px;padding:10px;min-height:220px}
+[data-theme=dark] .col{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.4)}
+.col h3{margin:2px 4px 10px;font-size:1rem;display:flex;justify-content:space-between}
+.col-body{display:flex;flex-direction:column;gap:16px;min-height:120px;padding:8px 4px}
+.col-body.over{outline:3px dashed var(--accent2);outline-offset:4px}
+#threads{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;z-index:5;pointer-events:none}
+#threads path.hit{pointer-events:stroke;cursor:pointer}
+
+/* ---------- Kartlar ---------- */
+.card{position:relative;width:250px;border-radius:3px;padding:20px 14px 8px;box-shadow:var(--shadow);font-family:var(--font-note);font-size:1.2rem;line-height:1.25;color:#2b2118;transition:opacity .2s,filter .2s}
+#free>.card{position:absolute}
+.col-body>.card{width:100%}
+.card::before{content:"";position:absolute;inset:0;border-radius:3px;background:linear-gradient(160deg,rgba(255,255,255,.35),transparent 45%,rgba(0,0,0,.06));pointer-events:none}
+.card.c-yellow{background:var(--yellow)}.card.c-green{background:var(--green)}.card.c-blue{background:var(--blue)}
+.card.c-pink{background:var(--pink)}.card.c-orange{background:var(--orange)}.card.c-purple{background:var(--purple)}
+.card.c-paper{background:#fff}
+.card .pin{position:absolute;left:50%;top:-7px;width:16px;height:16px;margin-left:-8px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#ff8a80,#c0392b 55%,#7f1d16);box-shadow:0 3px 4px rgba(0,0,0,.4);z-index:6}
+.card.dim{opacity:.18;filter:grayscale(.6)}
+.card.linkfrom{outline:4px solid var(--accent2)}
+.card.dragging{box-shadow:0 16px 30px rgba(0,0,0,.4);z-index:9999!important}
+.card .body{word-break:break-word}
+.card .body ul,.card .body ol{margin:4px 0;padding-left:22px}
+.card .body div,.card .body p{margin:0}
+.card img.pic{display:block;width:100%;border-radius:2px;margin-bottom:6px;background:#0001}
+.card .ttl{font-weight:700;margin-bottom:4px}
+.card .lnk{display:block;border:2px solid rgba(0,0,0,.18);border-radius:6px;background:rgba(255,255,255,.7);overflow:hidden;text-decoration:none;color:inherit;margin-bottom:6px}
+.card .lnk img{display:block;width:100%;max-height:120px;object-fit:cover}
+.card .lnk .t{padding:6px 8px;font-size:1rem}
+.card .lnk .d{display:flex;gap:6px;align-items:center;font-size:.85rem;opacity:.75}
+.card .lnk .d img{width:16px;height:16px;border-radius:3px}
+.card .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.tag{font-family:var(--font-ui);font-size:.72rem;font-weight:600;background:rgba(0,0,0,.12);border:0;border-radius:99px;padding:2px 8px}
+.card .by{font-family:var(--font-ui);font-size:.75rem;opacity:.7;margin-top:6px}
+.card .bar{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,.25);font-family:var(--font-ui)}
+.card .bar button{border:0;background:rgba(255,255,255,.55);border-radius:99px;padding:2px 8px;font-size:.82rem;font-weight:600}
+.card .bar button.on{background:var(--ink);color:#fff}
+.card .bar .sp{flex:1}
+.comments{font-family:var(--font-ui);font-size:.85rem;margin-top:6px;background:rgba(255,255,255,.65);border-radius:6px;padding:6px}
+.comments .cm{padding:3px 0;border-bottom:1px solid rgba(0,0,0,.08)}
+.comments .cm b{font-weight:700}
+.comments .cm button{border:0;background:none;opacity:.6;float:right}
+.comments .add{display:flex;gap:4px;margin-top:6px}
+.comments input{padding:4px 7px;font-size:.85rem;border-width:1px}
+.comments .add button{border:0;background:var(--ink);color:#fff;border-radius:6px;padding:0 10px}
+
+/* ---------- Yüzen araçlar ---------- */
+#tools{position:absolute;left:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;z-index:20}
+#tools .btn{width:52px;padding:8px 0;font-size:1.25rem;text-align:center;line-height:1.1}
+#tools .btn small{display:block;font-size:.6rem;font-weight:600}
+#zoombox{position:absolute;right:14px;bottom:14px;display:flex;gap:6px;align-items:center;z-index:20;background:var(--ui);border:2px solid var(--ink);border-radius:10px;padding:4px 6px}
+#zoombox span{min-width:44px;text-align:center;font-weight:700}
+#hint{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:6px 14px;border-radius:99px;font-size:.9rem;z-index:25}
+#empty{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);text-align:center;color:#fff;text-shadow:1px 2px 0 rgba(0,0,0,.4);pointer-events:none;z-index:2}
+[data-theme=grid] #empty,[data-theme=white] #empty{color:#6b5a48;text-shadow:none}
+@media(max-width:700px){
+  #tools{top:auto;bottom:12px;left:50%;transform:translateX(-50%);flex-direction:row}
+  #zoombox{bottom:76px}#q{width:120px}
+}
+
+/* ---------- Pencere (modal) ---------- */
+.overlay{position:fixed;inset:0;background:rgba(20,12,4,.6);display:flex;align-items:center;justify-content:center;padding:14px;z-index:100;overflow:auto}
+.modal{background:var(--paper);border:2px solid var(--ink);border-radius:14px;padding:20px;width:min(520px,100%);max-height:94vh;overflow:auto;box-shadow:8px 10px 0 rgba(0,0,0,.35)}
+.modal h2{margin:0 0 6px}
+.modal .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:34px;height:34px;border-radius:6px;border:2px solid var(--ink);padding:0}
+.sw.on{outline:3px solid var(--accent2);outline-offset:2px}
+.rt{display:flex;gap:6px;margin-bottom:6px}
+#editor{min-height:120px;max-height:240px;overflow:auto;border:2px solid var(--ink);border-radius:8px;background:#fff;padding:9px 11px;font-family:var(--font-note);font-size:1.25rem}
+#editor:empty::before{content:attr(data-ph);opacity:.45}
+.bgpick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.bgpick button{border:2px solid var(--ink);border-radius:8px;height:56px;font-size:.75rem;font-weight:700;padding:0;color:#fff;text-shadow:0 1px 2px #000}
+.bgpick button.on{outline:3px solid var(--accent2);outline-offset:2px}
+.bgpick [data-b=cork]{background:#b98352}.bgpick [data-b=grid]{background:#f3efe4;color:#2b2118;text-shadow:none}
+.bgpick [data-b=dark]{background:#232b36}.bgpick [data-b=white]{background:#fbfbf8;color:#2b2118;text-shadow:none}
+.menu{position:absolute;right:12px;top:52px;background:var(--ui);border:2px solid var(--ink);border-radius:10px;padding:6px;z-index:40;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow)}
+.menu .btn{box-shadow:none;text-align:left}
+
+/* ---------- Sunum ---------- */
+#present{position:fixed;inset:0;background:#1b1611;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;color:#fff}
+#slide{width:min(900px,92vw);max-height:76vh;overflow:auto;transform:none;font-size:clamp(1.6rem,4.2vw,3rem);padding:36px 40px}
+#slide .pin{display:none}
+#slide .body{font-size:1em}
+#slide img.pic{max-height:46vh;width:auto;max-width:100%;margin:0 auto 12px}
+#slide .meta{font-family:var(--font-ui);font-size:1rem;margin-top:14px;opacity:.75}
+.pctl{display:flex;gap:12px;align-items:center;margin-top:18px}
+#pcount{min-width:70px;text-align:center}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 18px;border-radius:99px;z-index:300;font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ================= GİRİŞ ================= -->
+<div id="entry">
+  <div class="entry-wrap">
+    <div class="hero">
+      <h1>Mantar Pano</h1>
+      <p>Fikirleri iğneleyin, iplerle birbirine bağlayın, birlikte, canlı olarak düşünün.</p>
+      <div class="demo" aria-hidden="true">
+        <div class="card c-yellow" style="left:0;top:14px;transform:rotate(-4deg)"><i class="pin"></i>Enerji nereye gidiyor?</div>
+        <div class="card c-blue" style="left:150px;top:0;transform:rotate(3deg)"><i class="pin"></i>Sürtünme ısıya dönüşür</div>
+        <div class="card c-pink" style="left:300px;top:24px;transform:rotate(-2deg)"><i class="pin"></i>Deney: buz + tuz</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="tabs" role="tablist">
+        <button id="tabS" class="on" type="button">Öğrenciyim</button>
+        <button id="tabT" type="button">Öğretmenim</button>
+      </div>
+      <div id="localNote" class="notice hidden">Yerel mod: Firebase ayarı yapılmadı. Pano yalnızca bu tarayıcıda çalışır.</div>
+
+      <form id="formS">
+        <h2>Panoya katıl</h2>
+        <p class="sub">Öğretmeninin verdiği pano kodunu yaz.</p>
+        <label for="jCode">Pano kodu</label>
+        <input id="jCode" maxlength="8" autocomplete="off" placeholder="Örn. K7M2QX" style="text-transform:uppercase">
+        <label for="jName">Adın</label>
+        <input id="jName" maxlength="30" autocomplete="off" placeholder="Ad Soyad">
+        <p class="err" id="errS"></p>
+        <button class="btn primary" style="width:100%" type="submit">Panoya katıl</button>
+      </form>
+
+      <form id="formT" class="hidden">
+        <h2>Öğretmen girişi</h2>
+        <p class="sub">Diğer oyunlarda kullandığın e-posta ve şifreyle gir.</p>
+        <label for="tMail">E-posta</label>
+        <input id="tMail" type="email" autocomplete="username">
+        <label for="tPass">Şifre</label>
+        <input id="tPass" type="password" autocomplete="current-password">
+        <p class="err" id="errT"></p>
+        <button class="btn teal" style="width:100%" type="submit">Giriş yap</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PANOLARIM ================= -->
+<div id="dash" class="hidden">
+  <div class="dash-wrap">
+    <div class="dash-head">
+      <h1>Panolarım</h1>
+      <div><button class="btn small" id="btnOut" type="button">Çıkış yap</button></div>
+    </div>
+    <div class="panel">
+      <h2>Yeni pano oluştur</h2>
+      <label for="nTitle">Pano başlığı</label>
+      <input id="nTitle" maxlength="60" placeholder="Örn. 9. sınıf: Enerji dönüşümleri">
+      <p class="err" id="errN"></p>
+      <button class="btn primary" id="btnNew" type="button">Pano oluştur</button>
+    </div>
+    <div class="board-list" id="boardList"></div>
+  </div>
+</div>
+
+<!-- ================= PANO ================= -->
+<div id="boardScreen" class="hidden">
+  <div id="topbar">
+    <button class="btn small icon" id="btnBack" type="button" title="Panodan çık" aria-label="Panodan çık">←</button>
+    <h1 id="bTitle"></h1>
+    <button class="chip" id="bCode" type="button" title="Katılım bağlantısını kopyala"></button>
+    <input id="q" type="search" placeholder="Kart veya etiket ara" aria-label="Ara">
+    <span class="spacer"></span>
+    <button class="btn small" id="btnPresent" type="button">▶ Sunum</button>
+    <button class="btn small" id="btnExport" type="button">⬇ Dışa aktar</button>
+    <button class="btn small hidden" id="btnSettings" type="button">⚙ Ayarlar</button>
+  </div>
+
+  <div id="stage" data-theme="cork">
+    <div id="world">
+      <div id="free"></div>
+      <div id="cols" class="hidden"></div>
+      <svg id="threads"></svg>
+    </div>
+    <div id="empty" class="hidden"><b style="font-size:1.4rem">Pano boş</b><br>Soldaki + Not düğmesiyle ilk fikri ekle.</div>
+    <div id="hint" class="hidden"></div>
+    <div id="tools">
+      <button class="btn primary" data-add="note" type="button" title="Not ekle">✎<small>Not</small></button>
+      <button class="btn" data-add="image" type="button" title="Görsel ekle">🖼<small>Görsel</small></button>
+      <button class="btn" data-add="link" type="button" title="Bağlantı ekle">🔗<small>Bağlantı</small></button>
+      <button class="btn" id="btnThread" type="button" title="İki kartı iple bağla">🧵<small>İp</small></button>
+    </div>
+    <div id="zoombox">
+      <button class="btn small icon" id="zOut" type="button" aria-label="Uzaklaştır">−</button>
+      <span id="zLabel">100%</span>
+      <button class="btn small icon" id="zIn" type="button" aria-label="Yakınlaştır">+</button>
+      <button class="btn small" id="zReset" type="button">Sıfırla</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalHost"></div>
+<div id="present" class="hidden">
+  <div id="slide" class="card"></div>
+  <div class="pctl">
+    <button class="btn" id="pPrev" type="button">◀ Önceki</button>
+    <span id="pcount"></span>
+    <button class="btn" id="pNext" type="button">Sonraki ▶</button>
+    <button class="btn" id="pExit" type="button">Kapat (Esc)</button>
+  </div>
+</div>
+<div id="toast" class="hidden"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ===================================================================
+   1) FIREBASE AYARI – Kendi değerlerini buraya yapıştır
+   (Diğer oyunlarında kullandığın firebaseConfig ile aynı olmalı.)
+   =================================================================== */
+const firebaseConfig = {
+  apiKey: "BURAYA_API_KEY",
+  authDomain: "BURAYA.firebaseapp.com",
+  projectId: "BURAYA_PROJECT_ID",
+  storageBucket: "BURAYA.appspot.com",
+  messagingSenderId: "BURAYA",
+  appId: "BURAYA"
+};
+
+/* ===================================================================
+   2) YARDIMCILAR
+   =================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rid = () => Math.random().toString(36).slice(2, 10);
+const genCode = () => { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; return Array.from({length: 6}, () => a[Math.floor(Math.random() * a.length)]).join(''); };
+const hash = s => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; };
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), 2600); }
+function clean(html) {
+  const ok = new Set(['B','STRONG','I','EM','U','UL','OL','LI','BR','DIV','P']);
+  const d = new DOMParser().parseFromString('<body>' + html, 'text/html');
+  (function walk(n) {
+    [...n.childNodes].forEach(c => {
+      if (c.nodeType === 1) {
+        if (['SCRIPT','STYLE','IFRAME','OBJECT','EMBED'].includes(c.tagName)) { c.remove(); return; }
+        if (!ok.has(c.tagName)) { walk(c); while (c.firstChild) n.insertBefore(c.firstChild, c); c.remove(); }
+        else { [...c.attributes].forEach(a => c.removeAttribute(a.name)); walk(c); }
+      } else if (c.nodeType !== 3) c.remove();
+    });
+  })(d.body);
+  return d.body.innerHTML.trim();
+}
+const plain = html => { const d = document.createElement('div'); d.innerHTML = html || ''; return d.textContent || ''; };
+const normUrl = u => { u = (u || '').trim(); if (!u) return ''; return /^https?:\/\//i.test(u) ? u : 'https://' + u; };
+const domain = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+
+/* ===================================================================
+   3) VERİ KATMANI – Firebase (canlı) veya localStorage (yedek)
+   =================================================================== */
+const USE_FB = typeof firebase !== 'undefined' && !firebaseConfig.apiKey.startsWith('BURAYA');
+
+const FB = {
+  init() { firebase.initializeApp(firebaseConfig); this.auth = firebase.auth(); this.db = firebase.firestore(); },
+  b(code) { return this.db.collection('boards').doc(code); },
+  onAuth(cb) { this.auth.onAuthStateChanged(u => cb(u ? { uid: u.uid, teacher: !u.isAnonymous, name: u.displayName || (u.email || '').split('@')[0] || '' } : null)); },
+  async signInAnon() { const r = await this.auth.signInAnonymously(); return { uid: r.user.uid, teacher: false }; },
+  async signInTeacher(m, p) { await this.auth.signInWithEmailAndPassword(m, p); },
+  async signOut() { await this.auth.signOut(); },
+  myBoards(uid, cb) {
+    return this.db.collection('boards').where('owner', '==', uid).onSnapshot(s => cb(s.docs.map(d => ({ code: d.id, ...d.data() }))));
+  },
+  async getBoard(code) { const d = await this.b(code).get(); return d.exists ? { code, ...d.data() } : null; },
+  async createBoard(data) {
+    for (let i = 0; i < 5; i++) {
+      const code = genCode();
+      if (!(await this.b(code).get()).exists) { await this.b(code).set({ ...data, createdAt: Date.now() }); return code; }
+    }
+    throw new Error('Kod üretilemedi');
+  },
+  updateBoard(code, patch) { return this.b(code).update(patch); },
+  async deleteBoard(code) {
+    for (const col of ['cards', 'links']) {
+      const s = await this.b(code).collection(col).get();
+      const batch = this.db.batch(); s.docs.forEach(d => batch.delete(d.ref)); await batch.commit();
+    }
+    await this.b(code).delete();
+  },
+  watch(code, onB, onC, onL) {
+    const u1 = this.b(code).onSnapshot(d => onB(d.exists ? { code, ...d.data() } : null));
+    const u2 = this.b(code).collection('cards').onSnapshot(s => onC(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const u3 = this.b(code).collection('links').onSnapshot(s => onL(s.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return () => { u1(); u2(); u3(); };
+  },
+  async addCard(code, c) { const r = await this.b(code).collection('cards').add(c); return r.id; },
+  updateCard(code, id, patch) { return this.b(code).collection('cards').doc(id).update(patch); },
+  deleteCard(code, id) { return this.b(code).collection('cards').doc(id).delete(); },
+  vote(code, id, key, uid, on) {
+    const op = on ? firebase.firestore.FieldValue.arrayUnion(uid) : firebase.firestore.FieldValue.arrayRemove(uid);
+    return this.b(code).collection('cards').doc(id).update({ ['votes.' + key]: op });
+  },
+  comment(code, id, cm, remove) {
+    const op = remove ? firebase.firestore.FieldValue.arrayRemove(cm) : firebase.firestore.FieldValue.arrayUnion(cm);
+    return this.b(code).collection('cards').doc(id).update({ comments: op });
+  },
+  addLink(code, l) { return this.b(code).collection('links').add(l); },
+  deleteLink(code, id) { return this.b(code).collection('links').doc(id).delete(); }
+};
+
+const LOC = {
+  KEY: 'pano_local_v1', subs: new Set(),
+  load() { try { return JSON.parse(localStorage.getItem(this.KEY)) || { boards: {} }; } catch { return { boards: {} }; } },
+  commit(d) { localStorage.setItem(this.KEY, JSON.stringify(d)); this.emit(); },
+  emit() { this.subs.forEach(f => f()); },
+  init() { window.addEventListener('storage', e => { if (e.key === this.KEY) this.emit(); }); },
+  onAuth(cb) {
+    const t = localStorage.getItem('pano_local_teacher');
+    if (t) cb({ uid: 'teacher-local', teacher: true, name: 'Öğretmen' });
+    else if (sessionStorage.getItem('pano_local_uid')) cb({ uid: sessionStorage.getItem('pano_local_uid'), teacher: false, name: '' });
+    else cb(null);
+  },
+  async signInAnon() { const uid = 's-' + rid(); sessionStorage.setItem('pano_local_uid', uid); return { uid, teacher: false }; },
+  async signInTeacher() { localStorage.setItem('pano_local_teacher', '1'); },
+  async signOut() { localStorage.removeItem('pano_local_teacher'); sessionStorage.removeItem('pano_local_uid'); },
+  myBoards(uid, cb) {
+    const f = () => cb(Object.entries(this.load().boards).filter(([, b]) => b.owner === uid).map(([code, b]) => ({ code, ...b, cards: undefined, links: undefined })));
+    this.subs.add(f); f(); return () => this.subs.delete(f);
+  },
+  async getBoard(code) { const b = this.load().boards[code]; return b ? { code, ...b, cards: undefined, links: undefined } : null; },
+  async createBoard(data) { const d = this.load(); let code; do code = genCode(); while (d.boards[code]); d.boards[code] = { ...data, createdAt: Date.now(), cards: {}, links: {} }; this.commit(d); return code; },
+  async updateBoard(code, patch) { const d = this.load(); Object.assign(d.boards[code], patch); this.commit(d); },
+  async deleteBoard(code) { const d = this.load(); delete d.boards[code]; this.commit(d); },
+  watch(code, onB, onC, onL) {
+    const f = () => {
+      const b = this.load().boards[code];
+      if (!b) { onB(null); return; }
+      onB({ code, ...b, cards: undefined, links: undefined });
+      onC(Object.entries(b.cards).map(([id, c]) => ({ id, ...c })));
+      onL(Object.entries(b.links).map(([id, l]) => ({ id, ...l })));
+    };
+    this.subs.add(f); f(); return () => this.subs.delete(f);
+  },
+  async addCard(code, c) { const d = this.load(), id = rid(); d.boards[code].cards[id] = c; this.commit(d); return id; },
+  async updateCard(code, id, patch) { const d = this.load(); if (d.boards[code].cards[id]) Object.assign(d.boards[code].cards[id], patch); this.commit(d); },
+  async deleteCard(code, id) { const d = this.load(); delete d.boards[code].cards[id]; Object.entries(d.boards[code].links).forEach(([k, l]) => { if (l.from === id || l.to === id) delete d.boards[code].links[k]; }); this.commit(d); },
+  async vote(code, id, key, uid, on) {
+    const d = this.load(), c = d.boards[code].cards[id]; if (!c) return;
+    c.votes = c.votes || {}; const a = c.votes[key] = (c.votes[key] || []).filter(x => x !== uid); if (on) a.push(uid); this.commit(d);
+  },
+  async comment(code, id, cm, remove) {
+    const d = this.load(), c = d.boards[code].cards[id]; if (!c) return;
+    c.comments = (c.comments || []).filter(x => !(x.id === cm.id)); if (!remove) c.comments.push(cm); this.commit(d);
+  },
+  async addLink(code, l) { const d = this.load(), id = rid(); d.boards[code].links[id] = l; this.commit(d); return id; },
+  async deleteLink(code, id) { const d = this.load(); delete d.boards[code].links[id]; this.commit(d); }
+};
+
+const DB = USE_FB ? FB : LOC;
+if (USE_FB) FB.init(); else LOC.init();
+
+/* ===================================================================
+   4) DURUM
+   =================================================================== */
+const S = {
+  user: null, name: '', code: null, board: null, cards: [], links: [],
+  z: 1, px: 0, py: 0, q: '', linkMode: false, linkFrom: null,
+  open: new Set(), unsub: null, zTop: 10, els: new Map(), layoutKey: ''
+};
+const COLORS = ['yellow', 'green', 'blue', 'pink', 'orange', 'purple'];
+const COLOR_HEX = { yellow: '#ffe27a', green: '#b9e6a3', blue: '#a9d6f5', pink: '#ffb8cf', orange: '#ffc48a', purple: '#d6bff5' };
+const REACT = { up: '👍', idea: '💡', heart: '❤️' };
+const isOwner = () => S.board && S.user && S.board.owner === S.user.uid;
+const canEdit = c => isOwner() || (S.user && c.uid === S.user.uid);
+const cols = () => (S.board.columns && S.board.columns.length ? S.board.columns : ['Fikirler', 'Tartışılıyor', 'Tamamlandı']);
+const ord = c => c.order ?? c.createdAt ?? 0;
+
+/* ===================================================================
+   5) EKRAN GEÇİŞLERİ + GİRİŞ
+   =================================================================== */
+function show(id) { ['entry', 'dash', 'boardScreen'].forEach(s => $('#' + s).classList.toggle('hidden', s !== id)); }
+const urlCode = () => (new URLSearchParams(location.search).get('pano') || '').toUpperCase();
+
+$('#tabS').onclick = () => { $('#tabS').classList.add('on'); $('#tabT').classList.remove('on'); $('#formS').classList.remove('hidden'); $('#formT').classList.add('hidden'); };
+$('#tabT').onclick = () => { $('#tabT').classList.add('on'); $('#tabS').classList.remove('on'); $('#formT').classList.remove('hidden'); $('#formS').classList.add('hidden'); };
+if (!USE_FB) {
+  $('#localNote').classList.remove('hidden');
+  $('#tMail').required = false; $('#tPass').required = false;
+  $('#formT .sub').textContent = 'Yerel modda e-posta gerekmez, doğrudan devam edebilirsin.';
+}
+$('#jCode').value = urlCode();
+$('#jName').value = sessionStorage.getItem('pano_name') || '';
+
+$('#formS').onsubmit = async e => {
+  e.preventDefault();
+  const code = $('#jCode').value.trim().toUpperCase(), name = $('#jName').value.trim();
+  $('#errS').textContent = '';
+  if (!code || !name) { $('#errS').textContent = 'Pano kodunu ve adını yaz.'; return; }
+  try {
+    if (!S.user) S.user = await DB.signInAnon();
+    S.name = name; sessionStorage.setItem('pano_name', name);
+    await openBoard(code);
+  } catch (err) {
+    console.error(err);
+    $('#errS').textContent = USE_FB && err.code === 'auth/operation-not-allowed' ? 'Firebase\'de "Anonim" giriş açık değil (kurulum adım 3).' : 'Bağlanılamadı. Kodu ve internet bağlantını kontrol et.';
+  }
+};
+$('#formT').onsubmit = async e => {
+  e.preventDefault(); $('#errT').textContent = '';
+  try { await DB.signInTeacher($('#tMail').value.trim(), $('#tPass').value); }
+  catch (err) { $('#errT').textContent = 'E-posta veya şifre hatalı.'; }
+};
+$('#btnOut').onclick = async () => { await DB.signOut(); S.user = null; history.replaceState(null, '', location.pathname); show('entry'); };
+
+DB.onAuth(async u => {
+  if (u && u.teacher) {
+    S.user = u; S.name = u.name || 'Öğretmen';
+    const c = urlCode();
+    if (c && !S.code) { try { await openBoard(c); return; } catch (e) { } }
+    if (!S.code) showDash();
+  } else if (u) {
+    S.user = u;
+    if (!S.code) show('entry');
+  } else if (!S.code) { S.user = null; show('entry'); }
+});
+
+/* ---------- Panolarım ---------- */
+let unsubBoards = null;
+function showDash() {
+  show('dash'); if (unsubBoards) unsubBoards();
+  unsubBoards = DB.myBoards(S.user.uid, list => {
+    list.sort((a, b) => b.createdAt - a.createdAt);
+    $('#boardList').innerHTML = list.length ? list.map(b => `
+      <div class="bcard"><h3>${esc(b.title)}</h3><div class="code">${esc(b.code)}</div>
+        <div class="row"><button class="btn small primary" data-open="${b.code}" type="button">Aç</button>
+        <button class="btn small" data-del="${b.code}" type="button">Sil</button></div></div>`).join('')
+      : '<p style="color:#fff">Henüz panon yok. Yukarıdan ilkini oluştur.</p>';
+  });
+}
+$('#boardList').onclick = async e => {
+  const o = e.target.closest('[data-open]'), d = e.target.closest('[data-del]');
+  if (o) openBoard(o.dataset.open);
+  if (d && confirm('Bu pano ve içindeki tüm kartlar kalıcı olarak silinecek. Emin misin?')) { await DB.deleteBoard(d.dataset.del); toast('Pano silindi'); }
+};
+$('#btnNew').onclick = async () => {
+  const t = $('#nTitle').value.trim(); $('#errN').textContent = '';
+  if (!t) { $('#errN').textContent = 'Pano başlığı yaz.'; return; }
+  try {
+    const code = await DB.createBoard({ title: t, owner: S.user.uid, bg: 'cork', mode: 'free', columns: ['Fikirler', 'Tartışılıyor', 'Tamamlandı'], anon: 'choice', locked: false });
+    $('#nTitle').value = ''; openBoard(code);
+  } catch (e) { console.error(e); $('#errN').textContent = 'Pano oluşturulamadı. Firestore kurallarını kontrol et.'; }
+};
+
+/* ===================================================================
+   6) PANO AÇ / KAPAT
+   =================================================================== */
+async function openBoard(code) {
+  const b = await DB.getBoard(code);
+  if (!b) throw new Error('yok');
+  closeBoard(true);
+  S.code = code; S.board = b; S.cards = []; S.links = []; S.els.clear(); S.layoutKey = '';
+  $('#free').innerHTML = ''; $('#cols').innerHTML = '';
+  history.replaceState(null, '', location.pathname + '?pano=' + code);
+  show('boardScreen'); S.z = 1; S.px = 0; S.py = 0; applyView();
+  S.unsub = DB.watch(code,
+    bd => { if (!bd) { toast('Bu pano silinmiş'); leaveBoard(); return; } S.board = bd; renderAll(); },
+    cs => { S.cards = cs; renderAll(); },
+    ls => { S.links = ls; drawThreads(); });
+}
+function closeBoard(silent) { if (S.unsub) S.unsub(); S.unsub = null; S.linkMode = false; S.linkFrom = null; }
+function leaveBoard() {
+  closeBoard(); S.code = null; S.board = null; history.replaceState(null, '', location.pathname);
+  if (S.user && S.user.teacher) showDash(); else show('entry');
+}
+$('#btnBack').onclick = leaveBoard;
+$('#bCode').onclick = async () => {
+  const url = location.origin + location.pathname + '?pano=' + S.code;
+  try { await navigator.clipboard.writeText(url); toast('Katılım bağlantısı kopyalandı'); } catch { prompt('Bağlantıyı kopyala:', url); }
+};
+
+/* ===================================================================
+   7) RENDER
+   =================================================================== */
+function renderAll() {
+  const b = S.board; if (!b) return;
+  $('#bTitle').textContent = b.title; $('#bCode').textContent = S.code;
+  $('#stage').dataset.theme = b.bg || 'cork';
+  $('#btnSettings').classList.toggle('hidden', !isOwner());
+  const col = b.mode === 'columns';
+  $('#free').classList.toggle('hidden', col); $('#cols').classList.toggle('hidden', !col);
+  $$('#tools [data-add]').forEach(x => x.disabled = !!b.locked && !isOwner());
+  renderCards(); applySearch(); drawThreads();
+  $('#empty').classList.toggle('hidden', S.cards.length > 0);
+}
+
+function cardHTML(c) {
+  let inner = '';
+  if (c.type === 'image') inner += `<img class="pic" src="${esc(c.img)}" alt="" draggable="false" loading="lazy">` + (c.title ? `<div class="ttl">${esc(c.title)}</div>` : '');
+  if (c.type === 'link') {
+    inner += `<a class="lnk" href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">${c.img ? `<img src="${esc(c.img)}" alt="" draggable="false" loading="lazy" onerror="this.remove()">` : ''}
+      <div class="t"><b>${esc(c.title || domain(c.url))}</b>${c.desc ? `<div style="font-size:.9rem;opacity:.8">${esc(c.desc.slice(0, 110))}</div>` : ''}
+      <div class="d"><img src="https://www.google.com/s2/favicons?domain=${esc(domain(c.url))}&sz=32" alt="" draggable="false" onerror="this.remove()">${esc(domain(c.url))}</div></div></a>`;
+  }
+  if (c.html) inner += `<div class="body">${clean(c.html)}</div>`;
+  const tags = (c.tags || []).map(t => `<button class="tag" data-act="tag" data-t="${esc(t)}" type="button">#${esc(t)}</button>`).join('');
+  const who = c.author || 'Anonim';
+  const real = isOwner() && c.realName && c.realName !== c.author ? ` <i>(${esc(c.realName)})</i>` : '';
+  const uid = S.user ? S.user.uid : '';
+  const votes = Object.keys(REACT).map(k => {
+    const a = (c.votes && c.votes[k]) || [];
+    return `<button data-act="vote" data-k="${k}" class="${a.includes(uid) ? 'on' : ''}" type="button" aria-label="Tepki ${REACT[k]}">${REACT[k]} ${a.length || ''}</button>`;
+  }).join('');
+  const cms = c.comments || [];
+  let cmBox = '';
+  if (S.open.has(c.id)) {
+    cmBox = `<div class="comments">${cms.sort((a, b) => a.at - b.at).map(m => `<div class="cm">${(isOwner() || m.uid === uid) ? `<button data-act="delcm" data-id="${esc(m.id)}" type="button" aria-label="Yorumu sil">✕</button>` : ''}<b>${esc(m.by)}:</b> ${esc(m.text)}</div>`).join('') || '<div class="cm" style="opacity:.6">Henüz yorum yok.</div>'}
+      <div class="add"><input placeholder="Yorum yaz" maxlength="200" data-cin="${c.id}"><button data-act="postcm" type="button">Gönder</button></div></div>`;
+  }
+  return `<i class="pin"></i>${inner}<div class="tags">${tags}</div><div class="by">${esc(who)}${real}</div>
+    <div class="bar">${votes}<button data-act="cm" class="${S.open.has(c.id) ? 'on' : ''}" type="button">💬 ${cms.length || ''}</button><span class="sp"></span>
+    <button data-act="thread" type="button" title="İple bağla" aria-label="İple bağla">🧵</button>
+    ${canEdit(c) ? `<button data-act="edit" type="button" aria-label="Düzenle">✎</button><button data-act="del" type="button" aria-label="Sil">🗑</button>` : ''}</div>${cmBox}`;
+}
+function sigOf(c) { return JSON.stringify([c, S.open.has(c.id), S.user && S.user.uid, S.board.owner]); }
+
+function renderCards() {
+  const col = S.board.mode === 'columns';
+  const ids = new Set(S.cards.map(c => c.id));
+  for (const [id, el] of S.els) if (!ids.has(id)) { el.remove(); S.els.delete(id); }
+  // sütun iskeleti
+  const key = col ? 'c:' + cols().join('|') : 'f';
+  if (key !== S.layoutKey) {
+    S.layoutKey = key;
+    if (col) $('#cols').innerHTML = cols().map((n, i) => `<div class="col"><h3><span>${esc(n)}</span><span class="cnt" data-cc="${i}"></span></h3><div class="col-body" data-col="${i}"></div></div>`).join('');
+  }
+  for (const c of S.cards) {
+    let el = S.els.get(c.id);
+    const s = sigOf(c);
+    if (!el) {
+      el = document.createElement('div'); el.dataset.id = c.id; S.els.set(c.id, el);
+    }
+    if (el.dataset.sig !== s) {
+      const focused = el.contains(document.activeElement) && document.activeElement.dataset.cin;
+      const val = focused ? document.activeElement.value : '';
+      el.className = 'card c-' + (c.color || 'yellow'); el.innerHTML = cardHTML(c); el.dataset.sig = s;
+      if (focused) { const i = el.querySelector('[data-cin]'); if (i) { i.value = val; i.focus(); } }
+    }
+    el.draggable = col;
+    if (!col) {
+      el.parentNode !== $('#free') && $('#free').appendChild(el);
+      if (!el.classList.contains('dragging')) {
+        el.style.left = (c.x ?? 200) + 'px'; el.style.top = (c.y ?? 200) + 'px';
+        el.style.transform = `rotate(${(hash(c.id) % 5 - 2) * .9}deg)`;
+        if (!el.style.zIndex) el.style.zIndex = 10;
+      }
+    } else {
+      el.style.left = el.style.top = ''; el.style.transform = ''; el.style.zIndex = '';
+    }
+  }
+  if (col) {
+    const groups = cols().map(() => []);
+    S.cards.forEach(c => { const i = Math.min(Math.max(c.col ?? 0, 0), groups.length - 1); groups[i].push(c); });
+    groups.forEach((g, i) => {
+      g.sort((a, b) => ord(a) - ord(b));
+      const body = $(`[data-col="${i}"]`); if (!body) return;
+      g.forEach((c, k) => { const el = S.els.get(c.id); if (body.children[k] !== el) body.insertBefore(el, body.children[k] || null); });
+      const cc = $(`[data-cc="${i}"]`); if (cc) cc.textContent = g.length;
+    });
+  }
+  requestAnimationFrame(drawThreads);
+}
+
+function applySearch() {
+  const q = S.q.trim().toLowerCase().replace(/^#/, '');
+  S.cards.forEach(c => {
+    const el = S.els.get(c.id); if (!el) return;
+    const hay = (plain(c.html) + ' ' + (c.title || '') + ' ' + (c.desc || '') + ' ' + (c.url || '') + ' ' + (c.tags || []).join(' ') + ' ' + (c.author || '')).toLowerCase();
+    el.classList.toggle('dim', !!q && !hay.includes(q));
+  });
+}
+$('#q').oninput = e => { S.q = e.target.value; applySearch(); };
+
+/* ---------- İplikler (SVG) ---------- */
+function pinPos(el) {
+  const r = el.getBoundingClientRect(), w = $('#world').getBoundingClientRect();
+  return { x: (r.left + r.width / 2 - w.left) / S.z, y: (r.top - w.top + 4) / S.z };
+}
+function drawThreads() {
+  const svg = $('#threads'); if (!S.board) return;
+  let out = '';
+  for (const l of S.links) {
+    const a = S.els.get(l.from), b = S.els.get(l.to);
+    if (!a || !b || !a.isConnected || !b.isConnected) continue;
+    const p = pinPos(a), q = pinPos(b), mx = (p.x + q.x) / 2, dist = Math.hypot(p.x - q.x, p.y - q.y);
+    const my = (p.y + q.y) / 2 + 30 + dist * .14;
+    const d = `M${p.x},${p.y} Q${mx},${my} ${q.x},${q.y}`;
+    out += `<path d="${d}" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="5" transform="translate(3,5)" stroke-linecap="round"/>
+      <path d="${d}" fill="none" stroke="#c0392b" stroke-width="3" stroke-linecap="round"/>
+      <path class="hit" data-link="${l.id}" d="${d}" fill="none" stroke="transparent" stroke-width="16"><title>İpi kaldırmak için tıkla</title></path>`;
+  }
+  svg.innerHTML = out;
+}
+$('#threads').addEventListener('click', async e => {
+  const p = e.target.closest('[data-link]'); if (!p) return;
+  const l = S.links.find(x => x.id === p.dataset.link);
+  if (l && (isOwner() || l.uid === S.user.uid) && confirm('Bu ip kaldırılsın mı?')) DB.deleteLink(S.code, l.id);
+});
+
+/* ---------- Kart üstü tıklamalar ---------- */
+$('#world').addEventListener('click', async e => {
+  const el = e.target.closest('.card'); if (!el) return;
+  const id = el.dataset.id, c = S.cards.find(x => x.id === id); if (!c) return;
+  if (S.linkMode) {
+    e.preventDefault();
+    if (!S.linkFrom) { S.linkFrom = id; el.classList.add('linkfrom'); setHint('İkinci kartı seç'); }
+    else if (S.linkFrom !== id) {
+      const dup = S.links.some(l => (l.from === S.linkFrom && l.to === id) || (l.from === id && l.to === S.linkFrom));
+      if (!dup) await DB.addLink(S.code, { from: S.linkFrom, to: id, uid: S.user.uid });
+      stopLinkMode();
+    }
+    return;
+  }
+  const btn = e.target.closest('[data-act]'); if (!btn) return;
+  const act = btn.dataset.act;
+  if (act === 'vote') { const k = btn.dataset.k, on = !((c.votes && c.votes[k]) || []).includes(S.user.uid); DB.vote(S.code, id, k, S.user.uid, on); }
+  if (act === 'cm') { S.open.has(id) ? S.open.delete(id) : S.open.add(id); renderCards(); }
+  if (act === 'postcm') postComment(el, c);
+  if (act === 'delcm') { const m = (c.comments || []).find(x => x.id === btn.dataset.id); if (m) DB.comment(S.code, id, m, true); }
+  if (act === 'tag') { $('#q').value = '#' + btn.dataset.t; S.q = '#' + btn.dataset.t; applySearch(); }
+  if (act === 'thread') { startLinkMode(); S.linkFrom = id; el.classList.add('linkfrom'); setHint('İkinci kartı seç'); }
+  if (act === 'edit') openCardModal(c);
+  if (act === 'del' && confirm('Bu kart silinsin mi?')) { await DB.deleteCard(S.code, id); if (USE_FB) S.links.filter(l => l.from === id || l.to === id).forEach(l => DB.deleteLink(S.code, l.id)); }
+});
+$('#world').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.dataset.cin) { const el = e.target.closest('.card'); postComment(el, S.cards.find(c => c.id === el.dataset.id)); }
+});
+function postComment(el, c) {
+  const inp = el.querySelector('[data-cin]'), t = inp.value.trim(); if (!t) return;
+  DB.comment(S.code, c.id, { id: rid(), by: S.name || 'Anonim', uid: S.user.uid, text: t, at: Date.now() }); inp.value = '';
+}
+function setHint(t) { const h = $('#hint'); h.textContent = t; h.classList.toggle('hidden', !t); }
+function startLinkMode() { S.linkMode = true; S.linkFrom = null; $('#btnThread').classList.add('on'); setHint('İpin başlayacağı kartı seç'); }
+function stopLinkMode() { S.linkMode = false; S.linkFrom = null; $('#btnThread').classList.remove('on'); $$('.linkfrom').forEach(x => x.classList.remove('linkfrom')); setHint(''); }
+$('#btnThread').onclick = () => S.linkMode ? stopLinkMode() : startLinkMode();
+
+/* ===================================================================
+   8) PAN / ZOOM / SÜRÜKLEME
+   =================================================================== */
+function applyView() {
+  $('#world').style.transform = `translate(${S.px}px,${S.py}px) scale(${S.z})`;
+  const st = $('#stage').style; st.setProperty('--px', S.px + 'px'); st.setProperty('--py', S.py + 'px'); st.setProperty('--z', S.z);
+  $('#zLabel').textContent = Math.round(S.z * 100) + '%';
+}
+function zoomAt(nz, cx, cy) {
+  nz = Math.min(1.5, Math.max(.5, Math.round(nz * 100) / 100));
+  const r = $('#stage').getBoundingClientRect(), x = cx - r.left, y = cy - r.top;
+  S.px = x - (x - S.px) * (nz / S.z); S.py = y - (y - S.py) * (nz / S.z); S.z = nz; applyView();
+}
+const stageMid = () => { const r = $('#stage').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+$('#zIn').onclick = () => zoomAt(S.z + .1, ...stageMid());
+$('#zOut').onclick = () => zoomAt(S.z - .1, ...stageMid());
+$('#zReset').onclick = () => { S.z = 1; S.px = 0; S.py = 0; applyView(); };
+$('#stage').addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) zoomAt(S.z * (e.deltaY < 0 ? 1.08 : .92), e.clientX, e.clientY);
+  else { S.px -= e.deltaX; S.py -= e.deltaY; applyView(); }
+}, { passive: false });
+
+const ptrs = new Map(); let drag = null, pinch = null;
+$('#stage').addEventListener('pointerdown', e => {
+  if (e.target.closest('#tools,#zoombox,#hint')) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: S.z }; drag = null; return;
+  }
+  const cardEl = e.target.closest('.card');
+  const interactive = e.target.closest('button,a,input,textarea,.comments');
+  if (cardEl && interactive) return;
+  if (cardEl) {
+    if (S.linkMode || S.board.mode === 'columns') return;
+    const c = S.cards.find(x => x.id === cardEl.dataset.id); if (!c) return;
+    drag = { kind: 'card', el: cardEl, c, sx: e.clientX, sy: e.clientY, ox: c.x ?? 200, oy: c.y ?? 200, moved: false };
+  } else if (e.target.closest('#threads path.hit')) { return; }
+  else { drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, ox: S.px, oy: S.py }; $('#stage').classList.add('panning'); }
+  $('#stage').setPointerCapture(e.pointerId);
+});
+$('#stage').addEventListener('pointermove', e => {
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()]; zoomAt(pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d, (a.x + b.x) / 2, (a.y + b.y) / 2); return;
+  }
+  if (!drag) return;
+  const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+  if (drag.kind === 'pan') { S.px = drag.ox + dx; S.py = drag.oy + dy; applyView(); }
+  else {
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    if (!drag.moved) { drag.moved = true; drag.el.classList.add('dragging'); drag.el.style.zIndex = ++S.zTop; }
+    drag.nx = Math.max(0, drag.ox + dx / S.z); drag.ny = Math.max(0, drag.oy + dy / S.z);
+    drag.el.style.left = drag.nx + 'px'; drag.el.style.top = drag.ny + 'px'; drawThreads();
+  }
+});
+function endPtr(e) {
+  ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null;
+  if (!drag) return;
+  if (drag.kind === 'card' && drag.moved) {
+    drag.el.classList.remove('dragging');
+    DB.updateCard(S.code, drag.c.id, { x: Math.round(drag.nx), y: Math.round(drag.ny) });
+  }
+  drag = null; $('#stage').classList.remove('panning');
+}
+$('#stage').addEventListener('pointerup', endPtr);
+$('#stage').addEventListener('pointercancel', endPtr);
+
+/* Sütun modu: sürükle-bırak */
+let dragId = null;
+$('#cols').addEventListener('dragstart', e => { const c = e.target.closest('.card'); if (!c) return; dragId = c.dataset.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId); });
+$('#cols').addEventListener('dragover', e => { const b = e.target.closest('.col-body'); if (!b) return; e.preventDefault(); $$('.col-body.over').forEach(x => x !== b && x.classList.remove('over')); b.classList.add('over'); });
+$('#cols').addEventListener('dragleave', e => { const b = e.target.closest('.col-body'); if (b && !b.contains(e.relatedTarget)) b.classList.remove('over'); });
+$('#cols').addEventListener('drop', e => {
+  const body = e.target.closest('.col-body'); if (!body || !dragId) return;
+  e.preventDefault(); $$('.col-body.over').forEach(x => x.classList.remove('over'));
+  const ci = +body.dataset.col;
+  const sibs = S.cards.filter(c => c.id !== dragId && Math.min(Math.max(c.col ?? 0, 0), cols().length - 1) === ci).sort((a, b) => ord(a) - ord(b));
+  let idx = sibs.length;
+  for (let i = 0; i < sibs.length; i++) { const r = S.els.get(sibs[i].id).getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { idx = i; break; } }
+  const before = sibs[idx - 1], after = sibs[idx];
+  const o = before && after ? (ord(before) + ord(after)) / 2 : before ? ord(before) + 1 : after ? ord(after) - 1 : Date.now();
+  DB.updateCard(S.code, dragId, { col: ci, order: o }); dragId = null;
+});
+
+/* ===================================================================
+   9) KART EKLE / DÜZENLE (pencere)
+   =================================================================== */
+const host = $('#modalHost');
+function closeModal() { host.innerHTML = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#present').classList.contains('hidden')) endPresent(); else if (host.innerHTML) closeModal(); else if (S.linkMode) stopLinkMode(); } });
+
+function openCardModal(edit, type = 'note') {
+  if (!edit && S.board.locked && !isOwner()) { toast('Pano kilitli, yeni kart eklenemez'); return; }
+  const M = { type: edit ? edit.type : type, color: edit ? edit.color : 'yellow', img: edit ? edit.img || '' : '' };
+  const anonMode = S.board.anon || 'choice';
+  host.innerHTML = `<div class="overlay" id="ov"><div class="modal" role="dialog" aria-modal="true" aria-label="Kart">
+    <h2>${edit ? 'Kartı düzenle' : 'Yeni kart'}</h2>
+    ${edit ? '' : `<div class="tabs"><button data-t="note" type="button">✎ Not</button><button data-t="image" type="button">🖼 Görsel</button><button data-t="link" type="button">🔗 Bağlantı</button></div>`}
+    <div id="fImage" class="hidden"><label>Görsel yükle</label><input type="file" id="fFile" accept="image/*">
+      <label for="fImgUrl">veya görsel adresi (URL)</label><input id="fImgUrl" placeholder="https://..." value="${esc(M.img.startsWith('data:') ? '' : M.img)}">
+      <div id="imgPrev" style="margin-top:8px"></div><label for="fTitle">Başlık (isteğe bağlı)</label><input id="fTitle" maxlength="80" value="${esc(edit && edit.type === 'image' ? edit.title || '' : '')}"></div>
+    <div id="fLink" class="hidden"><label for="fUrl">Bağlantı adresi</label><input id="fUrl" placeholder="https://..." value="${esc(edit && edit.type === 'link' ? edit.url : '')}">
+      <label for="fLTitle">Başlık (boş bırakırsan otomatik alınır)</label><input id="fLTitle" maxlength="100" value="${esc(edit && edit.type === 'link' ? edit.title || '' : '')}"></div>
+    <label id="lblEd">Metin</label>
+    <div class="rt"><button class="btn small" data-cmd="bold" type="button"><b>K</b></button><button class="btn small" data-cmd="italic" type="button"><i>İ</i></button><button class="btn small" data-cmd="insertUnorderedList" type="button">• Liste</button><button class="btn small" data-cmd="insertOrderedList" type="button">1. Liste</button></div>
+    <div id="editor" contenteditable="true" data-ph="Fikrini yaz..." role="textbox" aria-multiline="true">${edit ? clean(edit.html || '') : ''}</div>
+    <label>Renk</label><div class="swatches">${COLORS.map(c => `<button class="sw" data-c="${c}" style="background:${COLOR_HEX[c]}" type="button" aria-label="${c}"></button>`).join('')}</div>
+    <label for="fTags">Etiketler (virgülle ayır)</label><input id="fTags" placeholder="fizik, deney" value="${esc(edit ? (edit.tags || []).join(', ') : '')}">
+    ${S.board.mode === 'columns' && !edit ? `<label for="fCol">Sütun</label><select id="fCol">${cols().map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('')}</select>` : ''}
+    ${!edit && anonMode === 'choice' ? `<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="fAnon" style="width:auto"> Anonim gönder</label>` : ''}
+    <p class="err" id="fErr"></p>
+    <div class="foot"><button class="btn" id="fCancel" type="button">Vazgeç</button><button class="btn primary" id="fSave" type="button">${edit ? 'Kaydet' : 'Panoya iğnele'}</button></div>
+  </div></div>`;
+  const ed = $('#editor');
+  const sync = () => {
+    $$('.tabs [data-t]', host).forEach(b => b.classList.toggle('on', b.dataset.t === M.type));
+    $('#fImage').classList.toggle('hidden', M.type !== 'image'); $('#fLink').classList.toggle('hidden', M.type !== 'link');
+    $('#lblEd').textContent = M.type === 'note' ? 'Metin' : 'Not (isteğe bağlı)';
+    $$('.sw').forEach(s => s.classList.toggle('on', s.dataset.c === M.color));
+    $('#imgPrev').innerHTML = M.img ? `<img src="${esc(M.img)}" alt="" style="max-width:100%;max-height:140px;border-radius:6px;border:2px solid var(--ink)">` : '';
+  };
+  sync();
+  $$('.tabs [data-t]', host).forEach(b => b.onclick = () => { M.type = b.dataset.t; sync(); });
+  $$('.sw').forEach(s => s.onclick = () => { M.color = s.dataset.c; sync(); });
+  $$('[data-cmd]', host).forEach(b => b.onmousedown = e => { e.preventDefault(); document.execCommand(b.dataset.cmd); });
+  $('#fCancel').onclick = closeModal; $('#ov').onmousedown = e => { if (e.target.id === 'ov') closeModal(); };
+  $('#fFile').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try { M.img = await fileToData(f); $('#fImgUrl').value = ''; sync(); } catch { $('#fErr').textContent = 'Görsel okunamadı.'; }
+  };
+  $('#fImgUrl').oninput = e => { M.img = normUrl(e.target.value); sync(); };
+  $('#fSave').onclick = async () => {
+    const err = $('#fErr'); err.textContent = '';
+    const html = clean(ed.innerHTML), tags = $('#fTags').value.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean).slice(0, 6);
+    const data = { type: M.type, color: M.color, html, tags };
+    if (M.type === 'note' && !plain(html).trim()) { err.textContent = 'Not metni boş olamaz.'; return; }
+    if (M.type === 'image') { if (!M.img) { err.textContent = 'Bir görsel yükle veya adres yapıştır.'; return; } data.img = M.img; data.title = $('#fTitle').value.trim(); }
+    if (M.type === 'link') {
+      const u = normUrl($('#fUrl').value); if (!u) { err.textContent = 'Bağlantı adresi yaz.'; return; }
+      data.url = u; data.title = $('#fLTitle').value.trim(); data.desc = edit && edit.url === u ? edit.desc || '' : ''; data.img = edit && edit.url === u ? edit.img || '' : '';
+    }
+    $('#fSave').disabled = true;
+    try {
+      if (M.type === 'link' && !(edit && edit.url === data.url)) {
+        try {
+          const ctl = new AbortController(); setTimeout(() => ctl.abort(), 4000);
+          const r = await (await fetch('https://api.microlink.io/?url=' + encodeURIComponent(data.url), { signal: ctl.signal })).json();
+          if (r.status === 'success') { data.title = data.title || r.data.title || ''; data.desc = r.data.description || ''; data.img = (r.data.image && r.data.image.url) || ''; }
+        } catch { /* önizleme alınamazsa sade kart */ }
+      }
+      if (edit) await DB.updateCard(S.code, edit.id, data);
+      else {
+        const anon = anonMode === 'anon' || (anonMode === 'choice' && $('#fAnon') && $('#fAnon').checked);
+        const real = S.name || 'Katılımcı';
+        Object.assign(data, { author: anon ? 'Anonim' : real, realName: real, uid: S.user.uid, createdAt: Date.now(), votes: {}, comments: [] });
+        if (S.board.mode === 'columns') { data.col = +$('#fCol').value; data.order = Date.now(); }
+        const r = $('#stage').getBoundingClientRect();
+        data.x = Math.max(20, Math.round((r.width / 2 - S.px) / S.z - 125 + (Math.random() * 120 - 60)));
+        data.y = Math.max(20, Math.round((r.height / 2 - S.py) / S.z - 90 + (Math.random() * 120 - 60)));
+        await DB.addCard(S.code, data);
+      }
+      closeModal();
+    } catch (e) { console.error(e); err.textContent = 'Kaydedilemedi. Görsel çok büyük olabilir veya izin yok.'; $('#fSave').disabled = false; }
+  };
+  setTimeout(() => (M.type === 'note' ? ed : $('#fUrl')).focus(), 30);
+}
+function fileToData(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => { const img = new Image(); img.onload = () => {
+      const m = 900, s = Math.min(1, m / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = img.width * s; c.height = img.height * s; c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      let q = .75, out = c.toDataURL('image/jpeg', q); while (out.length > 800000 && q > .3) { q -= .1; out = c.toDataURL('image/jpeg', q); }
+      res(out); }; img.onerror = rej; img.src = fr.result; };
+    fr.onerror = rej; fr.readAsDataURL(file);
+  });
+}
+$$('#tools [data-add]').forEach(b => b.onclick = () => openCardModal(null, b.dataset.add));
+
+/* ===================================================================
+   10) AYARLAR (yalnızca pano sahibi)
+   =================================================================== */
+$('#btnSettings').onclick = () => {
+  const b = S.board; const P = { bg: b.bg || 'cork', mode: b.mode || 'free' };
+  host.innerHTML = `<div class="overlay" id="ov"><div class="modal" role="dialog" aria-modal="true" aria-label="Pano ayarları"><h2>Pano ayarları</h2>
+    <label for="sTitle">Başlık</label><input id="sTitle" maxlength="60" value="${esc(b.title)}">
+    <label>Arka plan</label><div class="bgpick">${[['cork', 'Mantar'], ['grid', 'Izgara'], ['dark', 'Koyu'], ['white', 'Beyaz tahta']].map(([k, n]) => `<button data-b="${k}" type="button">${n}</button>`).join('')}</div>
+    <label>Yerleşim</label><div class="tabs"><button data-m="free" type="button">Serbest</button><button data-m="columns" type="button">Sütunlu</button></div>
+    <div id="colBox"><label for="sCols">Sütun adları (her satıra bir sütun)</label><textarea id="sCols" rows="4">${esc(cols().join('\n'))}</textarea></div>
+    <label for="sAnon">Gönderim kimliği</label>
+    <select id="sAnon"><option value="choice">Katılımcı seçsin (isimli / anonim)</option><option value="named">Hep isimli</option><option value="anon">Hep anonim (öğretmen gerçek adı görür)</option></select>
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sLock" style="width:auto" ${b.locked ? 'checked' : ''}> Panoyu kilitle (öğrenciler yeni kart ekleyemez)</label>
+    <div class="foot"><button class="btn" id="sCancel" type="button">Vazgeç</button><button class="btn primary" id="sSave" type="button">Kaydet</button></div></div></div>`;
+  $('#sAnon').value = b.anon || 'choice';
+  const sync = () => { $$('.bgpick button').forEach(x => x.classList.toggle('on', x.dataset.b === P.bg)); $$('[data-m]').forEach(x => x.classList.toggle('on', x.dataset.m === P.mode)); $('#colBox').classList.toggle('hidden', P.mode !== 'columns'); };
+  sync();
+  $$('.bgpick button').forEach(x => x.onclick = () => { P.bg = x.dataset.b; sync(); });
+  $$('[data-m]').forEach(x => x.onclick = () => { P.mode = x.dataset.m; sync(); });
+  $('#sCancel').onclick = closeModal; $('#ov').onmousedown = e => { if (e.target.id === 'ov') closeModal(); };
+  $('#sSave').onclick = async () => {
+    const cl = $('#sCols').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8);
+    await DB.updateBoard(S.code, { title: $('#sTitle').value.trim() || b.title, bg: P.bg, mode: P.mode, columns: cl.length ? cl : ['Fikirler'], anon: $('#sAnon').value, locked: $('#sLock').checked });
+    closeModal(); toast('Ayarlar kaydedildi');
+  };
+};
+
+/* ===================================================================
+   11) SUNUM MODU
+   =================================================================== */
+let slides = [], si = 0;
+function orderedCards() {
+  const col = S.board.mode === 'columns', L = cols().length;
+  return [...S.cards].sort((a, b) => col ? ((Math.min(a.col ?? 0, L - 1) - Math.min(b.col ?? 0, L - 1)) || ord(a) - ord(b)) : a.createdAt - b.createdAt);
+}
+function renderSlide() {
+  const c = slides[si]; const el = $('#slide');
+  el.className = 'card c-' + (c.color || 'yellow');
+  const votes = Object.keys(REACT).map(k => ((c.votes && c.votes[k]) || []).length ? `${REACT[k]} ${(c.votes[k]).length}` : '').filter(Boolean).join('  ');
+  const author = c.author || 'Anonim';
+  el.innerHTML = (c.type === 'image' ? `<img class="pic" src="${esc(c.img)}" alt="">` : '') + (c.title ? `<div class="ttl">${esc(c.title)}</div>` : '') +
+    (c.type === 'link' ? `<div class="ttl">${esc(c.title || domain(c.url))}</div><div style="font-size:.6em">${esc(c.url)}</div>` : '') +
+    (c.html ? `<div class="body">${clean(c.html)}</div>` : '') +
+    `<div class="meta">${esc(author)}${votes ? ' · ' + votes : ''}${(c.comments || []).length ? ' · 💬 ' + c.comments.length : ''}</div>`;
+  $('#pcount').textContent = `${si + 1} / ${slides.length}`;
+}
+function startPresent() {
+  slides = orderedCards(); if (!slides.length) { toast('Sunum için önce kart ekle'); return; }
+  si = 0; $('#present').classList.remove('hidden'); renderSlide();
+  if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => { });
+}
+function endPresent() { $('#present').classList.add('hidden'); if (document.fullscreenElement) document.exitFullscreen().catch(() => { }); }
+$('#btnPresent').onclick = startPresent; $('#pExit').onclick = endPresent;
+$('#pPrev').onclick = () => { si = (si - 1 + slides.length) % slides.length; renderSlide(); };
+$('#pNext').onclick = () => { si = (si + 1) % slides.length; renderSlide(); };
+document.addEventListener('keydown', e => {
+  if ($('#present').classList.contains('hidden')) return;
+  if (e.key === 'ArrowRight' || e.key === ' ') $('#pNext').click();
+  if (e.key === 'ArrowLeft') $('#pPrev').click();
+});
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && !$('#present').classList.contains('hidden')) $('#present').classList.add('hidden'); });
+
+/* ===================================================================
+   12) DIŞA AKTAR (JSON / PNG / PDF)
+   =================================================================== */
+$('#btnExport').onclick = e => {
+  e.stopPropagation();
+  const old = $('.menu'); if (old) { old.remove(); return; }
+  const m = document.createElement('div'); m.className = 'menu';
+  m.innerHTML = `<button class="btn small" data-x="png" type="button">🖼 PNG görseli</button><button class="btn small" data-x="pdf" type="button">📄 PDF</button><button class="btn small" data-x="json" type="button">{ } JSON</button>`;
+  $('#boardScreen').appendChild(m);
+  m.onclick = ev => { const x = ev.target.dataset.x; if (x) { m.remove(); doExport(x); } };
+};
+document.addEventListener('click', () => { const m = $('.menu'); if (m) m.remove(); });
+function download(name, href) { const a = document.createElement('a'); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+const fname = ext => (S.board.title || 'pano').replace(/[^\p{L}\p{N}]+/gu, '_') + '.' + ext;
+function loadScript(src) { return new Promise((res, rej) => { if ([...document.scripts].some(s => s.src === src)) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+async function doExport(kind) {
+  if (kind === 'json') {
+    const blob = new Blob([JSON.stringify({ board: S.board, cards: S.cards, links: S.links }, null, 2)], { type: 'application/json' });
+    download(fname('json'), URL.createObjectURL(blob)); return;
+  }
+  toast('Hazırlanıyor...');
+  try {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    if (kind === 'pdf') await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const world = $('#world'), keep = { t: world.style.transform, w: world.style.width, h: world.style.height };
+    // içerik sınırları
+    const wr = world.getBoundingClientRect(); let x1 = 1e9, y1 = 1e9, x2 = 0, y2 = 0;
+    S.els.forEach(el => { const r = el.getBoundingClientRect(); x1 = Math.min(x1, (r.left - wr.left) / S.z); y1 = Math.min(y1, (r.top - wr.top) / S.z); x2 = Math.max(x2, (r.right - wr.left) / S.z); y2 = Math.max(y2, (r.bottom - wr.top) / S.z); });
+    if (x1 > x2) { toast('Dışa aktarılacak kart yok'); return; }
+    const pad = 50; x1 = Math.max(0, x1 - pad); y1 = Math.max(0, y1 - pad); x2 += pad; y2 += pad;
+    const bgc = { cork: '#b98352', grid: '#f3efe4', dark: '#232b36', white: '#fbfbf8' }[S.board.bg || 'cork'];
+    world.style.transform = 'none';
+    const canvas = await html2canvas(world, { backgroundColor: bgc, useCORS: true, scale: 1.5, x: x1, y: y1, width: x2 - x1, height: y2 - y1, scrollX: 0, scrollY: 0, ignoreElements: n => n.classList && n.classList.contains('dim') && false });
+    world.style.transform = keep.t;
+    if (kind === 'png') download(fname('png'), canvas.toDataURL('image/png'));
+    else {
+      const { jsPDF } = window.jspdf, land = canvas.width >= canvas.height;
+      const pdf = new jsPDF({ orientation: land ? 'l' : 'p', unit: 'pt', format: 'a4' });
+      const W = pdf.internal.pageSize.getWidth() - 40, H = pdf.internal.pageSize.getHeight() - 70, k = Math.min(W / canvas.width, H / canvas.height);
+      pdf.setFontSize(14); pdf.text(S.board.title || 'Pano', 20, 30);
+      pdf.addImage(canvas.toDataURL('image/jpeg', .92), 'JPEG', 20, 45, canvas.width * k, canvas.height * k);
+      pdf.save(fname('pdf'));
+    }
+    toast('İndirildi');
+  } catch (e) { console.error(e); applyView(); toast('Dışa aktarma başarısız (internet bağlantını kontrol et)'); }
+}
+</script>
+</body>
+</html>

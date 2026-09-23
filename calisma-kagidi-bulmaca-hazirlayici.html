@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Çalışma Kağıdı ve Bulmaca Hazırlayıcı</title>
+<!--
+  ÇALIŞMA KAĞIDI VE BULMACA HAZIRLAYICI
+  Tek dosya: HTML + CSS + Vanilla JS. İnternet bağlantısı GEREKMEZ (harici kütüphane yok).
+  Simgeler emoji ile yapıldığı için FontAwesome/Tailwind'e ihtiyaç duymaz.
+-->
+<style>
+/* =========================================================
+   1. GENEL DEĞİŞKENLER VE TEMA
+   ========================================================= */
+:root{
+  --indigo:#4f46e5; --indigo-soft:#e0e7ff;
+  --emerald:#059669; --emerald-soft:#d1fae5;
+  --amber:#d97706;  --amber-soft:#fef3c7;
+  --violet:#7c3aed; --violet-soft:#ede9fe;
+  --ink:#1e1b4b; --muted:#6b7280; --bg:#eef0ff;
+}
+/* Her sekmenin kendi vurgu rengi vardır */
+.app[data-tab="ws"]{--accent:var(--indigo);--accent-soft:var(--indigo-soft);}
+.app[data-tab="cw"]{--accent:var(--emerald);--accent-soft:var(--emerald-soft);}
+.app[data-tab="mt"]{--accent:var(--amber);--accent-soft:var(--amber-soft);}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+.wrap{max-width:1200px;margin:0 auto;padding:14px}
+h2{margin:0 0 10px;font-size:1.25rem}
+label{display:block;font-weight:700;font-size:.85rem;margin:10px 0 4px}
+textarea,select,input[type=text]{width:100%;font:inherit;padding:9px 11px;border:2px solid #c7d2fe;border-radius:12px;background:#fff;color:var(--ink)}
+textarea{resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:.92rem}
+textarea:focus,select:focus,input:focus{outline:3px solid var(--accent,#4f46e5);outline-offset:1px}
+
+/* Kart tasarımı */
+.card{background:#fff;border-radius:18px;padding:18px;box-shadow:0 2px 0 rgba(79,70,229,.08),0 10px 28px rgba(49,46,129,.09)}
+
+/* =========================================================
+   2. ÜST BİLGİ (HEADER)
+   ========================================================= */
+.head{background:linear-gradient(120deg,var(--indigo),var(--violet));color:#fff}
+.head h1{margin:0 0 4px;font-size:1.5rem}
+.head p{margin:0 0 12px;opacity:.9;font-size:.9rem}
+.hgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.hgrid .wide{grid-column:span 2}
+.head label{color:#fff;margin:0 0 3px;font-size:.78rem}
+.head input{border-color:transparent}
+@media(max-width:800px){.hgrid{grid-template-columns:1fr 1fr}.hgrid .wide{grid-column:span 2}}
+
+/* =========================================================
+   3. SEKMELER
+   ========================================================= */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.tab{border:0;cursor:pointer;font:inherit;font-weight:800;padding:11px 18px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.tab[data-tab="ws"].active{background:var(--indigo);color:#fff}
+.tab[data-tab="cw"].active{background:var(--emerald);color:#fff}
+.tab[data-tab="mt"].active{background:var(--amber);color:#fff}
+
+/* =========================================================
+   4. PANELLER, DÜĞMELER, ARAÇ ÇUBUĞU
+   ========================================================= */
+.panel{display:none;grid-template-columns:310px 1fr;gap:14px;align-items:start}
+.panel.active{display:grid}
+@media(max-width:900px){.panel.active{grid-template-columns:1fr}}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.setup .btn{width:100%;margin-top:10px}
+.setup h2{color:var(--accent)}
+.hint{font-size:.8rem;color:var(--muted);margin:6px 0 0}
+
+.btn{border:2px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-weight:800;padding:10px 14px;border-radius:12px;cursor:pointer}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:#fff;color:var(--accent)}
+.btn.on{background:#059669;border-color:#059669;color:#fff}
+.btn.small{padding:6px 10px;font-size:.85rem}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-bottom:12px;margin-bottom:12px;border-bottom:2px dashed var(--accent-soft)}
+.chk{display:flex;gap:6px;align-items:center;font-size:.85rem;font-weight:600;margin:0}
+.chk input{width:auto}
+
+/* Oyun istatistikleri: yalnızca oynama modunda görünür */
+.stats{display:none;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}
+.playing .stats{display:flex}
+.playing .ansbtn{display:none}
+.chip{background:var(--accent-soft);color:var(--ink);border-radius:999px;padding:6px 12px;font-weight:800;font-size:.9rem}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+
+/* =========================================================
+   5. KELİME AVI
+   ========================================================= */
+.gridwrap{container-type:inline-size;max-width:580px;margin:0 auto 14px}
+.ws-grid{display:grid;grid-template-columns:repeat(var(--n,10),1fr);gap:3px;user-select:none;-webkit-user-select:none}
+.playing .ws-grid{touch-action:none;cursor:pointer}
+.ws-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--indigo-soft);border-radius:7px;font-weight:800;font-size:calc(100cqw / var(--n,10) * .5);color:#312e81}
+.ws-cell.sel{background:var(--indigo);color:#fff}
+.ws-cell.found{background:var(--hl,#fde047);color:#1e1b4b;box-shadow:0 0 10px var(--hl,#fde047)}
+.ws-cell.bad{background:#fecaca}
+.showans .ws-cell.inans{outline:3px solid var(--amber);outline-offset:-3px}
+.wlist{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.wchip{padding:6px 12px;border-radius:999px;background:var(--indigo-soft);font-weight:800;font-size:.9rem}
+.wchip.done{text-decoration:line-through;color:#064e3b}
+
+/* =========================================================
+   6. KAREBULMACA
+   ========================================================= */
+.cwscroll{container-type:inline-size;overflow-x:auto;margin-bottom:16px}
+.cw-grid{display:grid;grid-template-columns:repeat(var(--n,10),var(--cs));--cs:max(30px,min(46px,calc(100cqw / var(--n,10))));width:max-content;margin:0 auto;gap:0}
+.cw-cell{position:relative;width:var(--cs);height:var(--cs);background:#fff;border:2px solid #047857;margin:-1px 0 0 -1px}
+.cw-blank{width:var(--cs);height:var(--cs)}
+.cw-cell .n{position:absolute;top:1px;left:3px;font-size:calc(var(--cs) * .27);font-weight:800;color:#047857;pointer-events:none;z-index:1}
+.cw-cell input{width:100%;height:100%;border:0;background:transparent;text-align:center;font:inherit;font-weight:800;font-size:calc(var(--cs) * .55);color:var(--ink);padding:6px 0 0;text-transform:uppercase;border-radius:0}
+.cw-cell input:focus{outline:none}
+.cw-cell input:disabled{opacity:1;-webkit-text-fill-color:currentColor;color:var(--ink)}
+.cw-cell.hl{background:var(--emerald-soft)}
+.cw-cell.cur{background:#fde68a}
+.cw-cell.ok{background:#bbf7d0}
+.cw-cell.bad{background:#fecaca}
+.cw-cell.rev input{color:var(--violet)}
+.clues{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.clues{grid-template-columns:1fr}}
+.clues h3{margin:0 0 6px;color:var(--emerald);font-size:1rem}
+.clues ol{list-style:none;margin:0;padding:0}
+.clue{padding:6px 8px;border-radius:8px;font-size:.92rem}
+.playing .clue{cursor:pointer}
+.clue.active{background:#fde68a}
+
+/* =========================================================
+   7. EŞLEŞTİRME
+   ========================================================= */
+.m-wrap{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+@media(max-width:560px){.m-wrap{gap:12px}}
+.m-item{display:flex;gap:10px;align-items:center;padding:11px 12px;margin-bottom:10px;border:2px solid #fcd34d;background:var(--amber-soft);border-radius:14px;user-select:none;-webkit-user-select:none;position:relative}
+.playing .m-item{cursor:pointer;touch-action:pan-y}
+.m-item .b{flex:none;width:30px;height:30px;border-radius:50%;background:var(--amber);color:#fff;display:grid;place-items:center;font-weight:800}
+.m-item.sel{border-color:var(--violet);background:var(--violet-soft)}
+.m-item.over{border-style:dashed;transform:scale(1.02)}
+.m-item.dragging{opacity:.45}
+.m-item.done{background:#dcfce7;border-color:#16a34a}
+.m-item.done .b{background:#16a34a}
+.m-item.bad{background:#fee2e2;border-color:#dc2626}
+.m-item.bad .b{background:#dc2626}
+.showans .m-item.right::after{content:"→ " attr(data-a);margin-left:auto;font-weight:800;color:var(--violet)}
+.m-ghost{position:fixed;z-index:99;transform:translate(-50%,-50%);pointer-events:none;background:var(--violet);color:#fff;border-radius:12px;padding:8px 12px;font-weight:700;max-width:220px;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+
+/* =========================================================
+   8. MODAL VE BİLDİRİM
+   ========================================================= */
+.modal{position:fixed;inset:0;background:rgba(30,27,75,.55);display:none;place-items:center;z-index:100;padding:16px}
+.modal.show{display:grid}
+.mbox{background:#fff;border-radius:22px;padding:24px;max-width:380px;width:100%;text-align:center}
+.mbox h3{margin:0 0 8px;font-size:1.5rem}
+.mbox .big{font-size:1.1rem;font-weight:700;margin:6px 0}
+.mbtn{display:flex;gap:8px;margin-top:14px}
+.mbtn .btn{flex:1}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-weight:600;display:none;z-index:120;max-width:90vw;text-align:center}
+.toast.show{display:block}
+
+/* =========================================================
+   9. YAZDIRMA (A4) — ekranda gizli, yazdırırken tek görünen kısım
+   ========================================================= */
+#printSheet{display:none}
+.psheet{font-family:"Segoe UI",Arial,sans-serif;color:#000}
+.psheet.brk{page-break-before:always;break-before:page}
+.p-head{margin-bottom:10px}
+.p-school{text-align:center;font-weight:700;font-size:13pt}
+.p-title{text-align:center;font-size:18pt;font-weight:800;margin:4px 0 8px;padding:4px 0;border-top:2px solid #000;border-bottom:2px solid #000}
+.p-grid3{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px 14px;margin-bottom:6px;font-size:10.5pt}
+.p-grid3.st{grid-template-columns:2fr 1fr 1fr}
+.p-f{display:flex;gap:4px;align-items:flex-end}
+.p-f span{flex:1;border-bottom:1px solid #000;min-height:1.2em}
+.pgrid{display:grid;grid-template-columns:repeat(var(--n),var(--cs));width:max-content;margin:8px auto 10px}
+.pgrid div{width:var(--cs);height:var(--cs);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(var(--cs) * .55);border:.4pt solid #888}
+.pgrid div.pa{background:#fde047;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pgrid.cw div{border:1pt solid #000;position:relative}
+.pgrid.cw div.pb{border:0}
+.pgrid.cw div i{position:absolute;top:0;left:1px;font-size:calc(var(--cs) * .28);font-style:normal;font-weight:700}
+.pwords{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 10px;font-size:11pt;font-weight:600;margin-top:8px}
+.pclues{display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:10.5pt}
+.pclues h4{margin:0 0 4px;font-size:11.5pt;border-bottom:1px solid #000}
+.pclues p{margin:0 0 3px}
+.pmt{width:100%;border-collapse:collapse;font-size:11pt}
+.pmt td{padding:6px 6px;vertical-align:top;border-bottom:.5pt dotted #999}
+.pmt .num{width:11mm;white-space:nowrap}
+.pmt .gap{width:10mm}
+.pkey{font-size:11pt;line-height:1.8}
+
+@media print{
+  @page{size:A4;margin:12mm}
+  html,body{background:#fff !important}
+  .app,.modal,.toast{display:none !important}
+  #printSheet{display:block}
+}
+</style>
+</head>
+<body>
+
+<div class="wrap app" id="app" data-tab="ws">
+
+  <!-- ================= ÜST BİLGİ ================= -->
+  <header class="card head">
+    <h1>🧩 Çalışma Kağıdı ve Bulmaca Hazırlayıcı</h1>
+    <p>Aşağıdaki bilgiler hem ekranda hem de A4 çıktısının başlığında kullanılır.</p>
+    <div class="hgrid">
+      <div class="wide"><label for="h_school">Okul Adı</label><input type="text" id="h_school" placeholder="Örn. Atatürk Anadolu Lisesi"></div>
+      <div><label for="h_course">Ders Adı</label><input type="text" id="h_course" placeholder="Örn. Fizik"></div>
+      <div><label for="h_teacher">Öğretmen Adı</label><input type="text" id="h_teacher" placeholder="Ad Soyad"></div>
+      <div class="wide"><label for="h_topic">Konu / Ünite</label><input type="text" id="h_topic" placeholder="Örn. Kuvvet ve Hareket"></div>
+      <div class="wide"><label for="h_student">Öğrenci Adı / Soyadı</label><input type="text" id="h_student" placeholder="Boş bırakılırsa kağıtta çizgi olur"></div>
+      <div><label for="h_klass">Sınıf</label><input type="text" id="h_klass" placeholder="9-A"></div>
+      <div><label for="h_no">No</label><input type="text" id="h_no" placeholder="No"></div>
+    </div>
+  </header>
+
+  <!-- ================= SEKMELER ================= -->
+  <nav class="tabs" aria-label="Etkinlik türleri">
+    <button class="tab active" data-tab="ws">🔎 Kelime Avı</button>
+    <button class="tab" data-tab="cw">✏️ Karebulmaca</button>
+    <button class="tab" data-tab="mt">🔗 Eşleştirme Kartları</button>
+  </nav>
+
+  <!-- ================= SEKME 1: KELİME AVI ================= -->
+  <section class="panel active" id="p_ws">
+    <div class="card setup">
+      <h2>🔎 Kelime Avı</h2>
+      <label for="ws_input">Kelimeler (her satıra bir kelime)</label>
+      <textarea id="ws_input" rows="11"></textarea>
+      <div class="row">
+        <div><label for="ws_size">Matris boyutu</label>
+          <select id="ws_size"><option value="10">10 x 10</option><option value="12" selected>12 x 12</option><option value="15">15 x 15</option></select></div>
+        <div><label for="ws_diff">Yönler</label>
+          <select id="ws_diff"><option value="easy">Kolay (→ ↓)</option><option value="mid" selected>Orta (+ çapraz)</option><option value="hard">Zor (her yön)</option></select></div>
+      </div>
+      <button class="btn" id="ws_gen">Bulmacayı Oluştur</button>
+      <button class="btn ghost" id="ws_sample">Örnek Yükle</button>
+      <p class="hint">Kelimeler matristen uzunsa yerleştirilmez. Boşluklar silinir.</p>
+    </div>
+    <div class="card work">
+      <div class="toolbar">
+        <button class="btn ghost" id="ws_play">▶ Ekrandan Oyna / Çöz</button>
+        <button class="btn" id="ws_print">🖨 Yazdır / PDF A4</button>
+        <button class="btn ghost small ansbtn" id="ws_ans">👁 Çözümü göster</button>
+        <label class="chk"><input type="checkbox" id="ws_key"> Cevap anahtarı da yazdırılsın</label>
+      </div>
+      <div class="stats">
+        <span class="chip">⏱ <span id="ws_time">00:00</span></span>
+        <span class="chip">👆 Hamle: <span id="ws_moves">0</span></span>
+        <span class="chip">✅ Bulunan: <span id="ws_found">0/0</span></span>
+        <span class="chip">⭐ Skor: <span id="ws_score">0</span></span>
+        <button class="btn small ghost" id="ws_restart">↺ Baştan başla</button>
+      </div>
+      <div class="gridwrap"><div class="ws-grid" id="ws_grid"></div></div>
+      <div class="wlist" id="ws_words"></div>
+    </div>
+  </section>
+
+  <!-- ================= SEKME 2: KAREBULMACA ================= -->
+  <section class="panel" id="p_cw">
+    <div class="card setup">
+      <h2>✏️ Karebulmaca</h2>
+      <label for="cw_input">KELİME : İpucu (her satıra bir tane)</label>
+      <textarea id="cw_input" rows="12"></textarea>
+      <button class="btn" id="cw_gen">Bulmacayı Oluştur</button>
+      <button class="btn ghost" id="cw_sample">Örnek Yükle</button>
+      <p class="hint">Yeniden oluşturduğunuzda kelimeler farklı yerleşir. Kesişemeyen kelimeler uyarı ile bildirilir.</p>
+    </div>
+    <div class="card work">
+      <div class="toolbar">
+        <button class="btn ghost" id="cw_play">▶ Ekrandan Oyna / Çöz</button>
+        <button class="btn" id="cw_print">🖨 Yazdır / PDF A4</button>
+        <button class="btn ghost small ansbtn" id="cw_ans">👁 Çözümü göster</button>
+        <label class="chk"><input type="checkbox" id="cw_key"> Cevap anahtarı da yazdırılsın</label>
+      </div>
+      <div class="stats">
+        <span class="chip">⏱ <span id="cw_time">00:00</span></span>
+        <span class="chip">✅ Çözülen: <span id="cw_solved">0/0</span></span>
+        <span class="chip">⭐ Skor: <span id="cw_score">0</span></span>
+        <button class="btn small" id="cw_check">Kontrol Et</button>
+        <button class="btn small ghost" id="cw_reveal">Cevapları Göster</button>
+        <button class="btn small ghost" id="cw_restart">↺ Baştan başla</button>
+      </div>
+      <div class="cwscroll"><div class="cw-grid" id="cw_grid"></div></div>
+      <div class="clues">
+        <div><h3>➡ Soldan Sağa</h3><ol id="cw_across"></ol></div>
+        <div><h3>⬇ Yukarıdan Aşağıya</h3><ol id="cw_down"></ol></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SEKME 3: EŞLEŞTİRME ================= -->
+  <section class="panel" id="p_mt">
+    <div class="card setup">
+      <h2>🔗 Eşleştirme Kartları</h2>
+      <label for="mt_input">Terim | Açıklama (her satıra bir tane)</label>
+      <textarea id="mt_input" rows="12"></textarea>
+      <button class="btn" id="mt_gen">Eşleştirmeyi Oluştur</button>
+      <button class="btn ghost" id="mt_sample">Örnek Yükle</button>
+      <p class="hint">En fazla 26 çift. Sağ sütun her oluşturmada karıştırılır.</p>
+    </div>
+    <div class="card work">
+      <div class="toolbar">
+        <button class="btn ghost" id="mt_play">▶ Ekrandan Oyna / Çöz</button>
+        <button class="btn" id="mt_print">🖨 Yazdır / PDF A4</button>
+        <button class="btn ghost small ansbtn" id="mt_ans">👁 Çözümü göster</button>
+        <label class="chk"><input type="checkbox" id="mt_key"> Cevap anahtarı da yazdırılsın</label>
+      </div>
+      <div class="stats">
+        <span class="chip">⏱ <span id="mt_time">00:00</span></span>
+        <span class="chip">✅ Doğru: <span id="mt_ok">0</span></span>
+        <span class="chip">❌ Yanlış: <span id="mt_wrong">0</span></span>
+        <span class="chip">⭐ Skor: <span id="mt_score">0</span></span>
+        <button class="btn small ghost" id="mt_restart">↺ Baştan başla</button>
+      </div>
+      <p class="hint" id="mt_help" style="margin-bottom:10px">Oynamak için: soldaki terimi sürükleyip sağdaki açıklamanın üstüne bırakın, ya da önce terime sonra açıklamaya dokunun.</p>
+      <div class="m-wrap">
+        <div id="mt_left"></div>
+        <div id="mt_right"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Yazdırma alanı (ekranda gizli) -->
+<div id="printSheet"></div>
+
+<!-- Tebrik penceresi -->
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <div class="mbox">
+    <h3 id="m_title"></h3>
+    <div id="m_body"></div>
+    <div class="mbtn">
+      <button class="btn ghost" id="m_close">Kapat</button>
+      <button class="btn" id="m_again">Tekrar oyna</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   A. YARDIMCI FONKSİYONLAR
+   ========================================================= */
+const TR = 'tr-TR';
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const up = s => String(s).toLocaleUpperCase(TR);                 // Türkçe büyük harf (i → İ, ı → I)
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const lines = t => t.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+const fmt = s => String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+const ALPHA = 'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ';
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('show'),3800); }
+
+/* Süre sayacı */
+class Stopwatch{
+  constructor(el){ this.el=el; this.sec=0; this.h=null; this.render(); }
+  start(){ if(this.h) return; const t0=Date.now()-this.sec*1000; this.h=setInterval(()=>{ this.sec=Math.floor((Date.now()-t0)/1000); this.render(); },250); }
+  stop(){ clearInterval(this.h); this.h=null; }
+  reset(){ this.stop(); this.sec=0; this.render(); }
+  render(){ this.el.textContent=fmt(this.sec); }
+}
+
+/* Tebrik penceresi */
+let againCb = null;
+function showModal(title, html, again){
+  $('#m_title').textContent = title; $('#m_body').innerHTML = html; againCb = again;
+  $('#modal').classList.add('show');
+}
+$('#m_close').onclick = () => $('#modal').classList.remove('show');
+$('#m_again').onclick = () => { $('#modal').classList.remove('show'); if(againCb) againCb(); };
+
+/* Oynama modu görünümü (düğme yazısı + panel sınıfı) */
+function playUI(id, on){
+  $('#p_'+id).classList.toggle('playing', on);
+  const b = $('#'+id+'_play');
+  b.textContent = on ? '■ Oynamayı Bitir' : '▶ Ekrandan Oyna / Çöz';
+  b.classList.toggle('on', on);
+}
+
+/* =========================================================
+   B. ÜST BİLGİ VE SEKMELER
+   ========================================================= */
+const HK = ['school','course','teacher','topic','student','klass','no'];
+function head(){ const o={}; HK.forEach(k => o[k] = $('#h_'+k).value.trim()); return o; }
+function store(key, val){ try{ localStorage.setItem('cwh_'+key, val); }catch(e){} }
+function load(key){ try{ return localStorage.getItem('cwh_'+key); }catch(e){ return null; } }
+HK.forEach(k => {
+  const el = $('#h_'+k), v = load('h_'+k);
+  if(v !== null) el.value = v;
+  el.addEventListener('input', () => store('h_'+k, el.value));
+});
+
+let tab = 'ws';
+function setTab(t){
+  tab = t; $('#app').dataset.tab = t;
+  $$('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  $$('.panel').forEach(p => p.classList.toggle('active', p.id === 'p_'+t));
+}
+$$('.tab').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+
+/* Örnek veriler */
+const SAMPLE = {
+  ws: 'KUVVET\nENERJİ\nHIZ\nİVME\nZAMAN\nKÜTLE\nAĞIRLIK\nSÜRTÜNME\nKONUM\nİŞ',
+  cw: 'KUVVET : Cisimlerin hızını veya şeklini değiştiren etki\nHIZ : Birim zamanda alınan yol\nİVME : Hızın zamanla değişim miktarı\nKÜTLE : Bir cismin sahip olduğu madde miktarı\nENERJİ : İş yapabilme yeteneği\nZAMAN : Saniye, dakika ve saatle ölçülen nicelik\nSÜRTÜNME : Yüzeyler arasında harekete zıt yönde oluşan kuvvet\nAĞIRLIK : Kütleye etki eden yerçekimi kuvveti',
+  mt: 'Hız | Birim zamanda alınan yol\nKuvvet | Newton (N) birimiyle ölçülen etki\nKütle | Kilogram (kg) ile ölçülen madde miktarı\nİvme | Hızın zamanla değişim miktarı\nEnerji | Joule (J) birimiyle ölçülen büyüklük\nSürtünme | Yüzeyler arasında harekete zıt yönde oluşan kuvvet'
+};
+['ws','cw','mt'].forEach(k => {
+  const el = $('#'+k+'_input'), v = load('in_'+k);
+  el.value = (v !== null && v.trim()) ? v : SAMPLE[k];
+  el.addEventListener('input', () => store('in_'+k, el.value));
+  $('#'+k+'_sample').onclick = () => { el.value = SAMPLE[k]; store('in_'+k, el.value); GEN[k](); };
+});
+
+/* =========================================================
+   C. KELİME AVI
+   ========================================================= */
+const ws = { grid:[], placed:[], list:[], found:new Set(), play:false, wrong:0, moves:0, done:false,
+             anchor:null, drag:null, ready:false, showAns:false, sw:new Stopwatch($('#ws_time')),
+             colors:['#fde047','#86efac','#f9a8d4','#7dd3fc','#fdba74','#c4b5fd','#5eead4','#fca5a1'] };
+const WS_DIRS = {
+  easy:[[0,1],[1,0]],
+  mid:[[0,1],[1,0],[1,1],[-1,1]],
+  hard:[[0,1],[1,0],[1,1],[-1,1],[0,-1],[-1,0],[-1,-1],[1,-1]]
+};
+const wsG = $('#ws_grid');
+const wsCell = (r,c) => wsG.children[r*ws.grid.length + c];
+
+/* Matris oluşturma: kelimeleri rastgele yerleştirir, boşlukları harfle doldurur */
+function wsGenerate(){
+  const n = +$('#ws_size').value, dirs = WS_DIRS[$('#ws_diff').value];
+  let words = [...new Set(lines($('#ws_input').value).map(w => up(w.normalize('NFC').replace(/\s+/g,''))))];
+  const tooLong = words.filter(w => w.length > n);
+  words = words.filter(w => w.length >= 2 && w.length <= n);
+  if(!words.length){ toast('Geçerli kelime bulunamadı. Kelimeler matris boyutundan uzun olmamalı.'); return false; }
+
+  let best = null;
+  for(let attempt=0; attempt<40; attempt++){
+    const g = Array.from({length:n}, () => Array(n).fill(''));
+    const placed = [];
+    for(const w of [...words].sort((a,b) => b.length - a.length)){
+      let ok = false;
+      for(let t=0; t<150 && !ok; t++){
+        const [dr,dc] = dirs[Math.floor(Math.random()*dirs.length)];
+        const r0 = Math.floor(Math.random()*n), c0 = Math.floor(Math.random()*n);
+        const r1 = r0 + dr*(w.length-1), c1 = c0 + dc*(w.length-1);
+        if(r1<0 || r1>=n || c1<0 || c1>=n) continue;
+        let fit = true;
+        for(let i=0;i<w.length;i++){ const ch = g[r0+dr*i][c0+dc*i]; if(ch && ch !== w[i]){ fit=false; break; } }
+        if(!fit) continue;
+        const cells = [];
+        for(let i=0;i<w.length;i++){ g[r0+dr*i][c0+dc*i] = w[i]; cells.push([r0+dr*i, c0+dc*i]); }
+        placed.push({word:w, cells}); ok = true;
+      }
+    }
+    if(!best || placed.length > best.placed.length) best = {g, placed};
+    if(placed.length === words.length) break;
+  }
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(!best.g[r][c]) best.g[r][c] = ALPHA[Math.floor(Math.random()*ALPHA.length)];
+  ws.grid = best.g; ws.placed = best.placed;
+  const placedSet = new Set(best.placed.map(p => p.word));
+  ws.list = words.filter(w => placedSet.has(w));
+  ws.ready = true; ws.showAns = false;
+  const skipped = words.filter(w => !placedSet.has(w)).concat(tooLong);
+  if(skipped.length) toast('Yerleştirilemeyen kelimeler: ' + skipped.join(', '));
+  wsRender();
+  return true;
+}
+
+function wsRender(){
+  const n = ws.grid.length;
+  wsG.style.setProperty('--n', n);
+  const inAns = new Set(); ws.placed.forEach(p => p.cells.forEach(([r,c]) => inAns.add(r*n+c)));
+  wsG.innerHTML = ws.grid.map((row,r) => row.map((ch,c) =>
+    `<div class="ws-cell${inAns.has(r*n+c)?' inans':''}" data-r="${r}" data-c="${c}">${esc(ch)}</div>`).join('')).join('');
+  $('#ws_words').innerHTML = ws.list.map(w => `<span class="wchip" data-w="${esc(w)}">${esc(w)}</span>`).join('');
+  $('#ws_grid').parentNode.classList.toggle('showans', false);
+  wsReset();
+}
+
+/* Oyun ilerlemesini sıfırla (bulmaca aynı kalır) */
+function wsReset(){
+  ws.found.clear(); ws.wrong = 0; ws.moves = 0; ws.done = false; ws.anchor = null; ws.drag = null;
+  ws.sw.reset();
+  $$('.ws-cell', wsG).forEach(e => { e.classList.remove('found','sel','bad'); e.style.removeProperty('--hl'); });
+  $$('.wchip', $('#ws_words')).forEach(e => { e.classList.remove('done'); e.style.background = ''; });
+  wsStats();
+}
+function wsStats(){
+  $('#ws_moves').textContent = ws.moves;
+  $('#ws_found').textContent = ws.found.size + '/' + ws.placed.length;
+  $('#ws_score').textContent = Math.max(0, ws.found.size*100 - ws.wrong*20);
+}
+
+/* İki hücre arasındaki düz çizgi (yatay, dikey veya çapraz); değilse null */
+function lineCells(a,b){
+  const dr=b.r-a.r, dc=b.c-a.c;
+  if(!(dr===0 || dc===0 || Math.abs(dr)===Math.abs(dc))) return null;
+  const n=Math.max(Math.abs(dr),Math.abs(dc)), sr=Math.sign(dr), sc=Math.sign(dc);
+  return Array.from({length:n+1}, (_,i) => ({r:a.r+sr*i, c:a.c+sc*i}));
+}
+function wsPoint(e){
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const c = el && el.closest && el.closest('.ws-cell');
+  return (c && wsG.contains(c)) ? {r:+c.dataset.r, c:+c.dataset.c} : null;
+}
+function wsDraw(cells){
+  $$('.ws-cell.sel', wsG).forEach(e => e.classList.remove('sel'));
+  (cells||[]).forEach(p => wsCell(p.r,p.c).classList.add('sel'));
+}
+
+/* Seçimi değerlendir */
+function wsFinish(a,b){
+  const cells = lineCells(a,b); wsDraw(null);
+  if(!cells || cells.length < 2) return;
+  const str = cells.map(p => ws.grid[p.r][p.c]).join('');
+  const rev = Array.from(str).reverse().join('');
+  ws.moves++;
+  const hit = ws.placed.find(p => !ws.found.has(p.word) && (p.word===str || p.word===rev));
+  if(hit){
+    ws.found.add(hit.word);
+    const col = ws.colors[(ws.found.size-1) % ws.colors.length];
+    cells.forEach(p => { const el = wsCell(p.r,p.c); el.classList.add('found'); el.style.setProperty('--hl', col); });
+    const chip = $$('.wchip', $('#ws_words')).find(c => c.dataset.w === hit.word);
+    if(chip){ chip.classList.add('done'); chip.style.background = col; }
+  } else {
+    ws.wrong++;
+    cells.forEach(p => wsCell(p.r,p.c).classList.add('bad'));
+    setTimeout(() => cells.forEach(p => wsCell(p.r,p.c).classList.remove('bad')), 450);
+  }
+  wsStats();
+  if(ws.found.size === ws.placed.length){
+    ws.sw.stop(); ws.done = true;
+    showModal('🎉 Tebrikler!', `<div class="big">Tüm kelimeleri buldun!</div><div class="big">⏱ Süre: ${fmt(ws.sw.sec)}</div><div class="big">👆 Hamle: ${ws.moves}</div><div class="big">⭐ Skor: ${$('#ws_score').textContent}</div>`, wsRestart);
+  }
+}
+
+/* Fare / dokunmatik: sürükleyerek veya iki kez dokunarak (başlangıç + bitiş) seçim */
+wsG.addEventListener('pointerdown', e => {
+  if(!ws.play || ws.done) return;
+  const p = wsPoint(e); if(!p) return;
+  e.preventDefault(); ws.sw.start();
+  if(ws.anchor){
+    const a = ws.anchor;
+    if(a.r===p.r && a.c===p.c){ ws.anchor = null; wsDraw(null); return; }
+    const l = lineCells(a,p);
+    if(l && l.length>1){ ws.anchor = null; wsFinish(a,p); return; }
+    ws.anchor = null; wsDraw(null);
+  }
+  ws.drag = {s:p, cur:p}; wsDraw([p]);
+  try{ wsG.setPointerCapture(e.pointerId); }catch(_){}
+});
+wsG.addEventListener('pointermove', e => {
+  if(!ws.drag) return;
+  const p = wsPoint(e); if(!p) return;
+  const l = lineCells(ws.drag.s, p);
+  if(l){ ws.drag.cur = p; wsDraw(l); }
+});
+wsG.addEventListener('pointerup', () => {
+  if(!ws.drag) return;
+  const d = ws.drag; ws.drag = null;
+  if(d.s.r===d.cur.r && d.s.c===d.cur.c){ ws.anchor = d.s; wsDraw([d.s]); }   // tek dokunuş: başlangıç noktası
+  else wsFinish(d.s, d.cur);
+});
+wsG.addEventListener('pointercancel', () => { ws.drag = null; wsDraw(null); });
+
+function wsRestart(){ wsReset(); }
+$('#ws_gen').onclick = () => wsGenerate();
+$('#ws_restart').onclick = wsRestart;
+$('#ws_play').onclick = () => {
+  if(!ws.ready && !wsGenerate()) return;
+  ws.play = !ws.play; playUI('ws', ws.play);
+  ws.showAns = false; $('#ws_grid').parentNode.classList.remove('showans');
+  wsReset();
+};
+$('#ws_ans').onclick = () => { ws.showAns = !ws.showAns; $('#ws_grid').parentNode.classList.toggle('showans', ws.showAns); };
+
+/* =========================================================
+   D. KAREBULMACA
+   ========================================================= */
+const cw = { data:null, play:false, active:null, checks:0, done:false, revealed:false, ready:false, showAns:false,
+             sw:new Stopwatch($('#cw_time')) };
+const cwG = $('#cw_grid');
+
+function cwParse(){
+  const seen = new Set(), out = [];
+  lines($('#cw_input').value).forEach(l => {
+    const i = l.indexOf(':');
+    const word = up((i<0 ? l : l.slice(0,i)).normalize('NFC').replace(/\s+/g,''));
+    const clue = i<0 ? '' : l.slice(i+1).trim();
+    if(word.length >= 2 && !seen.has(word)){ seen.add(word); out.push({word, clue: clue || '(ipucu girilmedi)'}); }
+  });
+  return out;
+}
+
+/* Yerleştirme denemesi: ilk kelime ortaya, diğerleri mevcut harflerle kesişerek eklenir */
+function cwLayout(order, randomness){
+  const N = 80;
+  const L = Array.from({length:N}, () => Array(N).fill(''));
+  const A = Array.from({length:N}, () => Array(N).fill(false));   // bu hücreden yatay kelime geçiyor mu
+  const D = Array.from({length:N}, () => Array(N).fill(false));   // dikey
+  const placed = [], unplaced = [];
+  const bb = {r0:N, r1:0, c0:N, c1:0};
+
+  // Geçerli mi? Geçersizse -1, geçerliyse kesişim sayısı
+  function check(w, r, c, dir){
+    const dr = dir==='D'?1:0, dc = dir==='A'?1:0;
+    const er = r+dr*w.length, ec = c+dc*w.length;
+    if(r<2 || c<2 || er>=N-2 || ec>=N-2) return -1;
+    if(L[r-dr][c-dc] || L[er][ec]) return -1;
+    let inter = 0;
+    for(let i=0;i<w.length;i++){
+      const rr=r+dr*i, cc=c+dc*i, ch=L[rr][cc];
+      if(ch){
+        if(ch !== w[i]) return -1;
+        if((dir==='A'?A:D)[rr][cc]) return -1;
+        inter++;
+      } else {
+        if(dir==='A'){ if(L[rr-1][cc] || L[rr+1][cc]) return -1; }
+        else { if(L[rr][cc-1] || L[rr][cc+1]) return -1; }
+      }
+    }
+    return inter;
+  }
+  function put(e, r, c, dir){
+    const dr = dir==='D'?1:0, dc = dir==='A'?1:0;
+    for(let i=0;i<e.word.length;i++){ const rr=r+dr*i, cc=c+dc*i; L[rr][cc]=e.word[i]; (dir==='A'?A:D)[rr][cc]=true; }
+    placed.push({word:e.word, clue:e.clue, r, c, dir, len:e.word.length});
+    bb.r0=Math.min(bb.r0,r); bb.c0=Math.min(bb.c0,c);
+    bb.r1=Math.max(bb.r1,r+dr*(e.word.length-1)); bb.c1=Math.max(bb.c1,c+dc*(e.word.length-1));
+  }
+  function areaAfter(r,c,dir,len){
+    const r1=r+(dir==='D'?len-1:0), c1=c+(dir==='A'?len-1:0);
+    return (Math.max(bb.r1,r1)-Math.min(bb.r0,r)+1) * (Math.max(bb.c1,c1)-Math.min(bb.c0,c)+1);
+  }
+
+  const first = order[0];
+  put(first, N>>1, (N>>1) - (first.word.length>>1), 'A');
+  for(const e of order.slice(1)){
+    const cands = [];
+    for(const p of placed){
+      const nd = p.dir==='A' ? 'D' : 'A';
+      for(let k=0;k<p.len;k++){
+        const pr = p.r + (p.dir==='D'?k:0), pc = p.c + (p.dir==='A'?k:0);
+        for(let i=0;i<e.word.length;i++){
+          if(e.word[i] !== L[pr][pc]) continue;
+          const r = pr - (nd==='D'?i:0), c = pc - (nd==='A'?i:0);
+          const x = check(e.word, r, c, nd);
+          if(x > 0) cands.push({r, c, dir:nd, x, area:areaAfter(r,c,nd,e.word.length)});
+        }
+      }
+    }
+    if(!cands.length){ unplaced.push(e); continue; }
+    cands.sort((a,b) => a.area-b.area || b.x-a.x);
+    const pick = cands[Math.floor(Math.random()*Math.min(cands.length, randomness))];
+    put(e, pick.r, pick.c, pick.dir);
+  }
+  const area = (bb.r1-bb.r0+1)*(bb.c1-bb.c0+1);
+  return {placed, unplaced, bb, area};
+}
+
+function cwGenerate(){
+  const entries = cwParse();
+  if(entries.length < 2){ toast('En az 2 satır girin. Örnek: KUVVET : Cismin hızını değiştiren etki'); return false; }
+  let best = null;
+  for(let t=0; t<90; t++){
+    let order;
+    if(t===0) order = [...entries].sort((a,b) => b.word.length - a.word.length);
+    else order = shuffle([...entries]).sort((a,b) => (b.word.length - a.word.length) + (Math.random()-.5)*4);
+    const res = cwLayout(order, t===0 ? 1 : 3);
+    res.score = res.placed.length*10000 - res.area;
+    if(!best || res.score > best.score) best = res;
+  }
+  // Kırpılmış ızgara
+  const {bb} = best, rows = bb.r1-bb.r0+1, cols = bb.c1-bb.c0+1;
+  const cells = Array.from({length:rows}, () => Array.from({length:cols}, () => ({ch:'', num:0, a:-1, d:-1})));
+  const words = best.placed.map(p => ({...p, r:p.r-bb.r0, c:p.c-bb.c0, num:0}));
+  words.forEach((w,wi) => {
+    for(let i=0;i<w.len;i++){
+      const r = w.r+(w.dir==='D'?i:0), c = w.c+(w.dir==='A'?i:0);
+      cells[r][c].ch = w.word[i]; cells[r][c][w.dir==='A'?'a':'d'] = wi;
+    }
+  });
+  // Numaralandırma (soldan sağa, yukarıdan aşağıya)
+  let num = 0;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    if(!cells[r][c].ch) continue;
+    const sA = (c===0 || !cells[r][c-1].ch) && c+1<cols && cells[r][c+1].ch;
+    const sD = (r===0 || !cells[r-1][c].ch) && r+1<rows && cells[r+1][c].ch;
+    if(sA || sD){ num++; cells[r][c].num = num; }
+  }
+  words.forEach(w => { w.num = cells[w.r][w.c].num; });
+  cw.data = {rows, cols, cells, words};
+  cw.ready = true; cw.showAns = false;
+  if(best.unplaced.length) toast('Kesişemeyen (yerleştirilemeyen) kelimeler: ' + best.unplaced.map(e => e.word).join(', ') + '. Tekrar oluşturmayı deneyin.');
+  cwRender();
+  return true;
+}
+
+const cwInput = (r,c) => { const el = cwG.children[r*cw.data.cols + c]; return el ? el.querySelector('input') : null; };
+const cwCellEl = (r,c) => cwG.children[r*cw.data.cols + c];
+const cwWordCells = w => Array.from({length:w.len}, (_,i) => [w.r+(w.dir==='D'?i:0), w.c+(w.dir==='A'?i:0)]);
+
+function cwRender(){
+  const {rows, cols, cells, words} = cw.data;
+  cwG.style.setProperty('--n', cols);
+  cwG.innerHTML = cells.map((row,r) => row.map((cell,c) => cell.ch
+    ? `<div class="cw-cell" data-r="${r}" data-c="${c}">${cell.num?`<span class="n">${cell.num}</span>`:''}<input maxlength="2" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Satır ${r+1}, sütun ${c+1}" disabled></div>`
+    : `<div class="cw-blank"></div>`).join('')).join('');
+  const li = (w,i) => `<li class="clue" data-w="${i}"><b>${w.num}.</b> ${esc(w.clue)}</li>`;
+  const list = dir => words.map((w,i) => ({w,i})).filter(x => x.w.dir===dir).sort((a,b) => a.w.num-b.w.num).map(x => li(x.w,x.i)).join('');
+  $('#cw_across').innerHTML = list('A');
+  $('#cw_down').innerHTML = list('D');
+  cwReset();
+}
+
+/* Oyun ilerlemesini sıfırla */
+function cwReset(){
+  cw.checks = 0; cw.done = false; cw.revealed = false; cw.active = null; cw.sw.reset();
+  $$('.cw-cell', cwG).forEach(el => { el.classList.remove('hl','cur','ok','bad','rev'); el.querySelector('input').value = ''; el.querySelector('input').disabled = !cw.play; });
+  $$('.clue').forEach(e => e.classList.remove('active'));
+  cwStats();
+  if(!cw.play && cw.showAns) cwFillAnswers(true);
+}
+function cwFillAnswers(on){
+  cw.data.cells.forEach((row,r) => row.forEach((cell,c) => {
+    if(!cell.ch) return;
+    cwInput(r,c).value = on ? cell.ch : '';
+    cwCellEl(r,c).classList.toggle('rev', on);
+  }));
+}
+function cwSolvedCount(){
+  return cw.data.words.filter(w => cwWordCells(w).every(([r,c]) => cwInput(r,c).value === cw.data.cells[r][c].ch)).length;
+}
+function cwStats(){
+  const total = cw.data.words.length, solved = cw.play ? cwSolvedCount() : 0;
+  $('#cw_solved').textContent = solved + '/' + total;
+  $('#cw_score').textContent = Math.max(0, solved*100 - cw.checks*10);
+  return solved;
+}
+
+function cwSetActive(r,c,dir){
+  const cell = cw.data.cells[r][c]; if(!cell.ch) return;
+  if(dir==='A' && cell.a<0) dir='D';
+  if(dir==='D' && cell.d<0) dir='A';
+  cw.active = {r,c,dir}; cwHighlight();
+}
+function cwHighlight(){
+  $$('.cw-cell', cwG).forEach(el => el.classList.remove('hl','cur'));
+  $$('.clue').forEach(el => el.classList.remove('active'));
+  if(!cw.active) return;
+  const {r,c,dir} = cw.active, cell = cw.data.cells[r][c];
+  const wi = dir==='A' ? cell.a : cell.d, w = cw.data.words[wi];
+  cwWordCells(w).forEach(([rr,cc]) => cwCellEl(rr,cc).classList.add('hl'));
+  cwCellEl(r,c).classList.add('cur');
+  const li = $(`.clue[data-w="${wi}"]`); if(li) li.classList.add('active');
+}
+function cwFocus(){ const {r,c} = cw.active; const i = cwInput(r,c); if(i) i.focus(); }
+function cwStep(delta){
+  const {r,c,dir} = cw.active, cell = cw.data.cells[r][c];
+  const w = cw.data.words[dir==='A' ? cell.a : cell.d];
+  const idx = (dir==='A' ? c-w.c : r-w.r) + delta;
+  if(idx<0 || idx>=w.len) return;
+  const rr = w.r+(dir==='D'?idx:0), cc = w.c+(dir==='A'?idx:0);
+  cw.active = {r:rr, c:cc, dir}; cwHighlight(); cwFocus();
+}
+function cwMove(dr,dc){
+  let {r,c} = cw.active;
+  const dir = dr===0 ? 'A' : 'D';
+  r+=dr; c+=dc;
+  while(r>=0 && c>=0 && r<cw.data.rows && c<cw.data.cols){
+    if(cw.data.cells[r][c].ch){ cwSetActive(r,c,dir); cwFocus(); return; }
+    r+=dr; c+=dc;
+  }
+}
+function cwCheckDone(){
+  if(cw.done || cw.revealed) return;
+  if(cwStats() === cw.data.words.length){
+    cw.done = true; cw.sw.stop();
+    $$('.cw-cell input', cwG).forEach(i => i.disabled = true);
+    showModal('🎉 Tebrikler!', `<div class="big">Karebulmacayı tamamladın!</div><div class="big">⏱ Süre: ${fmt(cw.sw.sec)}</div><div class="big">🔍 Kontrol: ${cw.checks}</div><div class="big">⭐ Skor: ${$('#cw_score').textContent}</div>`, cwRestart);
+  }
+}
+
+cwG.addEventListener('click', e => {
+  if(!cw.play || cw.done) return;
+  const el = e.target.closest('.cw-cell'); if(!el) return;
+  cw.sw.start();
+  const r = +el.dataset.r, c = +el.dataset.c;
+  let dir = cw.active ? cw.active.dir : 'A';
+  if(cw.active && cw.active.r===r && cw.active.c===c) dir = dir==='A' ? 'D' : 'A';
+  cwSetActive(r,c,dir); cwFocus();
+});
+cwG.addEventListener('input', e => {
+  const inp = e.target; if(!(inp instanceof HTMLInputElement)) return;
+  inp.value = up(inp.value.slice(-1));
+  const cell = inp.parentNode; cell.classList.remove('ok','bad');
+  if(!cw.active || +cell.dataset.r !== cw.active.r || +cell.dataset.c !== cw.active.c) cwSetActive(+cell.dataset.r, +cell.dataset.c, cw.active ? cw.active.dir : 'A');
+  if(inp.value) cwStep(1);
+  cwCheckDone(); cwStats();
+});
+cwG.addEventListener('keydown', e => {
+  if(!cw.play || !cw.active) return;
+  const inp = e.target;
+  if(e.key==='Backspace' && inp.value===''){ e.preventDefault(); cwStep(-1); const p = cwInput(cw.active.r, cw.active.c); if(p){ p.value=''; p.parentNode.classList.remove('ok','bad'); } cwStats(); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); cwMove(0,-1); }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); cwMove(0,1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); cwMove(-1,0); }
+  else if(e.key==='ArrowDown'){ e.preventDefault(); cwMove(1,0); }
+});
+// İpucuna tıklayınca kelimenin ilk kutusuna git
+$('#p_cw').addEventListener('click', e => {
+  const li = e.target.closest('.clue'); if(!li || !cw.play || cw.done) return;
+  cw.sw.start();
+  const w = cw.data.words[+li.dataset.w];
+  cwSetActive(w.r, w.c, w.dir); cwFocus();
+});
+
+function cwRestart(){ if(cw.data) cwReset(); }
+$('#cw_gen').onclick = () => cwGenerate();
+$('#cw_restart').onclick = cwRestart;
+$('#cw_play').onclick = () => {
+  if(!cw.ready && !cwGenerate()) return;
+  cw.play = !cw.play; playUI('cw', cw.play); cw.showAns = false; cwReset();
+};
+$('#cw_check').onclick = () => {
+  if(!cw.play || cw.done) return;
+  cw.checks++;
+  cw.data.cells.forEach((row,r) => row.forEach((cell,c) => {
+    if(!cell.ch) return;
+    const v = cwInput(r,c).value, el = cwCellEl(r,c);
+    el.classList.remove('ok','bad');
+    if(v) el.classList.add(v===cell.ch ? 'ok' : 'bad');
+  }));
+  cwStats(); cw.sw.start();
+  toast('Yeşil: doğru, kırmızı: yanlış harf. (Her kontrol skordan 10 puan düşer)');
+};
+$('#cw_reveal').onclick = () => {
+  if(!cw.play || cw.done) return;
+  cwFillAnswers(true); cw.revealed = true; cw.done = true; cw.sw.stop();
+  $$('.cw-cell input', cwG).forEach(i => i.disabled = true);
+  toast('Cevaplar gösterildi. Yeni deneme için "Baştan başla" düğmesine basın.');
+};
+$('#cw_ans').onclick = () => { cw.showAns = !cw.showAns; cwFillAnswers(cw.showAns); };
+
+/* =========================================================
+   E. EŞLEŞTİRME
+   ========================================================= */
+const mt = { items:[], order:[], play:false, sel:null, ok:0, wrong:0, done:false, ready:false, showAns:false,
+             sw:new Stopwatch($('#mt_time')), drag:null };
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function mtGenerate(){
+  const items = lines($('#mt_input').value).map(l => {
+    const i = l.indexOf('|'); if(i<0) return null;
+    return {term:l.slice(0,i).trim(), desc:l.slice(i+1).trim()};
+  }).filter(x => x && x.term && x.desc);
+  if(items.length < 2){ toast('En az 2 satır girin. Örnek: Hız | Birim zamanda alınan yol'); return false; }
+  if(items.length > 26){ items.length = 26; toast('En fazla 26 çift kullanılır; fazlası atlandı.'); }
+  const order = items.map((_,i) => i);
+  let tries = 0; do { shuffle(order); tries++; } while(tries<30 && order.every((v,i) => v===i));
+  mt.items = items; mt.order = order; mt.ready = true; mt.showAns = false;
+  mtRender();
+  return true;
+}
+function mtRender(){
+  $('#mt_left').innerHTML = mt.items.map((it,i) =>
+    `<div class="m-item left" data-side="L" data-i="${i}"><span class="b">${LETTERS[i]}</span><span>${esc(it.term)}</span></div>`).join('');
+  $('#mt_right').innerHTML = mt.order.map((oi,p) =>
+    `<div class="m-item right" data-side="R" data-i="${oi}" data-a="${LETTERS[oi]}"><span class="b">${p+1}</span><span>${esc(mt.items[oi].desc)}</span></div>`).join('');
+  $('#p_mt').classList.remove('showans');
+  mtReset();
+}
+function mtReset(){
+  mt.ok = 0; mt.wrong = 0; mt.done = false; mt.sel = null; mt.sw.reset();
+  $$('.m-item').forEach(e => e.classList.remove('done','bad','sel','over','dragging'));
+  mtStats();
+}
+function mtStats(){
+  $('#mt_ok').textContent = mt.ok + '/' + mt.items.length;
+  $('#mt_wrong').textContent = mt.wrong;
+  $('#mt_score').textContent = Math.max(0, mt.ok*100 - mt.wrong*20);
+}
+function mtAttempt(a,b){
+  const left = a.dataset.side==='L' ? a : b, right = a.dataset.side==='L' ? b : a;
+  if(left.classList.contains('done') || right.classList.contains('done')) return;
+  if(mt.sel){ mt.sel.classList.remove('sel'); mt.sel = null; }
+  if(left.dataset.i === right.dataset.i){
+    left.classList.add('done'); right.classList.add('done'); mt.ok++;
+  } else {
+    mt.wrong++;
+    left.classList.add('bad'); right.classList.add('bad');
+    setTimeout(() => { left.classList.remove('bad'); right.classList.remove('bad'); }, 700);
+  }
+  mtStats();
+  if(mt.ok === mt.items.length){
+    mt.sw.stop(); mt.done = true;
+    showModal('🎉 Tebrikler!', `<div class="big">Tüm eşleştirmeleri yaptın!</div><div class="big">⏱ Süre: ${fmt(mt.sw.sec)}</div><div class="big">❌ Yanlış: ${mt.wrong}</div><div class="big">⭐ Skor: ${$('#mt_score').textContent}</div>`, mtRestart);
+  }
+}
+function mtTap(it){
+  if(mt.sel === it){ it.classList.remove('sel'); mt.sel = null; return; }
+  if(mt.sel && mt.sel.dataset.side !== it.dataset.side){ mtAttempt(mt.sel, it); return; }
+  if(mt.sel) mt.sel.classList.remove('sel');
+  mt.sel = it; it.classList.add('sel');
+}
+
+/* Sürükle-bırak (fare + dokunmatik, pointer olayları ile) ve dokun-dokun eşleştirme */
+const mtRoot = $('.m-wrap');
+mtRoot.addEventListener('pointerdown', e => {
+  const it = e.target.closest('.m-item');
+  if(!it || !mt.play || mt.done || it.classList.contains('done')) return;
+  mt.sw.start();
+  mt.drag = {it, x:e.clientX, y:e.clientY, ghost:null, moved:false, over:null};
+  try{ mtRoot.setPointerCapture(e.pointerId); }catch(_){}
+});
+mtRoot.addEventListener('pointermove', e => {
+  const d = mt.drag; if(!d) return;
+  if(!d.moved && Math.hypot(e.clientX-d.x, e.clientY-d.y) > 8){
+    d.moved = true; d.it.classList.add('dragging');
+    d.ghost = document.createElement('div'); d.ghost.className = 'm-ghost'; d.ghost.textContent = d.it.textContent.trim();
+    document.body.appendChild(d.ghost);
+  }
+  if(d.moved){
+    d.ghost.style.left = e.clientX+'px'; d.ghost.style.top = e.clientY+'px';
+    const t = document.elementFromPoint(e.clientX, e.clientY), tgt = t && t.closest ? t.closest('.m-item') : null;
+    if(d.over) d.over.classList.remove('over');
+    d.over = (tgt && tgt.dataset.side !== d.it.dataset.side && !tgt.classList.contains('done')) ? tgt : null;
+    if(d.over) d.over.classList.add('over');
+  }
+});
+function mtEnd(e, cancel){
+  const d = mt.drag; if(!d) return; mt.drag = null;
+  d.it.classList.remove('dragging');
+  if(d.ghost) d.ghost.remove();
+  if(d.over) d.over.classList.remove('over');
+  if(cancel) return;
+  if(d.moved){ if(d.over){ if(mt.sel){ mt.sel.classList.remove('sel'); mt.sel=null; } mtAttempt(d.it, d.over); } }
+  else mtTap(d.it);
+}
+mtRoot.addEventListener('pointerup', e => mtEnd(e,false));
+mtRoot.addEventListener('pointercancel', e => mtEnd(e,true));
+
+function mtRestart(){ if(mt.ready) mtReset(); }
+$('#mt_gen').onclick = () => mtGenerate();
+$('#mt_restart').onclick = mtRestart;
+$('#mt_play').onclick = () => {
+  if(!mt.ready && !mtGenerate()) return;
+  mt.play = !mt.play; playUI('mt', mt.play);
+  mt.showAns = false; $('#p_mt').classList.remove('showans'); mtReset();
+};
+$('#mt_ans').onclick = () => { mt.showAns = !mt.showAns; $('#p_mt').classList.toggle('showans', mt.showAns); };
+
+/* =========================================================
+   F. YAZDIRMA (A4)
+   ========================================================= */
+function pHead(title){
+  const h = head();
+  const f = (l,v) => `<div class="p-f"><b>${l}</b><span>${esc(v)}</span></div>`;
+  return `<div class="p-head"><div class="p-school">${esc(h.school) || '&nbsp;'}</div><div class="p-title">${title}</div>
+    <div class="p-grid3">${f('Ders:',h.course)}${f('Öğretmen:',h.teacher)}${f('Konu / Ünite:',h.topic)}</div>
+    <div class="p-grid3 st">${f('Öğrenci Adı Soyadı:',h.student)}${f('Sınıf:',h.klass)}${f('No:',h.no)}</div></div>`;
+}
+
+function wsPrintPage(key){
+  const n = ws.grid.length, cs = Math.min(9.5, 175/n);
+  const inAns = new Set(); ws.placed.forEach(p => p.cells.forEach(([r,c]) => inAns.add(r*n+c)));
+  const cells = ws.grid.map((row,r) => row.map((ch,c) => `<div${key && inAns.has(r*n+c) ? ' class="pa"' : ''}>${esc(ch)}</div>`).join('')).join('');
+  const words = key ? '' : `<div class="pwords">${ws.list.map(w => `<span>☐ ${esc(w)}</span>`).join('')}</div>`;
+  return `<div class="psheet${key?' brk':''}">${pHead(key ? 'Kelime Avı — Cevap Anahtarı' : 'Kelime Avı')}
+    <div class="pgrid" style="--n:${n};--cs:${cs}mm">${cells}</div>${words}</div>`;
+}
+
+function cwPrintPage(key){
+  const {rows, cols, cells, words} = cw.data, cs = Math.min(10, 180/cols);
+  const grid = cells.map(row => row.map(cell => cell.ch
+    ? `<div>${cell.num?`<i>${cell.num}</i>`:''}${key ? esc(cell.ch) : ''}</div>` : `<div class="pb"></div>`).join('')).join('');
+  const list = dir => words.filter(w => w.dir===dir).sort((a,b) => a.num-b.num).map(w => `<p><b>${w.num}.</b> ${esc(w.clue)}${key ? ' <b>→ '+esc(w.word)+'</b>' : ''}</p>`).join('');
+  return `<div class="psheet${key?' brk':''}">${pHead(key ? 'Karebulmaca — Cevap Anahtarı' : 'Karebulmaca')}
+    <div class="pgrid cw" style="--n:${cols};--cs:${cs}mm">${grid}</div>
+    <div class="pclues"><div><h4>Soldan Sağa</h4>${list('A')}</div><div><h4>Yukarıdan Aşağıya</h4>${list('D')}</div></div></div>`;
+}
+
+function mtPrintPage(key){
+  const n = mt.items.length;
+  const rows = mt.items.map((it,i) => `<tr>
+      <td class="num">( &nbsp;&nbsp;&nbsp; )</td><td><b>${LETTERS[i]})</b> ${esc(it.term)}</td>
+      <td class="gap"></td>
+      <td><b>${i+1})</b> ${esc(mt.items[mt.order[i]].desc)}</td></tr>`).join('');
+  let answers = '';
+  if(key){
+    answers = `<div class="pkey">` + mt.items.map((it,i) => `<b>${LETTERS[i]}</b> → ${mt.order.indexOf(i)+1}`).join(' &nbsp;|&nbsp; ') + `</div>`;
+    return `<div class="psheet brk">${pHead('Eşleştirme — Cevap Anahtarı')}${answers}</div>`;
+  }
+  return `<div class="psheet">${pHead('Eşleştirme Çalışma Kağıdı')}
+    <p style="font-size:10.5pt;margin:0 0 8px">Soldaki kavramların yanındaki parantezlere, sağ sütunda karşılığı olan açıklamanın numarasını yazınız.</p>
+    <table class="pmt">${rows}</table></div>`;
+}
+
+function buildPrint(){
+  if(tab==='ws' && ws.ready) return wsPrintPage(false) + ($('#ws_key').checked ? wsPrintPage(true) : '');
+  if(tab==='cw' && cw.ready) return cwPrintPage(false) + ($('#cw_key').checked ? cwPrintPage(true) : '');
+  if(tab==='mt' && mt.ready) return mtPrintPage(false) + ($('#mt_key').checked ? mtPrintPage(true) : '');
+  return '';
+}
+function doPrint(){
+  if(!GEN[tab]()) return;
+  $('#printSheet').innerHTML = buildPrint();
+  setTimeout(() => window.print(), 50);
+}
+// Ctrl+P ile yazdırılırsa da mevcut sekmenin kağıdı hazırlansın
+window.addEventListener('beforeprint', () => { $('#printSheet').innerHTML = buildPrint(); });
+$('#ws_print').onclick = () => { if(!ws.ready && !wsGenerate()) return; $('#printSheet').innerHTML = buildPrint(); setTimeout(() => window.print(), 50); };
+$('#cw_print').onclick = () => { if(!cw.ready && !cwGenerate()) return; $('#printSheet').innerHTML = buildPrint(); setTimeout(() => window.print(), 50); };
+$('#mt_print').onclick = () => { if(!mt.ready && !mtGenerate()) return; $('#printSheet').innerHTML = buildPrint(); setTimeout(() => window.print(), 50); };
+
+/* =========================================================
+   G. BAŞLANGIÇ
+   ========================================================= */
+const GEN = { ws: wsGenerate, cw: cwGenerate, mt: mtGenerate };
+wsGenerate(); cwGenerate(); mtGenerate();
+})();
+</script>
+</body>
+</html>

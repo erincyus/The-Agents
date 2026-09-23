@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Veli Bildirim ve Bireysel Gelişim Raporlayıcı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090C;
+  --bg-deep:#0A0D14;
+  --panel:#131720;
+  --panel-2:#1B2333;
+  --border:rgba(255,255,255,0.07);
+  --border-strong:rgba(255,255,255,0.16);
+  --cyan:#00F2FE;
+  --blue:#0B63F6;
+  --pink:#EC4899;
+  --purple:#8A2387;
+  --text:#E6EAF2;
+  --text-dim:#8B93A7;
+  --text-faint:#5B6478;
+  --good:#34D399;
+  --warn:#FBBF24;
+  --radius:12px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(1000px 560px at 12% -12%, rgba(0,242,254,0.12), transparent 62%),
+    radial-gradient(760px 460px at 102% 4%, rgba(236,72,153,0.07), transparent 55%);
+  color:var(--text);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100%;
+}
+::selection{background:rgba(0,242,254,0.25);}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#2A3242;border-radius:8px;}
+::-webkit-scrollbar-thumb:hover{background:#3A4356;}
+
+a,button,input,textarea,select{font-family:inherit;}
+button{cursor:pointer;}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:6px;}
+
+.mono{font-family:'JetBrains Mono',monospace;}
+
+/* ---------- App shell ---------- */
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+header.topbar{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 22px;padding-top:calc(14px + env(safe-area-inset-top,0px));
+  border-bottom:1px solid var(--border);
+  background:rgba(9,9,11,0.7);backdrop-filter:blur(14px);
+  position:sticky;top:0;z-index:40;
+  flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;}
+.brand-mark{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--cyan),var(--blue));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 22px rgba(0,242,254,0.35);
+  flex-shrink:0;
+}
+.brand-mark svg{width:18px;height:18px;stroke:#031018;}
+.brand-title{font-weight:700;font-size:15px;letter-spacing:-0.01em;}
+.brand-sub{font-size:11.5px;color:var(--text-dim);margin-top:1px;}
+
+.topbar-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);
+  background:var(--panel);color:var(--text);font-size:13px;font-weight:500;
+  transition:border-color .15s, transform .1s, background .15s;
+  white-space:nowrap;
+}
+.btn:hover{border-color:rgba(255,255,255,0.25);background:#1B212C;}
+.btn:active{transform:scale(0.97);}
+.btn svg{width:15px;height:15px;flex-shrink:0;}
+.btn-primary{
+  background:linear-gradient(135deg,var(--cyan),var(--blue));
+  border:none;color:#031018;font-weight:700;
+  box-shadow:0 0 22px rgba(0,242,254,0.3);
+}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-accent{
+  background:linear-gradient(135deg,var(--purple),var(--pink));
+  border:none;color:#fff;font-weight:600;
+}
+.btn-ghost{background:transparent;border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--border-strong);}
+.btn-danger{color:#FCA5A5;}
+.btn-danger:hover{border-color:rgba(252,165,165,0.4);}
+#import-input,#excel-import-input{display:none;}
+
+/* KVKK banner */
+.kvkk{
+  margin:14px 22px 0 22px;
+  padding:13px 16px;border-radius:10px;
+  background:linear-gradient(90deg, rgba(0,242,254,0.08), rgba(236,72,153,0.06));
+  border:1px solid rgba(0,242,254,0.18);
+  display:flex;gap:11px;align-items:flex-start;
+  font-size:12.5px;line-height:1.55;color:var(--text-dim);
+}
+.kvkk svg{width:18px;height:18px;flex-shrink:0;stroke:var(--cyan);margin-top:1px;}
+.kvkk strong{color:var(--text);font-weight:600;}
+
+/* Layout: sidebar + main */
+.workspace{display:flex;flex:1;min-height:0;margin-top:14px;gap:14px;padding:0 22px 22px 22px;}
+
+/* Sidebar */
+aside.sidebar{
+  width:270px;flex-shrink:0;
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:width .18s ease, opacity .18s ease;
+}
+aside.sidebar.collapsed{width:0;border:none;opacity:0;overflow:hidden;margin-right:-14px;}
+.sidebar-head{padding:14px;border-bottom:1px solid var(--border);}
+.search-wrap{position:relative;}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--text-faint);}
+.search-wrap input{
+  width:100%;padding:9px 10px 9px 30px;border-radius:8px;
+  background:#0D1117;border:1px solid var(--border);color:var(--text);font-size:13px;
+}
+.search-wrap input:focus{border-color:var(--cyan);}
+.class-filter{
+  display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;
+}
+.chip{
+  padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;
+  background:#0D1117;border:1px solid var(--border);color:var(--text-dim);
+}
+.chip.active{background:rgba(0,242,254,0.12);border-color:rgba(0,242,254,0.4);color:var(--cyan);}
+.student-list{flex:1;overflow-y:auto;padding:8px;}
+.student-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:9px;margin-bottom:3px;
+  border:1px solid transparent;transition:background .12s,border-color .12s;
+}
+.student-item:hover{background:#1B212C;}
+.student-item.active{background:rgba(0,242,254,0.08);border-color:rgba(0,242,254,0.3);}
+.avatar{
+  width:32px;height:32px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:#031018;
+}
+.si-info{min-width:0;}
+.si-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.si-meta{font-size:11px;color:var(--text-faint);}
+.sidebar-foot{padding:10px;border-top:1px solid var(--border);}
+.sidebar-foot .btn{width:100%;justify-content:center;}
+
+/* Main */
+main.main{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+
+.sb-toggle{
+  display:none;
+}
+
+/* Tabs */
+.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:5px;width:fit-content;}
+.tab-btn{
+  padding:9px 16px;border-radius:8px;border:none;background:transparent;
+  color:var(--text-dim);font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;
+}
+.tab-btn.active{background:linear-gradient(135deg,rgba(0,242,254,0.16),rgba(11,99,246,0.16));color:var(--cyan);}
+.tab-btn svg{width:15px;height:15px;}
+
+.tab-panel{display:none;flex-direction:column;gap:14px;}
+.tab-panel.active{display:flex;}
+
+/* Cards */
+.card{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+.card-title{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.card-title svg{width:16px;height:16px;stroke:var(--cyan);}
+.card-title .num{
+  font-size:10px;padding:1px 7px;border-radius:99px;background:rgba(0,242,254,0.12);color:var(--cyan);font-weight:700;
+}
+
+/* Student summary header */
+.student-header{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+}
+.avatar-lg{
+  width:58px;height:58px;border-radius:14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:800;color:#031018;
+}
+.student-header h2{margin:0;font-size:19px;font-weight:800;letter-spacing:-0.01em;}
+.student-tags{display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;}
+.tag{font-size:11.5px;padding:3px 9px;border-radius:7px;background:#0D1117;border:1px solid var(--border);color:var(--text-dim);}
+.tag strong{color:var(--text);}
+
+/* Forms */
+.field{margin-bottom:13px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:6px;}
+.field input[type=text], .field input[type=number], .field input[type=date], .field input[type=time], .field select, .field textarea{
+  width:100%;padding:10px 11px;border-radius:9px;background:#0D1117;border:1px solid var(--border);
+  color:var(--text);font-size:13.5px;resize:vertical;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--cyan);}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;}
+@media (max-width:700px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+
+/* Star rating */
+.stars{display:flex;gap:4px;}
+.star{width:24px;height:24px;cursor:pointer;stroke:var(--text-faint);fill:none;transition:all .1s;}
+.star.filled{fill:var(--cyan);stroke:var(--cyan);}
+
+/* Exam rows */
+.exam-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.exam-row input{flex:1;}
+.exam-row .rm{
+  width:30px;height:30px;flex-shrink:0;border-radius:8px;background:#1B212C;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:var(--text-faint);
+}
+.exam-row .rm:hover{color:#FCA5A5;border-color:rgba(252,165,165,0.3);}
+
+/* sentence bank */
+.sentence-bank{display:flex;flex-wrap:wrap;gap:8px;}
+.sentence-chip{
+  font-size:12px;padding:8px 12px;border-radius:9px;background:#0D1117;border:1px solid var(--border);
+  color:var(--text-dim);text-align:left;max-width:100%;
+}
+.sentence-chip:hover{border-color:rgba(236,72,153,0.4);color:var(--text);background:rgba(236,72,153,0.06);}
+
+/* report preview */
+.report-preview{
+  background:#0D1117;border:1px solid var(--border);border-radius:10px;padding:16px;
+  font-size:13px;line-height:1.7;color:#C9D1DF;white-space:pre-wrap;font-family:'JetBrains Mono',monospace;
+  max-height:340px;overflow-y:auto;
+}
+
+/* meeting card / tab 2 */
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.stat-box{background:#0D1117;border:1px solid var(--border);border-radius:10px;padding:13px;}
+.stat-box .lbl{font-size:11px;color:var(--text-faint);font-weight:600;}
+.stat-box .val{font-size:22px;font-weight:800;margin-top:4px;}
+.stat-box .val.cyan{color:var(--cyan);}
+.stat-box .val.pink{color:var(--pink);}
+.stat-box .val.good{color:var(--good);}
+@media (max-width:700px){.stat-grid{grid-template-columns:1fr 1fr;}}
+
+canvas#trendChart{width:100%;height:140px;display:block;}
+
+/* timeline */
+.timeline{display:flex;flex-direction:column;gap:0;}
+.tl-item{
+  position:relative;padding:14px 0 14px 24px;border-left:2px solid var(--border);
+}
+.tl-item:last-child{border-color:transparent;}
+.tl-item::before{
+  content:'';position:absolute;left:-6px;top:16px;width:10px;height:10px;border-radius:50%;
+  background:linear-gradient(135deg,var(--cyan),var(--blue));box-shadow:0 0 10px rgba(0,242,254,0.5);
+}
+.tl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;}
+.tl-date{font-size:13px;font-weight:700;}
+.tl-with{font-size:11.5px;color:var(--text-faint);}
+.tl-body{margin-top:9px;font-size:12.5px;color:var(--text-dim);line-height:1.6;display:none;}
+.tl-item.open .tl-body{display:block;}
+.tl-follow{margin-top:8px;display:inline-flex;font-size:11px;padding:3px 9px;border-radius:7px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:var(--warn);}
+.tl-empty{color:var(--text-faint);font-size:12.5px;padding:10px 0;}
+
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:70px 20px;color:var(--text-faint);text-align:center;gap:10px;
+}
+.empty-state svg{width:40px;height:40px;stroke:var(--text-faint);}
+
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--panel-2);border:1px solid var(--border-strong);padding:11px 18px;border-radius:10px;
+  font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:100;
+  display:flex;align-items:center;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,0.4);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast svg{width:15px;height:15px;stroke:var(--good);}
+
+/* Modal (add student) */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:90;padding:16px;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border-strong);border-radius:14px;padding:22px;width:100%;max-width:420px;}
+.modal h3{margin:0 0 14px 0;font-size:15px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+
+/* Print */
+@media print{
+  header.topbar, .kvkk, aside.sidebar, .tabs, .no-print{display:none !important;}
+  body{background:#fff !important;color:#111 !important;}
+  .workspace{margin:0;padding:0;}
+  .card{background:#fff !important;border:1px solid #ddd !important;color:#111 !important;box-shadow:none !important;}
+  .report-preview{background:#f7f7f7 !important;color:#111 !important;border:1px solid #ddd !important;}
+  .tab-panel{display:none !important;}
+  #printArea{display:block !important;}
+}
+#printArea{display:none;}
+
+@media (max-width:880px){
+  .workspace{flex-direction:column;}
+  aside.sidebar{width:100% !important;max-height:280px;opacity:1;margin-right:0;}
+  aside.sidebar.collapsed{max-height:0;border:none;margin-bottom:-14px;}
+  .sb-toggle{display:inline-flex;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <div class="brand-title">Veli Bildirim &amp; Gelişim Raporlayıcı</div>
+        <div class="brand-sub">Tüm veriler bu cihazda saklanır</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost sb-toggle" id="sbToggleBtn" title="Öğrenci listesini aç/kapat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        Liste
+      </button>
+      <button class="btn btn-ghost" id="demoBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+        Demo Veri Yükle
+      </button>
+      <button class="btn btn-ghost" id="exportBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg>
+        JSON Yedek Al
+      </button>
+      <button class="btn btn-ghost" id="importBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M4 19h16"/></svg>
+        Yedek Yükle
+      </button>
+      <input type="file" id="import-input" accept="application/json">
+      <button class="btn btn-ghost" id="templateBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+        Boş Şablon İndir
+      </button>
+      <button class="btn btn-ghost" id="excelImportBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+        Excel'den Toplu Ekle
+      </button>
+      <input type="file" id="excel-import-input" accept=".xlsx,.xls,.csv">
+      <button class="btn btn-primary" id="addStudentBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Yeni Öğrenci
+      </button>
+    </div>
+  </header>
+
+  <div class="kvkk">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+    <div><strong>Kişisel Verilerin Korunması ve Gizlilik Bilgilendirmesi:</strong> Kişisel verilerin korunması sebebiyle, girdiğiniz tüm öğrenci, veli ve görüşme verileri yalnızca kendi cihazınızda (tarayıcınızda) saklanır. Sunucularımıza hiçbir veri aktarılmaz veya kaydedilmez. Verilerinizi yedeklemek ya da başka bir cihaza taşımak için üstteki "JSON Yedek Al" butonunu kullanabilirsiniz.</div>
+  </div>
+
+  <div class="workspace">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-head">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="searchInput" placeholder="Öğrenci ara...">
+        </div>
+        <div class="class-filter" id="classFilter"></div>
+      </div>
+      <div class="student-list" id="studentList"></div>
+      <div class="sidebar-foot">
+        <button class="btn btn-ghost btn-danger" id="clearAllBtn" style="width:100%;justify-content:center;">Tüm Verileri Temizle</button>
+      </div>
+    </aside>
+
+    <main class="main" id="main">
+      <div id="noStudentState" class="empty-state" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>
+        <div>Henüz öğrenci eklenmedi. "Demo Veri Yükle" ile örnek verilerle başlayabilir ya da "Yeni Öğrenci" ile kendi listenizi oluşturabilirsiniz.</div>
+      </div>
+
+      <div id="studentContent" style="display:none;flex-direction:column;gap:14px;">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="rapor">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+            Veli Bildirim &amp; Gelişim
+          </button>
+          <button class="tab-btn" data-tab="gorusme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Görüşme Notluğu
+          </button>
+        </div>
+
+        <!-- ================= TAB 1 ================= -->
+        <div class="tab-panel active" id="tab-rapor">
+
+          <div class="card">
+            <div class="student-header">
+              <div class="avatar-lg" id="hdrAvatar"></div>
+              <div>
+                <h2 id="hdrName">-</h2>
+                <div class="student-tags">
+                  <span class="tag">No: <strong id="hdrNo">-</strong></span>
+                  <span class="tag">Sınıf: <strong id="hdrClass">-</strong></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Veli İletişim Bilgileri
+              </div>
+            </div>
+            <div class="grid-3">
+              <div class="field" style="margin-bottom:0;">
+                <label>Veli Adı Soyadı</label>
+                <input type="text" id="veliAdiInput" placeholder="Örn: Fatma Yılmaz">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label>Telefon</label>
+                <input type="text" id="veliTelefonInput" placeholder="Örn: 0532 000 00 00">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label>E-posta</label>
+                <input type="text" id="veliEmailInput" placeholder="Örn: veli@ornek.com">
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                Akademik Durum
+              </div>
+              <button class="btn btn-ghost" id="addExamBtn" style="padding:6px 11px;font-size:12px;">+ Sınav Ekle</button>
+            </div>
+            <div id="examRows"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+                Gelişim Alanları ve Değerlendirme
+              </div>
+            </div>
+            <div class="field">
+              <label>Derse Katılım &amp; İlgisi</label>
+              <div class="stars" id="starRating"></div>
+            </div>
+            <div class="field">
+              <label>Güçlü Yönleri</label>
+              <input type="text" id="strengthsInput" placeholder="Örn: analitik düşünme, ekip çalışması, sunum becerisi (virgülle ayırın)">
+            </div>
+            <div class="field">
+              <label>Geliştirilmesi Gereken Yönler / Öneriler</label>
+              <textarea id="devInput" rows="4" placeholder="Öğretmen notu..."></textarea>
+            </div>
+            <div class="field">
+              <label>Hızlı Cümle Bankası — tek tıkla notlara ekle</label>
+              <div class="sentence-bank" id="sentenceBank"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Rapor Önizleme
+              </div>
+              <div style="display:flex;gap:8px;" class="no-print">
+                <button class="btn btn-accent" id="copyWhatsappBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  WhatsApp Metni Kopyala
+                </button>
+                <button class="btn btn-primary" id="printBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  Yazdır / PDF
+                </button>
+              </div>
+            </div>
+            <div class="report-preview" id="reportPreview"></div>
+          </div>
+        </div>
+
+        <!-- ================= TAB 2 ================= -->
+        <div class="tab-panel" id="tab-gorusme">
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Hızlı Görüşme Kartı
+              </div>
+            </div>
+            <div class="stat-grid">
+              <div class="stat-box">
+                <div class="lbl">DEVAMSIZLIK (ÖZÜRLÜ)</div>
+                <div class="val good" id="statOzurlu">0</div>
+              </div>
+              <div class="stat-box">
+                <div class="lbl">DEVAMSIZLIK (ÖZÜRSÜZ)</div>
+                <div class="val pink" id="statOzursuz">0</div>
+              </div>
+              <div class="stat-box">
+                <div class="lbl">SON SINAV ORTALAMASI</div>
+                <div class="val cyan" id="statLastExam">-</div>
+              </div>
+            </div>
+            <div class="field" style="margin-top:16px;">
+              <label>Not Geçmişi ve Trend</label>
+              <canvas id="trendChart"></canvas>
+            </div>
+            <div class="grid-2">
+              <div class="field" style="margin-bottom:0;">
+                <label>Özürlü Devamsızlık (gün)</label>
+                <input type="number" id="ozurluInput" min="0">
+              </div>
+              <div class="field" style="margin-bottom:0;">
+                <label>Özürsüz Devamsızlık (gün)</label>
+                <input type="number" id="ozursuzInput" min="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Görüşme Kaydı Oluştur
+              </div>
+            </div>
+            <div class="grid-3">
+              <div class="field">
+                <label>Görüşme Tarihi</label>
+                <input type="date" id="meetDate">
+              </div>
+              <div class="field">
+                <label>Saat</label>
+                <input type="time" id="meetTime">
+              </div>
+              <div class="field">
+                <label>Görüşülen Kişi</label>
+                <select id="meetPerson">
+                  <option>Anne</option>
+                  <option>Baba</option>
+                  <option>Vasi</option>
+                  <option>Diğer</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Ele Alınan Konular / Kararlar &amp; Aksiyonlar</label>
+              <textarea id="meetNotes" rows="3" placeholder="Görüşmede konuşulanlar, alınan kararlar..."></textarea>
+            </div>
+            <div class="field">
+              <label>Takip Tarihi (opsiyonel)</label>
+              <input type="date" id="meetFollow">
+            </div>
+            <button class="btn btn-primary" id="saveMeetingBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Görüşmeyi Kaydet
+            </button>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Görüşme Geçmişi
+              </div>
+            </div>
+            <div class="timeline" id="timeline"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Print-only area -->
+<div id="printArea"></div>
+
+<!-- Add student modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>Yeni Öğrenci Ekle</h3>
+    <div class="field">
+      <label>Ad Soyad</label>
+      <input type="text" id="newStudentName" placeholder="Örn: Ayşe Yılmaz">
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Okul No</label>
+        <input type="text" id="newStudentNo" placeholder="Örn: 1045">
+      </div>
+      <div class="field">
+        <label>Sınıf</label>
+        <input type="text" id="newStudentClass" placeholder="Örn: 9-A">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelAddBtn">Vazgeç</button>
+      <button class="btn btn-primary" id="confirmAddBtn">Ekle</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastMsg">Kaydedildi</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+const STORAGE_KEY = "veliRaporlayiciData_v1";
+const AVATAR_GRADIENTS = [
+  ["#00F2FE","#0B63F6"],["#8A2387","#EC4899"],["#34D399","#0B63F6"],
+  ["#FBBF24","#EC4899"],["#00F2FE","#8A2387"],["#EC4899","#0B63F6"]
+];
+const SENTENCE_BANK = [
+  "Kavramsal öğrenmede başarılı, işlem pratikliği arttırılmalı.",
+  "Derse aktif katılıyor fakat ödev takibi güçlendirilmeli.",
+  "Grup çalışmalarında liderlik özellikleri öne çıkıyor.",
+  "Soyut kavramları somutlaştırmada ek desteğe ihtiyaç duyuyor.",
+  "Problem çözme becerisi yaşıtlarına göre ileri seviyede.",
+  "Sınav kaygısı performansını olumsuz etkileyebiliyor.",
+  "Derse hazırlıklı geliyor, soru sorma konusunda cesaretlendirilmeli.",
+  "Düzenli tekrar ile kalıcılığı artırılabilir.",
+  "Laboratuvar/deney uygulamalarında dikkat çekici bir ilgi gösteriyor.",
+  "Zaman yönetimi becerisinin geliştirilmesi faydalı olacaktır."
+];
+
+let state = { students: [] };
+let currentStudentId = null;
+let sidebarCollapsed = false;
+let classFilterValue = "ALL";
+
+/* ---------------- storage ---------------- */
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){ state = JSON.parse(raw); }
+  }catch(e){ console.error("Veri okunamadı", e); state = {students:[]}; }
+  if(!state.students) state.students = [];
+}
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){ console.error("Veri kaydedilemedi", e); showToast("Veri kaydedilemedi (depolama dolu olabilir)"); }
+}
+
+function uid(){ return 's' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+
+function blankStudent(name, no, sinif){
+  return { id: uid(), name, no, sinif, exams:[], katilim:0, guclu:'', gelisim:'', veliAdi:'', veliTelefon:'', veliEmail:'', ozurlu:0, ozursuz:0, gorusmeler:[] };
+}
+
+/* ---------------- excel şablon / toplu içe aktarma ---------------- */
+function downloadTemplate(){
+  if(typeof XLSX === 'undefined'){ alert('Excel motoru yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'); return; }
+  const data = [
+    ["Ad Soyad", "Okul No", "Sınıf"],
+    ["Örn: Ayşe Yılmaz", "1045", "9-A"],
+    ["", "", ""],
+    ["", "", ""]
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:28},{wch:14},{wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Öğrenciler");
+  XLSX.writeFile(wb, "ogrenci-yukleme-sablonu.xlsx");
+  showToast('Şablon indirildi');
+}
+
+function normalizeHeader(h){
+  return (h==null ? '' : String(h)).trim().toLocaleLowerCase('tr-TR');
+}
+
+function findColumnIndexes(headerRow){
+  const norm = headerRow.map(normalizeHeader);
+  let nameIdx=-1, noIdx=-1, classIdx=-1;
+  norm.forEach((h,i)=>{
+    if(classIdx===-1 && (h.includes('sınıf') || h.includes('sinif') || h==='class')) classIdx=i;
+    else if(noIdx===-1 && (h.includes('okul no') || h.includes('numara') || h==='no' || h.includes('öğrenci no') || h.includes('ogrenci no'))) noIdx=i;
+    else if(nameIdx===-1 && (h.includes('ad soyad') || h.includes('adsoyad') || h.includes('isim') || h.includes('öğrenci adı') || h.includes('ogrenci adi') || h==='ad' || h==='name')) nameIdx=i;
+  });
+  return {nameIdx, noIdx, classIdx};
+}
+
+function importFromExcel(file){
+  if(typeof XLSX === 'undefined'){ alert('Excel motoru yüklenemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'); return; }
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const firstSheet = wb.SheetNames[0];
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheet], {header:1, defval:'', blankrows:false});
+      if(!rows.length){ alert('Excel dosyası boş görünüyor.'); return; }
+      const {nameIdx, noIdx, classIdx} = findColumnIndexes(rows[0]);
+      if(nameIdx===-1){
+        alert('"Ad Soyad" sütunu bulunamadı. Lütfen şablon dosyasındaki başlıkları değiştirmeden kullanın.');
+        return;
+      }
+      let added = 0, skipped = 0;
+      for(let i=1;i<rows.length;i++){
+        const row = rows[i];
+        const name = (row[nameIdx]!=null ? String(row[nameIdx]) : '').trim();
+        if(!name || name.toLocaleLowerCase('tr-TR').startsWith('örn')) { continue; }
+        const no = noIdx!==-1 && row[noIdx]!=null ? String(row[noIdx]).trim() : '';
+        const sinif = classIdx!==-1 && row[classIdx]!=null ? String(row[classIdx]).trim() : '';
+        state.students.push(blankStudent(name, no, sinif));
+        added++;
+      }
+      if(!added){ alert('İçe aktarılacak geçerli bir öğrenci satırı bulunamadı.'); return; }
+      saveState();
+      currentStudentId = state.students[state.students.length-added].id;
+      renderAll();
+      showToast(`${added} öğrenci içe aktarıldı`);
+    }catch(err){
+      console.error(err);
+      alert('Dosya okunamadı. Lütfen geçerli bir Excel (.xlsx/.xls) veya CSV dosyası seçin.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ---------------- helpers ---------------- */
+function getStudent(id){ return state.students.find(s=>s.id===id); }
+function currentStudent(){ return getStudent(currentStudentId); }
+function avatarStyle(idx){
+  const g = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length];
+  return `background:linear-gradient(135deg,${g[0]},${g[1]});`;
+}
+function initials(name){
+  return name.split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._tm);
+  showToast._tm = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+function fmtDate(d){
+  if(!d) return '-';
+  const dt = new Date(d+'T00:00:00');
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('tr-TR', {day:'2-digit',month:'long',year:'numeric'});
+}
+function todayISO(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+function nowTime(){
+  const d = new Date();
+  return d.toTimeString().slice(0,5);
+}
+function avg(arr){
+  const nums = arr.map(e=>parseFloat(e.puan)).filter(n=>!isNaN(n));
+  if(!nums.length) return null;
+  return (nums.reduce((a,b)=>a+b,0)/nums.length);
+}
+
+/* ---------------- demo data ---------------- */
+function loadDemoData(){
+  const demo = [
+    {
+      id: uid(), name:"Ayşe Yılmaz", no:"1045", sinif:"9-A",
+      exams:[{ad:"1. Yazılı",puan:"78"},{ad:"2. Yazılı",puan:"85"},{ad:"Kısa Sınav 1",puan:"90"}],
+      katilim:4, guclu:"analitik düşünme, sunum becerisi", gelisim:"Soyut kavramları somutlaştırmada ek desteğe ihtiyaç duyuyor.",
+      veliAdi:"Fatma Yılmaz", veliTelefon:"0532 111 22 33", veliEmail:"fatma.yilmaz@ornek.com",
+      ozurlu:2, ozursuz:0,
+      gorusmeler:[
+        {tarih:"2026-09-10", saat:"14:30", kisi:"Anne", notlar:"Ders çalışma düzeni konuşuldu, haftalık plan önerildi.", takip:"2026-10-08"}
+      ]
+    },
+    {
+      id: uid(), name:"Mehmet Kaya", no:"1046", sinif:"9-A",
+      exams:[{ad:"1. Yazılı",puan:"60"},{ad:"2. Yazılı",puan:"55"},{ad:"Kısa Sınav 1",puan:"62"}],
+      katilim:3, guclu:"grup çalışması, meraklı yapı", gelisim:"Sınav kaygısı performansını olumsuz etkileyebiliyor.",
+      veliAdi:"Hasan Kaya", veliTelefon:"0533 222 33 44", veliEmail:"hasan.kaya@ornek.com",
+      ozurlu:0, ozursuz:3,
+      gorusmeler:[
+        {tarih:"2026-09-05", saat:"11:00", kisi:"Baba", notlar:"Devamsızlık nedeni araştırıldı, sağlık raporu istendi.", takip:"2026-09-20"},
+        {tarih:"2026-08-25", saat:"10:00", kisi:"Baba", notlar:"Dönem başı genel tanışma görüşmesi.", takip:""}
+      ]
+    },
+    {
+      id: uid(), name:"Zeynep Demir", no:"1047", sinif:"9-B",
+      exams:[{ad:"1. Yazılı",puan:"95"},{ad:"2. Yazılı",puan:"92"},{ad:"Kısa Sınav 1",puan:"98"}],
+      katilim:5, guclu:"problem çözme, liderlik", gelisim:"Zaman yönetimi becerisinin geliştirilmesi faydalı olacaktır.",
+      veliAdi:"Elif Demir", veliTelefon:"0534 333 44 55", veliEmail:"elif.demir@ornek.com",
+      ozurlu:1, ozursuz:0,
+      gorusmeler:[]
+    },
+    {
+      id: uid(), name:"Can Öztürk", no:"1048", sinif:"9-B",
+      exams:[{ad:"1. Yazılı",puan:"70"},{ad:"2. Yazılı",puan:"74"}],
+      katilim:3, guclu:"laboratuvar ilgisi", gelisim:"Düzenli tekrar ile kalıcılığı artırılabilir.",
+      veliAdi:"Aylin Öztürk", veliTelefon:"0535 444 55 66", veliEmail:"aylin.ozturk@ornek.com",
+      ozurlu:0, ozursuz:1,
+      gorusmeler:[
+        {tarih:"2026-09-15", saat:"15:00", kisi:"Vasi", notlar:"Ödev takibi için ortak takvim önerildi.", takip:""}
+      ]
+    }
+  ];
+  state.students = demo;
+  saveState();
+  currentStudentId = demo[0].id;
+  renderAll();
+  showToast("Demo veriler yüklendi");
+}
+
+/* ---------------- sidebar ---------------- */
+function renderClassFilter(){
+  const classes = Array.from(new Set(state.students.map(s=>s.sinif).filter(Boolean))).sort();
+  const wrap = document.getElementById('classFilter');
+  wrap.innerHTML = '';
+  const allChip = document.createElement('button');
+  allChip.className = 'chip' + (classFilterValue==='ALL' ? ' active' : '');
+  allChip.textContent = 'Tümü';
+  allChip.onclick = ()=>{ classFilterValue='ALL'; renderClassFilter(); renderStudentList(); };
+  wrap.appendChild(allChip);
+  classes.forEach(c=>{
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (classFilterValue===c ? ' active' : '');
+    chip.textContent = c;
+    chip.onclick = ()=>{ classFilterValue=c; renderClassFilter(); renderStudentList(); };
+    wrap.appendChild(chip);
+  });
+}
+
+function renderStudentList(){
+  const listEl = document.getElementById('studentList');
+  const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  listEl.innerHTML = '';
+  let filtered = state.students.filter(s=>{
+    const matchesQ = !q || s.name.toLowerCase().includes(q) || (s.no||'').toLowerCase().includes(q);
+    const matchesClass = classFilterValue==='ALL' || s.sinif===classFilterValue;
+    return matchesQ && matchesClass;
+  });
+  if(!filtered.length){
+    listEl.innerHTML = '<div style="padding:16px 8px;color:var(--text-faint);font-size:12.5px;">Sonuç bulunamadı.</div>';
+  }
+  filtered.forEach((s)=>{
+    const idx = state.students.indexOf(s);
+    const item = document.createElement('div');
+    item.className = 'student-item' + (s.id===currentStudentId ? ' active' : '');
+    item.innerHTML = `
+      <div class="avatar" style="${avatarStyle(idx)}">${initials(s.name)}</div>
+      <div class="si-info">
+        <div class="si-name">${escapeHtml(s.name)}</div>
+        <div class="si-meta">No ${escapeHtml(s.no||'-')} · ${escapeHtml(s.sinif||'-')}</div>
+      </div>`;
+    item.onclick = ()=>{ currentStudentId = s.id; renderAll(); if(window.innerWidth<=880){ sidebarCollapsed=true; applySidebarState(); } };
+    listEl.appendChild(item);
+  });
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str==null ? '' : str;
+  return d.innerHTML;
+}
+
+/* ---------------- student header / tab1 ---------------- */
+function renderStudentHeader(){
+  const s = currentStudent();
+  const idx = state.students.indexOf(s);
+  document.getElementById('hdrAvatar').style.cssText = avatarStyle(idx);
+  document.getElementById('hdrAvatar').textContent = initials(s.name);
+  document.getElementById('hdrName').textContent = s.name;
+  document.getElementById('hdrNo').textContent = s.no || '-';
+  document.getElementById('hdrClass').textContent = s.sinif || '-';
+}
+
+function renderExamRows(){
+  const s = currentStudent();
+  const wrap = document.getElementById('examRows');
+  wrap.innerHTML = '';
+  (s.exams||[]).forEach((ex, i)=>{
+    const row = document.createElement('div');
+    row.className = 'exam-row';
+    row.innerHTML = `
+      <input type="text" value="${escapeHtml(ex.ad)}" data-field="ad" data-i="${i}" placeholder="Sınav/Ödev adı">
+      <input type="number" value="${escapeHtml(ex.puan)}" data-field="puan" data-i="${i}" placeholder="Puan" style="max-width:110px;">
+      <div class="rm" data-i="${i}" title="Sil">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', (e)=>{
+      const i = +e.target.dataset.i, f = e.target.dataset.field;
+      currentStudent().exams[i][f] = e.target.value;
+      saveState(); renderReportPreview(); renderMeetingCard();
+    });
+  });
+  wrap.querySelectorAll('.rm').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const i = +e.currentTarget.dataset.i;
+      currentStudent().exams.splice(i,1);
+      saveState(); renderExamRows(); renderReportPreview(); renderMeetingCard();
+    });
+  });
+}
+
+function renderStars(){
+  const s = currentStudent();
+  const wrap = document.getElementById('starRating');
+  wrap.innerHTML = '';
+  for(let i=1;i<=5;i++){
+    const star = document.createElement('svg');
+    star.setAttribute('viewBox','0 0 24 24');
+    star.setAttribute('stroke-width','1.8');
+    star.className = 'star' + (i <= (s.katilim||0) ? ' filled' : '');
+    star.innerHTML = '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>';
+    star.onclick = ()=>{ s.katilim = i; saveState(); renderStars(); renderReportPreview(); };
+    wrap.appendChild(star);
+  }
+}
+
+function renderSentenceBank(){
+  const wrap = document.getElementById('sentenceBank');
+  wrap.innerHTML = '';
+  SENTENCE_BANK.forEach(sentence=>{
+    const chip = document.createElement('button');
+    chip.className = 'sentence-chip';
+    chip.textContent = sentence;
+    chip.onclick = ()=>{
+      const s = currentStudent();
+      const ta = document.getElementById('devInput');
+      s.gelisim = (s.gelisim ? s.gelisim.trim() + ' ' : '') + sentence;
+      ta.value = s.gelisim;
+      saveState(); renderReportPreview();
+    };
+    wrap.appendChild(chip);
+  });
+}
+
+function renderReportPreview(){
+  const s = currentStudent();
+  if(!s) return;
+  const stars = '★'.repeat(s.katilim||0) + '☆'.repeat(5-(s.katilim||0));
+  const examLines = (s.exams||[]).filter(e=>e.ad || e.puan).map(e=>`  • ${e.ad||'-'}: ${e.puan||'-'}`).join('\n');
+  const a = avg(s.exams||[]);
+  const lines = [
+    `VELİ BİLDİRİMİ — ${s.name} (${s.sinif||'-'}, No: ${s.no||'-'})`,
+    ``,
+    `Sayın ${s.veliAdi ? s.veliAdi : 'Veli'},`,
+    ``,
+    `${s.name} adlı öğrencimizin fizik dersindeki güncel gelişim durumu aşağıda özetlenmiştir.`,
+    ``,
+    `Akademik Durum:`,
+    examLines || '  • Henüz sınav kaydı girilmedi',
+    a!=null ? `  • Ortalama: ${a.toFixed(1)}` : '',
+    ``,
+    `Derse Katılım: ${stars}`,
+    ``,
+    `Güçlü Yönleri: ${s.guclu || '-'}`,
+    ``,
+    `Geliştirilmesi Gereken Yönler / Öneriler:`,
+    s.gelisim || '-',
+    ``,
+    `Bilginize sunarız.`
+  ].filter(l=>l!=='');
+  document.getElementById('reportPreview').textContent = lines.join('\n');
+}
+
+/* ---------------- tab 2 ---------------- */
+function renderMeetingCard(){
+  const s = currentStudent();
+  document.getElementById('statOzurlu').textContent = s.ozurlu || 0;
+  document.getElementById('statOzursuz').textContent = s.ozursuz || 0;
+  const a = avg(s.exams||[]);
+  document.getElementById('statLastExam').textContent = a!=null ? a.toFixed(1) : '-';
+  document.getElementById('ozurluInput').value = s.ozurlu || 0;
+  document.getElementById('ozursuzInput').value = s.ozursuz || 0;
+  drawTrendChart(s.exams||[]);
+}
+
+function drawTrendChart(exams){
+  const canvas = document.getElementById('trendChart');
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || canvas.parentElement.clientWidth;
+  const cssH = 140;
+  canvas.width = cssW*dpr; canvas.height = cssH*dpr;
+  canvas.style.height = cssH+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  const nums = exams.map(e=>parseFloat(e.puan)).filter(n=>!isNaN(n));
+  const pad = 20;
+  if(!nums.length){
+    ctx.fillStyle = '#5B6478';
+    ctx.font = '12px Inter';
+    ctx.fillText('Henüz not verisi yok', pad, cssH/2);
+    return;
+  }
+  const maxV = Math.max(100, ...nums);
+  const minV = 0;
+  const stepX = (cssW - pad*2) / Math.max(1,(nums.length-1));
+
+  // grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<=4;i++){
+    const y = pad + (cssH-pad*2) * (i/4);
+    ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(cssW-pad,y); ctx.stroke();
+  }
+
+  // area
+  const grad = ctx.createLinearGradient(0,pad,0,cssH-pad);
+  grad.addColorStop(0,'rgba(0,242,254,0.28)');
+  grad.addColorStop(1,'rgba(0,242,254,0.0)');
+  ctx.beginPath();
+  nums.forEach((v,i)=>{
+    const x = pad + i*stepX;
+    const y = cssH - pad - ((v-minV)/(maxV-minV||1))*(cssH-pad*2);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pad+(nums.length-1)*stepX, cssH-pad);
+  ctx.lineTo(pad, cssH-pad);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // line
+  const lineGrad = ctx.createLinearGradient(0,0,cssW,0);
+  lineGrad.addColorStop(0,'#00F2FE');
+  lineGrad.addColorStop(1,'#EC4899');
+  ctx.beginPath();
+  nums.forEach((v,i)=>{
+    const x = pad + i*stepX;
+    const y = cssH - pad - ((v-minV)/(maxV-minV||1))*(cssH-pad*2);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = lineGrad;
+  ctx.lineWidth = 2.4;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // points
+  nums.forEach((v,i)=>{
+    const x = pad + i*stepX;
+    const y = cssH - pad - ((v-minV)/(maxV-minV||1))*(cssH-pad*2);
+    ctx.beginPath();
+    ctx.arc(x,y,3.3,0,Math.PI*2);
+    ctx.fillStyle = '#0D1117';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#00F2FE';
+    ctx.stroke();
+  });
+}
+
+function renderTimeline(){
+  const s = currentStudent();
+  const wrap = document.getElementById('timeline');
+  wrap.innerHTML = '';
+  const meetings = (s.gorusmeler||[]).slice().sort((a,b)=> (b.tarih||'').localeCompare(a.tarih||''));
+  if(!meetings.length){
+    wrap.innerHTML = '<div class="tl-empty">Bu öğrenci için henüz görüşme kaydı bulunmuyor.</div>';
+    return;
+  }
+  meetings.forEach((m)=>{
+    const item = document.createElement('div');
+    item.className = 'tl-item';
+    item.innerHTML = `
+      <div class="tl-head">
+        <div>
+          <div class="tl-date">${fmtDate(m.tarih)}${m.saat ? ' · '+m.saat : ''}</div>
+          <div class="tl-with">Görüşülen: ${escapeHtml(m.kisi||'-')}</div>
+        </div>
+      </div>
+      <div class="tl-body">
+        <div>${escapeHtml(m.notlar || 'Not girilmedi.')}</div>
+        ${m.takip ? `<div class="tl-follow">Takip: ${fmtDate(m.takip)}</div>` : ''}
+      </div>`;
+    item.querySelector('.tl-head').addEventListener('click', ()=> item.classList.toggle('open'));
+    wrap.appendChild(item);
+  });
+}
+
+/* ---------------- render orchestration ---------------- */
+function renderAll(){
+  renderClassFilter();
+  renderStudentList();
+
+  const s = currentStudent();
+  const noState = document.getElementById('noStudentState');
+  const content = document.getElementById('studentContent');
+  if(!s || !state.students.length){
+    noState.style.display = 'flex';
+    content.style.display = 'none';
+    return;
+  }
+  noState.style.display = 'none';
+  content.style.display = 'flex';
+
+  renderStudentHeader();
+  renderExamRows();
+  renderStars();
+  renderSentenceBank();
+  document.getElementById('strengthsInput').value = s.guclu || '';
+  document.getElementById('devInput').value = s.gelisim || '';
+  document.getElementById('veliAdiInput').value = s.veliAdi || '';
+  document.getElementById('veliTelefonInput').value = s.veliTelefon || '';
+  document.getElementById('veliEmailInput').value = s.veliEmail || '';
+  renderReportPreview();
+  renderMeetingCard();
+  renderTimeline();
+}
+
+/* ---------------- sidebar toggle ---------------- */
+function applySidebarState(){
+  document.getElementById('sidebar').classList.toggle('collapsed', sidebarCollapsed);
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener('DOMContentLoaded', init);
+
+function init(){
+  loadState();
+  if(state.students.length){ currentStudentId = state.students[0].id; }
+
+  document.getElementById('demoBtn').addEventListener('click', ()=>{
+    if(state.students.length && !confirm('Demo veriler mevcut listenin üzerine eklenecek. Devam edilsin mi?')) return;
+    loadDemoData();
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `veli-raporlayici-yedek-${todayISO()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('Yedek indirildi');
+  });
+
+  document.getElementById('importBtn').addEventListener('click', ()=>{
+    document.getElementById('import-input').click();
+  });
+  document.getElementById('import-input').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const parsed = JSON.parse(ev.target.result);
+        if(!parsed || !Array.isArray(parsed.students)) throw new Error('geçersiz format');
+        state = parsed;
+        currentStudentId = state.students[0] ? state.students[0].id : null;
+        saveState();
+        renderAll();
+        showToast('Yedek başarıyla yüklendi');
+      }catch(err){
+        alert('Dosya okunamadı. Lütfen bu uygulamadan alınmış geçerli bir JSON yedeği seçin.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('templateBtn').addEventListener('click', downloadTemplate);
+
+  document.getElementById('excelImportBtn').addEventListener('click', ()=>{
+    document.getElementById('excel-import-input').click();
+  });
+  document.getElementById('excel-import-input').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    importFromExcel(file);
+    e.target.value = '';
+  });
+
+  document.getElementById('clearAllBtn').addEventListener('click', ()=>{
+    if(!confirm('Tüm öğrenci ve görüşme verileri kalıcı olarak silinecek. Emin misiniz?')) return;
+    state = {students:[]};
+    currentStudentId = null;
+    saveState();
+    renderAll();
+    showToast('Tüm veriler temizlendi');
+  });
+
+  document.getElementById('searchInput').addEventListener('input', renderStudentList);
+
+  document.getElementById('sbToggleBtn').addEventListener('click', ()=>{
+    sidebarCollapsed = !sidebarCollapsed; applySidebarState();
+  });
+
+  // tabs
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+      if(btn.dataset.tab==='gorusme'){ renderMeetingCard(); }
+    });
+  });
+
+  // tab1 inputs
+  document.getElementById('addExamBtn').addEventListener('click', ()=>{
+    const s = currentStudent();
+    if(!s) return;
+    s.exams = s.exams || [];
+    s.exams.push({ad:'', puan:''});
+    saveState(); renderExamRows();
+  });
+  document.getElementById('strengthsInput').addEventListener('input', (e)=>{
+    const s = currentStudent(); if(!s) return;
+    s.guclu = e.target.value; saveState(); renderReportPreview();
+  });
+  document.getElementById('devInput').addEventListener('input', (e)=>{
+    const s = currentStudent(); if(!s) return;
+    s.gelisim = e.target.value; saveState(); renderReportPreview();
+  });
+  document.getElementById('veliAdiInput').addEventListener('input', (e)=>{
+    const s = currentStudent(); if(!s) return;
+    s.veliAdi = e.target.value; saveState(); renderReportPreview();
+  });
+  document.getElementById('veliTelefonInput').addEventListener('input', (e)=>{
+    const s = currentStudent(); if(!s) return;
+    s.veliTelefon = e.target.value; saveState();
+  });
+  document.getElementById('veliEmailInput').addEventListener('input', (e)=>{
+    const s = currentStudent(); if(!s) return;
+    s.veliEmail = e.target.value; saveState();
+  });
+
+  document.getElementById('copyWhatsappBtn').addEventListener('click', async ()=>{
+    const text = document.getElementById('reportPreview').textContent;
+    try{
+      await navigator.clipboard.writeText(text);
+      showToast('Rapor metni panoya kopyalandı');
+    }catch(e){
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); showToast('Rapor metni panoya kopyalandı'); }
+      catch(err){ alert('Kopyalama başarısız oldu. Metni manuel olarak seçip kopyalayabilirsiniz.'); }
+      ta.remove();
+    }
+  });
+
+  document.getElementById('printBtn').addEventListener('click', ()=>{
+    window.print();
+  });
+
+  // tab2 inputs
+  document.getElementById('ozurluInput').addEventListener('input', (e)=>{
+    const s = currentStudent(); if(!s) return;
+    s.ozurlu = parseInt(e.target.value)||0; saveState(); renderMeetingCard();
+  });
+  document.getElementById('ozursuzInput').addEventListener('input', (e)=>{
+    const s = currentStudent(); if(!s) return;
+    s.ozursuz = parseInt(e.target.value)||0; saveState(); renderMeetingCard();
+  });
+  document.getElementById('meetDate').value = todayISO();
+  document.getElementById('meetTime').value = nowTime();
+
+  document.getElementById('saveMeetingBtn').addEventListener('click', ()=>{
+    const s = currentStudent();
+    if(!s){ return; }
+    const tarih = document.getElementById('meetDate').value;
+    const saat = document.getElementById('meetTime').value;
+    const kisi = document.getElementById('meetPerson').value;
+    const notlar = document.getElementById('meetNotes').value.trim();
+    const takip = document.getElementById('meetFollow').value;
+    if(!tarih){ alert('Lütfen görüşme tarihini girin.'); return; }
+    if(!notlar){ alert('Lütfen görüşme konularını / kararlarını girin.'); return; }
+    s.gorusmeler = s.gorusmeler || [];
+    s.gorusmeler.push({tarih, saat, kisi, notlar, takip});
+    saveState();
+    document.getElementById('meetNotes').value = '';
+    document.getElementById('meetFollow').value = '';
+    document.getElementById('meetDate').value = todayISO();
+    document.getElementById('meetTime').value = nowTime();
+    renderTimeline();
+    showToast('Görüşme kaydedildi');
+  });
+
+  // add student modal
+  const overlay = document.getElementById('modalOverlay');
+  document.getElementById('addStudentBtn').addEventListener('click', ()=>{
+    document.getElementById('newStudentName').value = '';
+    document.getElementById('newStudentNo').value = '';
+    document.getElementById('newStudentClass').value = '';
+    overlay.classList.add('show');
+    setTimeout(()=>document.getElementById('newStudentName').focus(), 50);
+  });
+  document.getElementById('cancelAddBtn').addEventListener('click', ()=> overlay.classList.remove('show'));
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.classList.remove('show'); });
+  document.getElementById('confirmAddBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('newStudentName').value.trim();
+    if(!name){ alert('Lütfen öğrenci adını girin.'); return; }
+    const no = document.getElementById('newStudentNo').value.trim();
+    const sinif = document.getElementById('newStudentClass').value.trim();
+    const newS = blankStudent(name, no, sinif);
+    state.students.push(newS);
+    currentStudentId = newS.id;
+    saveState();
+    overlay.classList.remove('show');
+    renderAll();
+    showToast('Öğrenci eklendi');
+  });
+
+  window.addEventListener('resize', ()=>{ if(document.getElementById('tab-gorusme').classList.contains('active')) renderMeetingCard(); });
+
+  applySidebarState();
+  renderAll();
+}
+
+})();
+</script>
+</body>
+</html>

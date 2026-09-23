@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maglev Peron Frenleme Simülasyonu</title>
+<style>
+:root{
+  --navy:#071e3d;--deep:#0b3a6f;--blue:#1677d2;--cyan:#22c3ff;
+  --pale:#eaf3fc;--ice:#d3e6f8;--line:#bcd4ec;--ink:#0d2542;--muted:#57728f;
+  --ok:#12a26b;--warn:#e8890c;--bad:#d93f4c;--sel:#ff9f1c;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);
+  background:linear-gradient(180deg,#d6e8fa 0%,#f1f7fd 340px);min-height:100vh}
+header.top{background:linear-gradient(100deg,var(--navy),var(--deep) 70%,#1266b8);color:#fff;padding:16px 22px;
+  border-bottom:3px solid var(--cyan)}
+header.top h1{margin:0;font-size:22px;letter-spacing:.2px}
+header.top p{margin:4px 0 0;font-size:13px;color:#b9dcfa}
+main{max-width:1440px;margin:0 auto;padding:16px}
+.story{background:#fff;border:1px solid var(--line);border-left:5px solid var(--cyan);border-radius:12px;
+  padding:12px 16px;margin-bottom:16px;font-size:14px;line-height:1.55}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 10px rgba(11,58,111,.08)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start;
+  grid-template-areas:"sim side" "graphs side"}
+.sim{grid-area:sim;overflow:hidden}
+.graphs{grid-area:graphs;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.graphs .card{overflow:hidden}
+.side{grid-area:side;display:flex;flex-direction:column;gap:16px}
+canvas{display:block;width:100%}
+.panel{padding:14px 16px}
+.panel h2{margin:0 0 10px;font-size:16px;color:var(--deep)}
+.param{margin-bottom:12px}
+.param label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--pale);
+  color:var(--deep);font-size:22px;line-height:1;cursor:pointer;font-weight:600}
+.stepper button:hover{background:var(--ice)}
+.stepper input{flex:1;min-width:0;height:38px;border:1px solid var(--line);border-radius:10px;text-align:center;
+  font-size:16px;font-weight:600;color:var(--ink);background:#fff}
+.stepper .unit{width:52px;font-size:13px;color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin-top:3px}
+.btn{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--pale);color:var(--deep);
+  font-size:14px;font-weight:600;cursor:pointer}
+.btn:hover:not(:disabled){background:var(--ice)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:linear-gradient(180deg,#1e8ae8,#0f62b8);color:#fff;border-color:#0f62b8;font-size:15px;padding:13px}
+.btn.primary:hover:not(:disabled){background:linear-gradient(180deg,#2b96f0,#136fcb)}
+.btn.active{background:var(--deep);color:#fff;border-color:var(--deep)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.stack{display:flex;flex-direction:column;gap:8px}
+.result{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--pale);border:1px solid var(--line);font-size:14px;line-height:1.45}
+.result strong{display:block;font-size:15px;margin-bottom:2px}
+.result.ok{background:#e4f7ee;border-color:var(--ok)}.result.ok strong{color:var(--ok)}
+.result.early{background:#fff3e2;border-color:var(--warn)}.result.early strong{color:#b56200}
+.result.late{background:#fde9eb;border-color:var(--bad)}.result.late strong{color:var(--bad)}
+.formula{font-size:14px;line-height:1.8}
+.formula .eq{display:block;background:var(--pale);border-radius:8px;padding:4px 10px;margin:4px 0;font-family:Cambria,"Times New Roman",serif;font-size:16px}
+.formula .calc{display:block;color:var(--muted);font-size:13px;padding-left:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;max-height:112px;overflow:auto;margin-top:8px}
+.chip{border:1px solid var(--line);background:#fff;color:var(--deep);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.chip.end{border-color:var(--bad);color:var(--bad)}
+.chip.sel{background:var(--sel);border-color:var(--sel);color:#fff}
+.info{background:var(--pale);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.info.has{background:#fff7ea;border-color:var(--sel)}
+.info table{width:100%;border-collapse:collapse}
+.info td{padding:3px 0}.info td:last-child{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.hidden{display:none!important}
+.question{background:#fff8e6;border:1px solid #f3d48a;border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.55}
+.err{color:var(--bad);min-height:16px}
+.stepper input:disabled{background:var(--pale);color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--cyan);outline-offset:1px}
+@media (max-width:1000px){
+  .layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"sim" "side" "graphs"}
+}
+@media (max-width:700px){.graphs{grid-template-columns:1fr}header.top h1{font-size:18px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Maglev Peron Frenleme Simülasyonu</h1>
+  <p>11. Sınıf Fizik – Bir Boyutta Sabit İvmeli Hareket (Sabit Yavaşlayan Hareket ve Durma Mesafesi)</p>
+</header>
+<main>
+  <div class="story">
+    <strong>Görev:</strong> Geleceğin yüksek hızlı Maglev treni V<sub>0</sub> hızıyla istasyona doğru yaklaşıyor.
+    İstasyonda belirlenmiş bir <em>Peron Durma Bölgesi</em> (x<sub>hedef</sub>) var. Makinist sensin:
+    doğru yavaşlama ivmesini (a) seçerek treni tam peronda durdur!
+  </div>
+
+  <div class="layout">
+    <section class="card sim">
+      <canvas id="cvMain" role="img" aria-label="Tren, ray ve peron animasyonu"></canvas>
+    </section>
+
+    <aside class="side">
+      <section class="card panel">
+        <h2>Parametreler</h2>
+        <div class="param">
+          <label for="v0">Trenin İlk Hızı (V<sub>0</sub>)</label>
+          <div class="stepper">
+            <button type="button" data-p="v0" data-d="-1" aria-label="V0 azalt">-</button>
+            <input id="v0" type="number" inputmode="decimal" step="1" min="10" max="100">
+            <button type="button" data-p="v0" data-d="1" aria-label="V0 artır">+</button>
+            <span class="unit">[m/s]</span>
+          </div>
+        </div>
+        <div class="param">
+          <label for="xt">İstasyon Peron Konumu (x<sub>hedef</sub>)</label>
+          <div class="stepper">
+            <button type="button" data-p="xt" data-d="-1" aria-label="x hedef azalt">-</button>
+            <input id="xt" type="number" inputmode="decimal" step="10" min="100" max="2000">
+            <button type="button" data-p="xt" data-d="1" aria-label="x hedef artır">+</button>
+            <span class="unit">[m]</span>
+          </div>
+          <div class="hint">Peron durma bölgesi: x<sub>hedef</sub> ± 10 m</div>
+        </div>
+        <button id="btnConfirmParams" class="btn primary" type="button">Parametreleri Onayla</button>
+        <button id="btnEditParams" class="btn hidden" type="button">Parametreleri Değiştir</button>
+      </section>
+
+      <section id="qCard" class="card panel hidden">
+        <h2>Soru</h2>
+        <div id="qText" class="question"></div>
+        <div class="param" style="margin-top:12px">
+          <label for="ans">Cevabınız: ivme (a)</label>
+          <div class="stepper">
+            <input id="ans" type="text" inputmode="decimal" autocomplete="off" placeholder="örn. 2.5">
+            <span class="unit">[m/s²]</span>
+          </div>
+          <div id="ansErr" class="hint err"></div>
+        </div>
+        <button id="btnConfirmAns" class="btn primary" type="button">Cevabı Onayla</button>
+        <button id="btnEditAns" class="btn hidden" type="button">Cevabı Değiştir</button>
+        <div id="ansNote" class="hint" style="margin:8px 0"></div>
+        <button id="btnStart" class="btn primary" type="button" disabled>Simülasyonu Başlat</button>
+        <div id="result" class="result">Önce parametreleri onaylayın, ardından soruyu cevaplayın.</div>
+      </section>
+
+      <section class="card panel">
+        <h2>Analiz Paneli</h2>
+        <div class="stack">
+          <button id="btnReplay" class="btn" type="button">Tekrar Oynat</button>
+          <button id="btnPause" class="btn" type="button">Duraklat</button>
+          <button id="btnSlow" class="btn" type="button" aria-pressed="false">Ağır Çekim (%50)</button>
+        </div>
+        <div class="row2">
+          <button id="btnBack" class="btn" type="button">◀ Geri Sür (1 s)</button>
+          <button id="btnFwd" class="btn" type="button">İleri (1 s) ▶</button>
+        </div>
+        <div class="hint" style="margin-top:6px">Stop Motion: adımlar saniyelik veri noktalarına oturur.</div>
+      </section>
+
+      <section class="card panel">
+        <h2>Nokta Bilgisi</h2>
+        <div id="info" class="info">Bir noktayı seçmek için ray üzerindeki veya grafiklerdeki noktalara tıklayın.</div>
+        <div id="chips" class="chips"></div>
+      </section>
+
+      <section class="card panel formula">
+        <h2>Formül Özeti</h2>
+        <span class="eq">x<sub>durma</sub> = V<sub>0</sub>² / (2a)</span>
+        <span class="eq">t<sub>durma</sub> = V<sub>0</sub> / a</span>
+        <span class="eq">v = V<sub>0</sub> − a·t</span>
+        <span class="eq">x = V<sub>0</sub>·t − ½·a·t²</span>
+        <div id="calc" class="calc">Tren durunca hesap burada görünür.</div>
+      </section>
+    </aside>
+
+    <section class="graphs">
+      <div class="card"><canvas id="cvV" role="img" aria-label="Hız zaman grafiği"></canvas></div>
+      <div class="card"><canvas id="cvX" role="img" aria-label="Konum zaman grafiği"></canvas></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Sabitler ve durum ---------- */
+const TOL = 10;          // peron tolerans yarı genişliği [m]
+const PLAT_HALF = 60;    // çizilen peron yarı uzunluğu [m]
+const LIM = {
+  v0: {min:10,  max:100,  step:1},
+  xt: {min:100, max:2000, step:10}
+};
+const P = {v0:50, a:null, xt:500};
+let phase = 'params';
+const sim = {t:0, playing:false, slow:false};
+let sel = null, hits = [], dirty = true, lastTs = null, chipKey = '';
+
+const $ = id => document.getElementById(id);
+const cvMain = $('cvMain'), cvV = $('cvV'), cvX = $('cvX');
+
+const A   = () => (P.a === null ? P.v0 * P.v0 / (2 * P.xt) : P.a);   // cevap girilmeden yalnızca yerleşim için
+const T   = () => P.v0 / A();
+const D   = () => P.v0 * P.v0 / (2 * A());
+const pos = t => P.v0 * t - 0.5 * A() * t * t;
+const vel = t => Math.max(0, P.v0 - A() * t);
+const finished = () => sim.t >= T() - 1e-9;
+
+function outcome(){
+  const err = Math.round((D() - P.xt) * 1e6) / 1e6;
+  if (Math.abs(err) <= TOL) return {k:'ok', msg:'Tebrikler! Mükemmel Frenleme. Yolcular Güvenle İndi.', col:'#12a26b', err};
+  if (err < 0) return {k:'early', msg:'Tren İstasyona Ulaşamadan Yolda Kaldı!', col:'#e8890c', err};
+  return {k:'late', msg:'Kritik Hata! Tren Peronu Aştı!', col:'#d93f4c', err};
+}
+
+/* ---------- Yardımcılar ---------- */
+function points(){
+  const Tt = T(), tt = Math.min(sim.t, Tt), arr = [];
+  for (let k = 1; k <= tt + 1e-9 && k < Tt - 1e-9; k++) arr.push({id:String(k), t:k});
+  if (finished()) arr.push({id:'end', t:Tt, end:true});
+  return arr;
+}
+function niceScale(max, n){
+  if (!(max > 0)) max = 1;
+  const raw = max / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), nm = raw / mag;
+  const step = (nm <= 1 ? 1 : nm <= 2 ? 2 : nm <= 2.5 ? 2.5 : nm <= 5 ? 5 : 10) * mag;
+  return {step, max: Math.ceil(max / step - 1e-9) * step};
+}
+function fmtTick(v, step){ return step >= 1 ? String(Math.round(v)) : v.toFixed(step < 0.1 ? 2 : 1); }
+function fit(cv, hCss){
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const W = cv.clientWidth || 300;
+  cv.style.height = hCss + 'px';
+  const pw = Math.round(W * dpr), ph = Math.round(hCss * dpr);
+  if (cv.width !== pw || cv.height !== ph){ cv.width = pw; cv.height = ph; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return {ctx, W, H:hCss};
+}
+function rr(ctx, x, y, w, h, r){
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+}
+function rnd(i){ const s = Math.sin(i * 127.1) * 43758.5453; return s - Math.floor(s); }
+const FONT = '"Segoe UI",Roboto,Arial,sans-serif';
+const MONO = 'Consolas,"Courier New",monospace';
+
+/* ---------- Ana sahne ---------- */
+function drawTrain(ctx, nx, y, glow){
+  const L = 120, h = 42, top = y - h - 4, bot = y - 4, x0 = nx - L;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x0 + 8, top); ctx.lineTo(nx - 40, top);
+  ctx.quadraticCurveTo(nx - 6, top + 3, nx, bot - 8);
+  ctx.quadraticCurveTo(nx, bot, nx - 10, bot);
+  ctx.lineTo(x0 + 8, bot); ctx.quadraticCurveTo(x0, bot, x0, bot - 8);
+  ctx.lineTo(x0, top + 8); ctx.quadraticCurveTo(x0, top, x0 + 8, top); ctx.closePath();
+  const g = ctx.createLinearGradient(0, top, 0, bot);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#bcd8f2');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = '#0b3a6f'; ctx.lineWidth = 1.5; ctx.stroke();
+  // pencereler
+  ctx.fillStyle = '#0b3a6f';
+  for (let i = 0; i < 5; i++){ rr(ctx, x0 + 12 + i * 15, top + 8, 11, 12, 3); ctx.fill(); }
+  // ön cam
+  ctx.beginPath(); ctx.moveTo(nx - 42, top + 7); ctx.lineTo(nx - 22, top + 7);
+  ctx.quadraticCurveTo(nx - 8, top + 10, nx - 4, bot - 16); ctx.lineTo(nx - 42, bot - 16); ctx.closePath();
+  ctx.fillStyle = '#0d2f5e'; ctx.fill();
+  // mavi şerit
+  ctx.fillStyle = '#1677d2'; ctx.fillRect(x0 + 2, bot - 12, L - 14, 4);
+  // manyetik parıltı
+  ctx.shadowColor = glow; ctx.shadowBlur = 14; ctx.fillStyle = glow;
+  ctx.fillRect(x0 + 6, bot + 1, L - 16, 3);
+  ctx.restore();
+}
+
+function drawScene(pts){
+  const {ctx, W, H} = fit(cvMain, 400);
+  const leftPad = 130, rightPad = 24, railY = 280, rulerY = railY + 56;
+  const maxX = Math.max(D(), P.xt + PLAT_HALF) + 30;
+  const sc = (W - leftPad - rightPad) / maxX;
+  const X = x => leftPad + x * sc;
+  const Tt = T(), tt = Math.min(sim.t, Tt), fin = finished();
+  const out = fin ? outcome() : null;
+
+  // gökyüzü
+  let g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0a2a55'); g.addColorStop(.55, '#2f7fd0'); g.addColorStop(1, '#bfe0fa');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // şehir silueti
+  ctx.fillStyle = 'rgba(150,200,245,.20)';
+  for (let i = 0; i * 30 < W; i++){
+    const h = 40 + rnd(i + 50) * 100, w = 20 + rnd(i) * 10;
+    ctx.fillRect(i * 30, railY - h, w, h);
+  }
+  // çatı ve direkler
+  const px1 = X(P.xt - PLAT_HALF), px2 = X(P.xt + PLAT_HALF), cx = X(P.xt);
+  ctx.fillStyle = 'rgba(11,47,92,.55)';
+  for (let k = -2; k <= 2; k++){ ctx.fillRect(X(P.xt + k * 30) - 2, 128, 4, railY - 122); }
+  ctx.fillStyle = '#0b2f5c'; rr(ctx, px1 - 6, 116, px2 - px1 + 12, 12, 4); ctx.fill();
+  // durma bölgesi
+  const zx1 = X(P.xt - TOL), zx2 = X(P.xt + TOL), zw = Math.max(zx2 - zx1, 8), zc = (zx1 + zx2) / 2;
+  ctx.fillStyle = 'rgba(40,230,150,.25)'; ctx.fillRect(zc - zw / 2, 128, zw, railY + 30 - 128);
+  ctx.strokeStyle = '#34e6a0'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+  ctx.strokeRect(zc - zw / 2, 128, zw, railY + 30 - 128);
+  ctx.strokeStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(cx, 128); ctx.lineTo(cx, railY + 30); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 12px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  const lx = Math.min(Math.max(cx, 110), W - 110);
+  ctx.fillText('Peron Durma Bölgesi (x_hedef = ' + P.xt + ' m, ±10 m)', lx, 108);
+  // zemin
+  ctx.fillStyle = '#0d2a4d'; ctx.fillRect(0, railY + 8, W, H - railY - 8);
+  // ray kirişi
+  ctx.fillStyle = '#516f93'; ctx.fillRect(0, railY, W, 8);
+  ctx.fillStyle = '#c9d9ea'; ctx.fillRect(0, railY, W, 2);
+  // peron
+  ctx.fillStyle = '#dfe9f5'; ctx.fillRect(px1, railY + 8, px2 - px1, 18);
+  ctx.fillStyle = '#ffc93c'; ctx.fillRect(px1, railY + 8, px2 - px1, 3);
+  ctx.fillStyle = '#0b3a6f'; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'center';
+  if (px2 - px1 > 60) ctx.fillText('PERON', cx, railY + 22);
+
+  // cetvel
+  const rs = niceScale(maxX * 60 / (W - leftPad - rightPad), 1).step || 1;
+  ctx.strokeStyle = '#7fa9d6'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(X(0), rulerY); ctx.lineTo(X(maxX), rulerY); ctx.stroke();
+  ctx.fillStyle = '#a9cdf0'; ctx.font = '11px ' + FONT; ctx.textAlign = 'center';
+  for (let v = 0; v <= maxX + 1e-9; v += rs){
+    ctx.beginPath(); ctx.moveTo(X(v), rulerY - 4); ctx.lineTo(X(v), rulerY + 4); ctx.stroke();
+    ctx.fillText(String(Math.round(v)), X(v), rulerY + 18);
+  }
+  ctx.textAlign = 'left'; ctx.fillText('x [m]', 10, rulerY + 4);
+
+  // saniyelik noktalar
+  const avgPx = (D() / Tt) * sc, every = Math.max(1, Math.ceil(36 / Math.max(avgPx, .01)));
+  pts.forEach(p => {
+    const xx = X(p.t === Tt ? D() : pos(p.t)), isSel = sel === p.id;
+    ctx.strokeStyle = 'rgba(160,205,245,.35)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(xx, railY + 8); ctx.lineTo(xx, rulerY); ctx.stroke();
+    ctx.beginPath(); ctx.arc(xx, rulerY, isSel ? 8 : p.end ? 6 : 5, 0, Math.PI * 2);
+    ctx.fillStyle = isSel ? '#ff9f1c' : p.end ? '#ff5d6c' : '#22c3ff'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = isSel ? 2.5 : 1.5; ctx.stroke();
+    if (isSel || p.end || (+p.id) % every === 0){
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'center';
+      ctx.fillText(p.end ? 'dur' : p.id + 's', xx, rulerY - 12);
+    }
+    hits.push({cv:cvMain, x:xx, y:rulerY, id:p.id});
+  });
+
+  // tren
+  const nx = X(pos(tt));
+  const glow = out ? out.col : '#22c3ff';
+  drawTrain(ctx, nx, railY, glow);
+
+  // kronometre
+  ctx.save();
+  rr(ctx, 14, 14, 170, 64, 12); ctx.fillStyle = '#04142b'; ctx.fill();
+  ctx.strokeStyle = '#22c3ff'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#7fb6e6'; ctx.font = '12px ' + FONT; ctx.textAlign = 'left'; ctx.fillText('Kronometre', 26, 32);
+  ctx.shadowColor = '#22c3ff'; ctx.shadowBlur = 12; ctx.fillStyle = '#6be6ff';
+  ctx.font = 'bold 32px ' + MONO; ctx.fillText(tt.toFixed(1) + 's', 26, 66);
+  ctx.restore();
+
+  // anlık değerler
+  const hudW = 206, hudH = 72;
+  const hx = W >= 560 ? W - hudW - 14 : 14, hy = W >= 560 ? 14 : 86;
+  ctx.save();
+  rr(ctx, hx, hy, hudW, hudH, 12); ctx.fillStyle = 'rgba(4,20,43,.88)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(34,195,255,.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#d6ecff'; ctx.font = '14px ' + MONO; ctx.textAlign = 'left';
+  ctx.fillText('v = ' + vel(tt).toFixed(2) + ' m/s', hx + 14, hy + 24);
+  ctx.fillText('x = ' + pos(tt).toFixed(2) + ' m', hx + 14, hy + 44);
+  ctx.fillText(P.a === null ? 'a = ? m/s²' : 'a = -' + P.a.toFixed(2) + ' m/s²', hx + 14, hy + 64);
+  ctx.restore();
+
+  // sonuç bandı
+  if (out){
+    ctx.save();
+    let fs = 19; ctx.font = 'bold ' + fs + 'px ' + FONT;
+    while (ctx.measureText(out.msg).width > W - 60 && fs > 11){ fs--; ctx.font = 'bold ' + fs + 'px ' + FONT; }
+    const bw = Math.min(W - 24, ctx.measureText(out.msg).width + 40);
+    rr(ctx, (W - bw) / 2, 150, bw, 50, 14); ctx.fillStyle = out.col; ctx.globalAlpha = .95; ctx.fill();
+    ctx.globalAlpha = 1; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(out.msg, W / 2, 175);
+    ctx.restore();
+  }
+}
+
+/* ---------- Grafikler ---------- */
+function tag(ctx, txt, x, y, W){
+  ctx.font = 'bold 12px ' + FONT;
+  const w = ctx.measureText(txt).width + 14, h = 22;
+  let bx = x + 10; if (bx + w > W - 4) bx = x - 10 - w;
+  let by = y - h - 10; if (by < 2) by = y + 10;
+  rr(ctx, bx, by, w, h, 6); ctx.fillStyle = '#0b3a6f'; ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, bx + 7, by + h / 2);
+}
+
+function drawGraph(cv, cfg, pts){
+  const {ctx, W, H} = fit(cv, 280);
+  const m = {l:60, r:18, t:38, b:44}, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const sx = niceScale(T(), 6), sy = niceScale(cfg.yMax, 5);
+  const X = t => m.l + t / sx.max * pw, Y = y => m.t + ph - y / sy.max * ph;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  ctx.font = '11px ' + FONT; ctx.lineWidth = 1;
+
+  const ny = Math.round(sy.max / sy.step), nx = Math.round(sx.max / sx.step);
+  for (let i = 0; i <= ny; i++){
+    const v = i * sy.step, y = Y(v);
+    ctx.strokeStyle = '#e3edf8'; ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); ctx.stroke();
+    ctx.fillStyle = '#57728f'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    if (!cfg.blank) ctx.fillText(fmtTick(v, sy.step), m.l - 6, y);
+  }
+  for (let i = 0; i <= nx; i++){
+    const v = i * sx.step, x = X(v);
+    ctx.strokeStyle = '#e3edf8'; ctx.beginPath(); ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); ctx.stroke();
+    ctx.fillStyle = '#57728f'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    if (!cfg.blank) ctx.fillText(fmtTick(v, sx.step), x, m.t + ph + 6);
+  }
+  // hedef bandı (x-t grafiği)
+  if (cfg.target){
+    const yA = Y(P.xt + TOL), yB = Y(P.xt - TOL), bh = Math.max(yB - yA, 4);
+    ctx.fillStyle = 'rgba(40,190,130,.22)'; ctx.fillRect(m.l, (yA + yB) / 2 - bh / 2, pw, bh);
+    ctx.strokeStyle = '#12a26b'; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(m.l, Y(P.xt)); ctx.lineTo(m.l + pw, Y(P.xt)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#0c7a51'; ctx.font = 'bold 11px ' + FONT; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillText('x_hedef = ' + P.xt + ' m', m.l + pw - 4, Y(P.xt) - 3);
+  }
+  // eksenler
+  ctx.strokeStyle = '#0b3a6f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(m.l, m.t); ctx.lineTo(m.l, m.t + ph); ctx.lineTo(m.l + pw, m.t + ph); ctx.stroke();
+  // başlık ve eksen adları
+  ctx.fillStyle = '#0b3a6f'; ctx.font = 'bold 14px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(cfg.title, m.l, 22);
+  ctx.font = '12px ' + FONT; ctx.fillStyle = '#334f6e'; ctx.textAlign = 'center';
+  ctx.fillText('Zaman t [s]', m.l + pw / 2, H - 8);
+  ctx.save(); ctx.translate(14, m.t + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText(cfg.yLab, 0, 0); ctx.restore();
+
+  // eğri
+  const tt = Math.min(sim.t, T());
+  if (tt > 0){
+    ctx.strokeStyle = '#1677d2'; ctx.lineWidth = 2.5; ctx.beginPath();
+    const n = 240;
+    for (let i = 0; i <= n; i++){
+      const t = tt * i / n, x = X(t), y = Y(cfg.f(t));
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // noktalar
+  let selPt = null;
+  pts.forEach(p => {
+    const x = X(p.t), y = Y(cfg.f(p.t)), isSel = sel === p.id;
+    if (isSel) selPt = {x, y, p};
+    ctx.beginPath(); ctx.arc(x, y, isSel ? 8 : p.end ? 6 : 5, 0, Math.PI * 2);
+    ctx.fillStyle = isSel ? '#ff9f1c' : p.end ? '#ff5d6c' : '#22c3ff'; ctx.fill();
+    ctx.strokeStyle = isSel ? '#fff' : '#0b3a6f'; ctx.lineWidth = isSel ? 2.5 : 1.5; ctx.stroke();
+    hits.push({cv, x, y, id:p.id});
+  });
+  // canlı işaretçi
+  if (sim.t > 0 && !finished()){
+    ctx.beginPath(); ctx.arc(X(tt), Y(cfg.f(tt)), 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#0b3a6f'; ctx.fill();
+  }
+  // seçili nokta kılavuzları ve etiketi
+  if (selPt){
+    ctx.strokeStyle = '#ff9f1c'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(selPt.x, selPt.y); ctx.lineTo(selPt.x, m.t + ph);
+    ctx.moveTo(selPt.x, selPt.y); ctx.lineTo(m.l, selPt.y); ctx.stroke(); ctx.setLineDash([]);
+    tag(ctx, 't = ' + selPt.p.t.toFixed(1) + ' s, ' + cfg.sym + ' = ' + cfg.f(selPt.p.t).toFixed(1) + ' ' + cfg.unit,
+        selPt.x, selPt.y, W);
+  }
+}
+
+/* ---------- Arayüz güncelleme ---------- */
+const cache = {};
+function setHTML(el, html, key){
+  if (cache[key] !== html){ el.innerHTML = html; cache[key] = html; }
+}
+function updateUI(pts){
+  const fin = finished(), running = sim.playing, started = sim.t > 0;
+  const rEl = $('result');
+  if (fin){
+    const o = outcome();
+    rEl.className = 'result ' + o.k;
+    setHTML(rEl, '<strong>' + o.msg + '</strong>Durma konumu: ' + D().toFixed(2) + ' m &nbsp; Hedef: ' + P.xt +
+      ' m &nbsp; Sapma: ' + (o.err >= 0 ? '+' : '') + o.err.toFixed(2) + ' m', 'res');
+  } else {
+    rEl.className = 'result';
+    setHTML(rEl, running ? 'Tren yavaşlıyor…' : started ? 'Duraklatıldı. Devam edebilir veya adım adım ilerleyebilirsiniz.'
+      : phase === 'ready' ? 'Cevabınız onaylandı. Simülasyonu başlatın.'
+      : 'Önce parametreleri onaylayın, ardından soruyu cevaplayın.', 'res');
+  }
+  $('btnPause').textContent = running ? 'Duraklat' : 'Devam Et';
+  const ready = phase === 'ready';
+  $('btnPause').disabled = !ready || !started || fin;
+  $('btnBack').disabled = !ready || sim.t <= 0;
+  $('btnFwd').disabled = !ready || fin;
+  $('btnReplay').disabled = !ready;
+  $('btnSlow').classList.toggle('active', sim.slow);
+  $('btnSlow').setAttribute('aria-pressed', sim.slow ? 'true' : 'false');
+
+  // formül hesabı
+  if (fin){
+    setHTML($('calc'),
+      '<span class="calc">Cevabınız: a = ' + P.a + ' m/s² &nbsp; Doğru cevap: a = V₀² / (2·x<sub>hedef</sub>) = <b>' +
+        (P.v0 * P.v0 / (2 * P.xt)).toFixed(2) + ' m/s²</b></span>' +
+      '<span class="calc">x = ' + P.v0 + '² / (2·' + P.a + ') = <b>' + D().toFixed(2) + ' m</b></span>' +
+      '<span class="calc">t = ' + P.v0 + ' / ' + P.a + ' = <b>' + T().toFixed(2) + ' s</b></span>' +
+      '<span class="calc">Hedef bölge: ' + (P.xt - TOL) + ' m – ' + (P.xt + TOL) + ' m</span>', 'calc');
+  } else {
+    setHTML($('calc'), 'Tren durunca hesap burada görünür.', 'calc');
+  }
+
+  // seçili nokta bilgisi
+  const info = $('info');
+  const sp = pts.find(p => p.id === sel);
+  if (sp){
+    const x = sp.end ? D() : pos(sp.t), v = sp.end ? 0 : vel(sp.t);
+    info.className = 'info has';
+    setHTML(info, '<table><tr><td>Zaman (t)</td><td>' + sp.t.toFixed(1) + ' s</td></tr>' +
+      '<tr><td>Hız (v)</td><td>' + v.toFixed(2) + ' m/s</td></tr>' +
+      '<tr><td>Konum (x)</td><td>' + x.toFixed(2) + ' m</td></tr>' +
+      '<tr><td>Hedefe kalan (x<sub>hedef</sub> − x)</td><td>' + (P.xt - x).toFixed(2) + ' m</td></tr></table>', 'info');
+  } else {
+    info.className = 'info';
+    setHTML(info, 'Bir noktayı seçmek için ray üzerindeki veya grafiklerdeki noktalara tıklayın.', 'info');
+  }
+  // noktalar listesi
+  const key = pts.map(p => p.id).join(',') + '|' + sel;
+  if (key !== chipKey){
+    chipKey = key;
+    $('chips').innerHTML = pts.map(p =>
+      '<button type="button" class="chip' + (p.end ? ' end' : '') + (p.id === sel ? ' sel' : '') + '" data-id="' + p.id + '">' +
+      (p.end ? 'Duruş (' + p.t.toFixed(1) + ' s)' : 't = ' + p.id + ' s') + '</button>').join('');
+  }
+}
+
+function render(){
+  hits = [];
+  const pts = points();
+  if (sel !== null && !pts.some(p => p.id === sel)) sel = null;
+  drawScene(pts);
+  drawGraph(cvV, {title:'Hız - Zaman Grafiği (v-t)', yLab:'Hız v [m/s]', yMax:P.v0, f:vel, sym:'v', unit:'m/s', blank:P.a === null}, pts);
+  drawGraph(cvX, {title:'Konum - Zaman Grafiği (x-t)', yLab:'Konum x [m]', yMax:Math.max(D(), P.xt + TOL) * 1.03,
+    f:t => pos(Math.min(t, T())), sym:'x', unit:'m', target:true, blank:P.a === null}, pts);
+  updateUI(pts);
+}
+
+/* ---------- Animasyon döngüsü ---------- */
+function loop(ts){
+  if (lastTs === null) lastTs = ts;
+  const dt = Math.min(0.1, (ts - lastTs) / 1000);
+  lastTs = ts;
+  if (sim.playing){
+    sim.t += dt * (sim.slow ? 0.5 : 1);
+    if (sim.t >= T()){ sim.t = T(); sim.playing = false; }
+    dirty = true;
+  }
+  if (dirty){ dirty = false; render(); }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Olaylar ---------- */
+function resetSim(){ sim.t = 0; sim.playing = false; sel = null; dirty = true; }
+function clampVal(k, v){
+  const l = LIM[k];
+  v = Math.min(l.max, Math.max(l.min, v));
+  return Math.round(v * 100) / 100;
+}
+function applyParam(k, v){
+  if (!isFinite(v)) v = P[k];
+  P[k] = clampVal(k, v);
+  $(k).value = P[k];
+  resetSim();
+}
+['v0', 'xt'].forEach(k => {
+  $(k).value = P[k];
+  $(k).addEventListener('change', () => applyParam(k, parseFloat($(k).value)));
+});
+document.querySelectorAll('.stepper button').forEach(b => {
+  b.addEventListener('click', () => {
+    const k = b.dataset.p, d = +b.dataset.d;
+    applyParam(k, P[k] + d * LIM[k].step);
+  });
+});
+$('btnStart').addEventListener('click', () => {
+  if (phase !== 'ready') return;
+  if (finished()) sim.t = 0;
+  sel = null; sim.playing = true; dirty = true;
+});
+$('btnReplay').addEventListener('click', () => { sim.t = 0; sel = null; sim.playing = true; dirty = true; });
+$('btnPause').addEventListener('click', () => {
+  if (sim.playing) sim.playing = false;
+  else if (sim.t > 0 && !finished()) sim.playing = true;
+  dirty = true;
+});
+$('btnSlow').addEventListener('click', () => { sim.slow = !sim.slow; dirty = true; });
+$('btnFwd').addEventListener('click', () => {
+  sim.playing = false;
+  sim.t = Math.min(T(), Math.floor(sim.t + 1e-9) + 1); dirty = true;
+});
+$('btnBack').addEventListener('click', () => {
+  sim.playing = false;
+  sim.t = Math.max(0, Math.ceil(sim.t - 1e-9) - 1); dirty = true;
+});
+
+function hitAt(cv, e){
+  const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  let best = null, bd = 16;
+  hits.forEach(h => {
+    if (h.cv !== cv) return;
+    const d = Math.hypot(h.x - x, h.y - y);
+    if (d <= bd){ bd = d; best = h; }
+  });
+  return best;
+}
+[cvMain, cvV, cvX].forEach(cv => {
+  cv.addEventListener('click', e => { const h = hitAt(cv, e); sel = h ? h.id : null; dirty = true; });
+  cv.addEventListener('mousemove', e => { cv.style.cursor = hitAt(cv, e) ? 'pointer' : 'default'; });
+});
+$('chips').addEventListener('click', e => {
+  const b = e.target.closest('.chip');
+  if (b){ sel = b.dataset.id; dirty = true; }
+});
+window.addEventListener('resize', () => { dirty = true; });
+
+/* ---------- Soru akışı ---------- */
+function syncPhase(){
+  const isP = phase === 'params', ready = phase === 'ready';
+  $('v0').disabled = $('xt').disabled = !isP;
+  document.querySelectorAll('.stepper button[data-p]').forEach(b => { b.disabled = !isP; });
+  $('btnConfirmParams').classList.toggle('hidden', !isP);
+  $('btnEditParams').classList.toggle('hidden', isP);
+  $('qCard').classList.toggle('hidden', isP);
+  $('ans').disabled = ready;
+  $('btnConfirmAns').classList.toggle('hidden', ready);
+  $('btnEditAns').classList.toggle('hidden', !ready);
+  $('btnStart').disabled = !ready;
+  $('ansNote').textContent = ready ? 'Cevabınız: a = ' + P.a + ' m/s². Simülasyonu başlatabilirsiniz.' : '';
+  $('qText').innerHTML = 'Maglev treni <b>V<sub>0</sub> = ' + P.v0 + ' m/s</b> hızıyla istasyona yaklaşıyor. ' +
+    'Peron <b>x<sub>hedef</sub> = ' + P.xt + ' m</b> uzaklıkta. ' +
+    'Trenin perona geldiğinde durmuş olması için ivmesi kaç m/s² olmalıdır?';
+  dirty = true;
+}
+$('btnConfirmParams').addEventListener('click', () => {
+  applyParam('v0', parseFloat($('v0').value));
+  applyParam('xt', parseFloat($('xt').value));
+  P.a = null; phase = 'answer'; $('ans').value = ''; $('ansErr').textContent = '';
+  resetSim(); syncPhase(); $('ans').focus();
+});
+$('btnEditParams').addEventListener('click', () => {
+  P.a = null; phase = 'params'; $('ans').value = ''; $('ansErr').textContent = '';
+  resetSim(); syncPhase();
+});
+function confirmAnswer(){
+  const raw = $('ans').value.trim().replace(',', '.'), v = parseFloat(raw);
+  if (raw === '' || !isFinite(v) || v < 0.1 || v > 20){
+    $('ansErr').textContent = '0.1 ile 20 arasında bir sayı girin (m/s²).'; return;
+  }
+  $('ansErr').textContent = '';
+  P.a = Math.round(v * 1000) / 1000; phase = 'ready';
+  resetSim(); syncPhase();
+}
+$('btnConfirmAns').addEventListener('click', confirmAnswer);
+$('ans').addEventListener('keydown', e => { if (e.key === 'Enter') confirmAnswer(); });
+$('btnEditAns').addEventListener('click', () => {
+  P.a = null; phase = 'answer'; resetSim(); syncPhase(); $('ans').focus();
+});
+syncPhase();
+
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
