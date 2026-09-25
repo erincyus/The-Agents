@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Sürüm: 2026-09-20 — menüde Sınıf Araçları ve Oynanış & Kurallar bağlantıları bulunur; üç oyun paneli: The Agents, ClassClans, Who's Next? -->
+<!-- Sürüm: 2026-09-25 — menüde Sınıf Araçları ve Oynanış & Kurallar bağlantıları bulunur; dört panel: The Agents, ClassClans, Who's Next?, Badge Bank -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TheGamifyClass.com | Educational Gamification</title>
-<meta name="description" content="Educational Gamification – The Agents, ClassClans &amp; Who's Next?. Sınıfın için hazırlanmış üç oyunlaştırma dünyası.">
+<meta name="description" content="Educational Gamification – The Agents, ClassClans, Who's Next? &amp; Badge Bank. Sınıfın için hazırlanmış dört oyunlaştırma dünyası.">
 <link rel="icon" href="assets/site_logo.png" type="image/png">
 <link rel="apple-touch-icon" id="appleTouchIconLink" href="assets/site_logo.png">
 <link rel="manifest" id="manifestLink" href="">
@@ -40,6 +40,13 @@
     --wn-cyan:#5ce7ff;
     --wn-text:#eef1ff;
     --wn-muted:#9aa5d8;
+
+    --bb-bg1:#070b1f;
+    --bb-bg2:#1a2150;
+    --bb-blue:#4f8ff7;
+    --bb-red:#ff4757;
+    --bb-text:#eef1ff;
+    --bb-muted:#a4acd6;
   }
 
   *{ box-sizing:border-box; }
@@ -286,9 +293,10 @@
   .panel--whos{
     background:radial-gradient(120% 140% at 50% 15%, var(--wn-bg2), var(--wn-bg1) 68%);
     color:var(--wn-text);
-    clip-path:polygon(var(--sk) 0, 100% 0, 100% 100%, 0 100%);
+    clip-path:polygon(var(--sk) 0, 100% 0, calc(100% - var(--sk)) 100%, 0 100%);
     margin-left:calc(-1 * (var(--sk) + var(--ov)));
     padding-left:calc(var(--sk) + 24px);
+    padding-right:calc(var(--sk) + 24px);
   }
   .panel--whos::before{
     content:"";
@@ -320,6 +328,48 @@
     box-shadow:0 8px 24px rgba(92,231,255,0.18);
   }
 
+  /* Badge Bank panel */
+  .panel--badge{
+    background:radial-gradient(120% 140% at 70% 20%, var(--bb-bg2), var(--bb-bg1) 66%);
+    color:var(--bb-text);
+    clip-path:polygon(var(--sk) 0, 100% 0, 100% 100%, 0 100%);
+    margin-left:calc(-1 * (var(--sk) + var(--ov)));
+    padding-left:calc(var(--sk) + 24px);
+  }
+  .panel--badge::before{
+    content:"";
+    position:absolute; inset:0;
+    background:
+      radial-gradient(200px 200px at 85% 85%, rgba(255,71,87,0.16), transparent 70%),
+      radial-gradient(220px 220px at 15% 15%, rgba(79,143,247,0.16), transparent 70%);
+  }
+  .panel--badge .panel-logo{ filter:drop-shadow(0 8px 22px rgba(0,0,0,0.45)); }
+  .panel--badge h2{
+    font-family:'Bungee', 'Impact', 'Arial Black', sans-serif;
+    font-weight:400;
+    font-size:1.8rem;
+    letter-spacing:0.5px;
+    margin:0;
+    background:linear-gradient(180deg, var(--bb-blue) 35%, var(--bb-red) 80%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    filter:drop-shadow(0 0 16px rgba(79,143,247,0.35));
+  }
+  .panel--badge h3{
+    font-family:'Inter', sans-serif;
+    font-weight:500;
+    font-size:0.95rem;
+    color:var(--bb-muted);
+    margin:6px 0 0;
+  }
+  .panel--badge .panel-desc{ color:var(--bb-muted); }
+  .panel--badge .panel-cta{
+    background:linear-gradient(90deg, var(--bb-blue), var(--bb-red));
+    color:#fff;
+    box-shadow:0 8px 24px rgba(79,143,247,0.22);
+  }
+
   /* ---------- Footer ---------- */
   .site-footer{
     padding:22px 28px 28px;
@@ -333,12 +383,14 @@
   }
 
   /* ---------- Responsive ---------- */
-  @media (max-width: 1000px){
+  /* Dört panel yan yana sığmadığında (geniş olmayan ekranlar) alt alta dizilir */
+  @media (max-width: 1200px){
     .panels{ --sk:36px; --ov:4px; flex-direction:column; min-height:auto; }
-    .panel, .panel--agents, .panel--clans, .panel--whos{ padding:56px 26px; margin-left:0; }
+    .panel, .panel--agents, .panel--clans, .panel--whos, .panel--badge{ padding:56px 26px; margin-left:0; }
     .panel--agents{ clip-path:polygon(0 0, 100% 0, 100% calc(100% - var(--sk)), 0 100%); }
     .panel--clans{ clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
-    .panel--whos{ clip-path:polygon(0 var(--sk), 100% 0, 100% 100%, 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
+    .panel--whos{ clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
+    .panel--badge{ clip-path:polygon(0 var(--sk), 100% 0, 100% 100%, 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
   }
   @media (max-width: 480px){
     .site-header{ padding:14px 18px; }
@@ -372,7 +424,7 @@
     <div class="hero">
       <img class="hero-logo" src="assets/site_logo.png" alt="TheGamifyClass.com logosu">
       <h1>Hangi göreve çıkıyorsun?</h1>
-      <p>Sınıfın için hazırlanan üç farklı oyunlaştırma dünyasından birini seç. Üçü de haftalık görevler, puanlar ve sürprizlerle dolu.</p>
+      <p>Sınıfın için hazırlanan dört farklı oyunlaştırma dünyasından birini seç. Hepsi görevler, puanlar, rozetler ve sürprizlerle dolu.</p>
     </div>
   </section>
 
@@ -407,6 +459,16 @@
       </div>
     </a>
 
+    <a class="panel panel--badge" href="BadgeBank.html">
+      <div class="panel-inner">
+        <img class="panel-logo" src="assets/badge_bank_logo.png" alt="Badge Bank logosu">
+        <h2>Badge Bank</h2>
+        <h3>Badge App for Positive Behavior</h3>
+        <p class="panel-desc">Akıllı tahtanın kenarında duran rozet bankasıyla olumlu davranışları puanla, rozet ve seviyelerle ödüllendir. Tüm sınıf yükseldikçe sınıf maskotunuz da birlikte büyüsün!</p>
+        <span class="panel-cta">Rozet Bankasına Gir</span>
+      </div>
+    </a>
+
   </section>
 
   <footer class="site-footer">
@@ -419,7 +481,7 @@
 const pwaManifest = {
   name: "TheGamifyClass.com",
   short_name: "GamifyClass",
-  description: "Eğitimde oyunlaştırma portalı: The Agents, ClassClans ve Who's Next?",
+  description: "Eğitimde oyunlaştırma portalı: The Agents, ClassClans, Who's Next? ve Badge Bank",
   start_url: "./index.html",
   scope: "./",
   display: "standalone",

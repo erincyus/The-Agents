@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<!--
+  Badge Bank — thegamifyclass.com
+  Tek sayfa, üç bölüm (adres sonundaki # ile seçilir):
+    BadgeBank.html            → Öğretmen girişi + akıllı tahta kurulum dosyasını indirme
+    BadgeBank.html#v=<kod>    → Tahtadaki QR okutulunca açılır: giriş yapan öğretmen tahtanın kilidini açar
+    BadgeBank.html#admin      → Gizli yönetici paneli (yalnızca yönetici hesabı)
+  Güvenlik: tahta çevrimdışı olabilir, bu yüzden onay imzalıdır. Yönetici her öğretmen için
+  ANA ANAHTARLA imzalı bir sertifika ve kişisel bir anahtar üretir; telefon bu anahtarla
+  tahtanın o anki koduna bağlı tek kullanımlık bir jeton imzalar. Tahta her ikisini de
+  uygulamaya gömülü ana açık anahtarla internetsiz doğrular.
+-->
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Badge Bank | TheGamifyClass.com</title>
+<meta name="description" content="Badge Bank – Olumlu davranışlar için akıllı tahta rozet uygulaması. thegamifyclass.com">
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/badge_bank_logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --neutral-bg:#0a0a0c; --neutral-text:#e9e9ec; --neutral-muted:#8b8b93;
+    --brand-red:#e43550; --brand-cyan:#38d9e0;
+    --bb-bg1:#070b1f; --bb-bg2:#1a2150; --bb-blue:#4f8ff7; --bb-red:#ff4757;
+    --bb-gold:#ffd23f; --bb-green:#3ddc84; --bb-text:#eef1ff; --bb-muted:#a4acd6;
+    --card:rgba(255,255,255,.05); --stroke:rgba(255,255,255,.12);
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; min-height:100vh; display:flex; flex-direction:column; background:var(--neutral-bg); color:var(--neutral-text); font-family:'Inter',system-ui,sans-serif; line-height:1.5; }
+  img{ max-width:100%; display:block; }
+  a{ color:inherit; text-decoration:none; }
+  a:focus-visible, button:focus-visible, input:focus-visible{ outline:3px solid var(--brand-cyan); outline-offset:3px; }
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+
+  /* ---------- Başlık (ana sayfayla aynı düzen) ---------- */
+  .site-header{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; padding:16px 28px; border-bottom:1px solid rgba(255,255,255,.06); }
+  .site-header .brand-row{ display:flex; align-items:center; gap:12px; }
+  .site-header .brand-row img{ width:56px; height:56px; object-fit:contain; }
+  .wordmark{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.1rem; background:linear-gradient(90deg,var(--brand-red),var(--brand-cyan)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .tagline{ font-size:.78rem; color:var(--neutral-muted); margin-top:2px; }
+  .nav-link{ padding:9px 18px; border-radius:999px; border:1px solid rgba(255,255,255,.18); font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:.85rem; transition:background .15s, border-color .15s; }
+  .nav-link:hover{ background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.35); }
+
+  /* ---------- Sahne ---------- */
+  main{ flex:1; position:relative; overflow:hidden; padding:36px 18px 48px;
+    background:radial-gradient(120% 120% at 50% 0%, var(--bb-bg2), var(--bb-bg1) 62%); }
+  main::before{ content:""; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(260px 260px at 12% 20%, rgba(79,143,247,.14), transparent 70%),
+               radial-gradient(260px 260px at 88% 80%, rgba(255,71,87,.14), transparent 70%); }
+  .wrap{ position:relative; z-index:1; max-width:520px; margin:0 auto; animation:fade-up .5s ease-out both; }
+  .wrap.wide{ max-width:980px; }
+  @keyframes fade-up{ from{ opacity:0; transform:translateY(10px);} to{ opacity:1; transform:none; } }
+
+  .bb-logo{ width:260px; margin:0 auto 6px; filter:drop-shadow(0 10px 26px rgba(0,0,0,.5)); }
+  .bb-logo.sm{ width:170px; }
+  .bb-sub{ text-align:center; color:var(--bb-muted); font-size:.95rem; margin:0 0 22px; }
+  .bb-sub b{ color:var(--bb-text); }
+
+  .card{ background:var(--card); border:1px solid var(--stroke); border-radius:22px; padding:22px; box-shadow:0 20px 50px rgba(0,0,0,.35); backdrop-filter:blur(10px); }
+  .card + .card{ margin-top:16px; }
+  .card h2{ font-family:'Space Grotesk',sans-serif; font-size:1.25rem; margin:0 0 6px; }
+  .card h3{ font-family:'Space Grotesk',sans-serif; font-size:1.02rem; margin:0 0 10px; }
+  .muted{ color:var(--bb-muted); }
+  .small{ font-size:.85rem; }
+  .center{ text-align:center; }
+
+  label.field{ display:block; margin:12px 0; font-weight:600; font-size:.88rem; color:var(--bb-muted); }
+  label.field input{ margin-top:6px; }
+  input[type=email], input[type=password], input[type=text], input[type=number], input[type=search]{
+    width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--stroke); background:rgba(0,0,0,.3);
+    color:var(--bb-text); font:inherit; font-size:1rem; outline:none; transition:border-color .2s, box-shadow .2s; }
+  input:focus{ border-color:var(--bb-blue); box-shadow:0 0 0 3px rgba(79,143,247,.25); }
+
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 22px; border-radius:999px; border:0; cursor:pointer;
+    font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:.98rem; color:#fff; transition:transform .15s, filter .15s, box-shadow .15s; }
+  .btn:hover{ transform:translateY(-2px); filter:brightness(1.08); }
+  .btn:disabled{ opacity:.6; cursor:default; transform:none; }
+  .btn.primary{ background:linear-gradient(90deg,var(--bb-blue),var(--bb-red)); box-shadow:0 8px 24px rgba(79,143,247,.25); }
+  .btn.ghost{ background:rgba(255,255,255,.07); border:1px solid var(--stroke); }
+  .btn.danger{ background:rgba(255,71,87,.14); border:1px solid rgba(255,71,87,.45); color:#ffb3bc; }
+  .btn.wide{ width:100%; }
+  .btn.sm{ padding:7px 13px; font-size:.82rem; }
+  .btn.big{ padding:16px 26px; font-size:1.08rem; }
+  .linkbtn{ background:none; border:0; color:var(--bb-muted); cursor:pointer; font:inherit; text-decoration:underline; padding:4px; }
+
+  .error{ color:#ff9aae; font-size:.9rem; font-weight:600; min-height:1.2em; margin:8px 0 0; }
+  .ok-msg{ color:var(--bb-green); font-weight:600; }
+  .note{ padding:12px 14px; border-radius:14px; font-size:.9rem; margin-top:12px; }
+  .note.warn{ background:rgba(255,210,63,.1); border:1px solid rgba(255,210,63,.35); color:#ffe9a3; }
+  .note.bad{ background:rgba(255,71,87,.12); border:1px solid rgba(255,71,87,.4); color:#ffc2c9; }
+  .note.good{ background:rgba(61,220,132,.1); border:1px solid rgba(61,220,132,.35); color:#b9f5d2; }
+
+  .steps{ margin:10px 0 0; padding-left:22px; color:var(--bb-text); font-size:.93rem; }
+  .steps li{ margin:6px 0; }
+  .kv{ display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px dashed var(--stroke); font-size:.92rem; }
+  .kv span{ color:var(--bb-muted); }
+
+  /* Doğrulama adımları */
+  .progress{ list-style:none; padding:0; margin:14px 0 0; }
+  .progress li{ display:flex; gap:10px; align-items:flex-start; padding:8px 0; font-size:.95rem; color:var(--bb-muted); }
+  .progress li .ic{ width:24px; height:24px; border-radius:50%; flex-shrink:0; display:grid; place-items:center; font-size:.8rem; background:rgba(255,255,255,.08); }
+  .progress li.done{ color:var(--bb-text); } .progress li.done .ic{ background:var(--bb-green); color:#05301a; }
+  .progress li.run .ic{ background:var(--bb-blue); animation:pulse 1s ease-in-out infinite; }
+  .progress li.fail{ color:#ffc2c9; } .progress li.fail .ic{ background:var(--bb-red); }
+  @keyframes pulse{ 50%{ transform:scale(1.15); } }
+  .big-ok{ font-size:64px; text-align:center; margin:6px 0; }
+
+  /* Yönetici */
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+  .toolbar input{ flex:1; min-width:200px; }
+  .t-list{ display:flex; flex-direction:column; gap:10px; }
+  .t-item{ border:1px solid var(--stroke); border-radius:16px; padding:14px; background:rgba(0,0,0,.2); }
+  .t-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .t-name{ font-weight:700; font-size:1.02rem; }
+  .t-meta{ color:var(--bb-muted); font-size:.85rem; }
+  .t-actions{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .t-edit{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .t-edit input{ flex:1; min-width:140px; padding:8px 10px; font-size:.9rem; }
+  .pill{ display:inline-block; padding:2px 10px; border-radius:999px; font-size:.75rem; font-weight:700; margin-left:4px; }
+  .pill.on{ background:rgba(61,220,132,.16); color:#9ff0c2; }
+  .pill.off{ background:rgba(255,255,255,.08); color:var(--bb-muted); }
+  .pill.susp{ background:rgba(255,71,87,.18); color:#ffb3bc; }
+  .pill.warn{ background:rgba(255,210,63,.16); color:#ffe39a; }
+  .limit-big{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.3rem; color:var(--bb-gold); }
+
+  .site-footer{ padding:22px 28px 28px; }
+  .site-footer p{ margin:0; font-size:.78rem; color:var(--neutral-muted); }
+  .hidden{ display:none !important; }
+
+  @media (max-width:640px){
+    .site-header{ padding:14px 18px; }
+    .grid2{ grid-template-columns:1fr; }
+    .bb-logo{ width:210px; }
+    main{ padding:24px 14px 36px; }
+    .card{ padding:18px; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="site-header">
+    <a class="brand-row" href="index.html">
+      <img src="assets/site_logo.png" alt="TheGamifyClass.com logosu">
+      <div>
+        <div class="wordmark">TheGamifyClass.com</div>
+        <div class="tagline">Educational Gamification</div>
+      </div>
+    </a>
+    <a class="nav-link" href="index.html">← Ana Sayfa</a>
+  </header>
+
+  <main><div class="wrap" id="view"></div></main>
+
+  <footer class="site-footer">
+    <p>© 2026 Erincyus. Tüm hakları saklıdır.<br>Designed &amp; Developed by Erinç Tuncay</p>
+  </footer>
+
+<script>
+'use strict';
+/* =================== YAPILANDIRMA =================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBxBzCkrJ9D8Uf9EcVGC80WcD116BtoUI4",
+  authDomain: "the-agents-69182.firebaseapp.com",
+  databaseURL: "https://the-agents-69182-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "the-agents-69182",
+  storageBucket: "the-agents-69182.firebasestorage.app",
+  messagingSenderId: "516259979836",
+  appId: "1:516259979836:web:868a36a1551cb2e9d61939"
+};
+const ADMIN_UID = "eDTGhzccveNDugVZ9z0e2HmEhqr2";
+// Masaüstü uygulamasına gömülü ana açık anahtar (gizli eşi yalnızca yöneticide, dosya olarak)
+const MASTER_PUBLIC_JWK = { kty:'EC', crv:'P-256', x:'sN9LI3RpEV8BCaGgchAFJjUmlUn12-veN_COlGWux8w', y:'eEI_Xvv9g6hsUvhSx1fsbOdI_zcib3eMBSzqCp-X9Zw' };
+// Kurulum dosyası GitHub "Releases" bölümünde (depo dosya sınırı 100 MB olduğu için)
+const DOWNLOAD_URL = 'https://github.com/erincyus/The-Agents/releases/latest/download/BadgeBank-Kurulum.exe';
+const LOGO = 'assets/badge_bank_logo.png';
+const CERT_DAYS = 365;
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+/* =================== YARDIMCILAR =================== */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const b64urlFromBytes = (bytes) => { let s = ''; new Uint8Array(bytes).forEach((b) => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const b64urlFromText = (t) => b64urlFromBytes(new TextEncoder().encode(t));
+const textFromB64url = (s) => { const bin = atob(s.replace(/-/g,'+').replace(/_/g,'/') + '==='.slice((s.length + 3) % 4)); return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))); };
+const nowSec = () => Math.floor(Date.now() / 1000);
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
+
+// İmzalanan içerikler — masaüstü uygulamasındaki (auth-main.js) ile birebir aynı olmalı
+const certPayload = (c) => JSON.stringify(['BBC1', c.uid, c.email, c.name, c.school, c.limit, c.iat, c.exp, c.x, c.y]);
+const tokenPayload = (t) => JSON.stringify(['BBT1', t.sid, t.fp, t.uid, t.iat, t.exp]);
+
+const ECDSA = { name:'ECDSA', namedCurve:'P-256' };
+async function signText(privateKey, text) {
+  const sig = await crypto.subtle.sign({ name:'ECDSA', hash:'SHA-256' }, privateKey, new TextEncoder().encode(text));
+  return b64urlFromBytes(sig);
+}
+const importPrivate = (jwk) => crypto.subtle.importKey('jwk', { kty:'EC', crv:'P-256', x:jwk.x, y:jwk.y, d:jwk.d, ext:true }, ECDSA, false, ['sign']);
+
+const teacherRef = (uid) => db.ref('admin/teachers/' + uid);
+const isBBActive = (rec) => !!rec && !rec.suspended && !rec.bbSuspended && Number(rec.bbMaxClasses) > 0;
+
+function logoBlock(small) {
+  return `<img class="bb-logo${small ? ' sm' : ''}" src="${LOGO}" alt="Badge Bank logosu">
+    <p class="bb-sub"><b>Badge App for Positive Behavior</b><br>Olumlu davranışlar için akıllı tahta rozet bankası</p>`;
+}
+function loginForm(id, title, button) {
+  return `<div class="card">
+    <h2>${title}</h2>
+    <form id="${id}" autocomplete="on">
+      <label class="field">E-posta<input type="email" name="email" required autocomplete="username"></label>
+      <label class="field">Şifre<input type="password" name="password" required autocomplete="current-password"></label>
+      <button class="btn primary wide big" type="submit">${button}</button>
+      <p class="error" data-err></p>
+    </form>
+    <div class="center"><button class="linkbtn small" data-forgot="${id}">Şifremi unuttum</button></div>
+  </div>`;
+}
+function bindLogin(id, onDone) {
+  const form = document.getElementById(id);
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = form.querySelector('[data-err]');
+    const btn = form.querySelector('button[type=submit]');
+    err.textContent = ''; btn.disabled = true;
+    try {
+      await auth.signInWithEmailAndPassword(form.email.value.trim(), form.password.value);
+      onDone && onDone();
+    } catch (_) {
+      err.textContent = 'E-posta veya şifre hatalı.';
+    } finally { btn.disabled = false; }
+  });
+  document.querySelector(`[data-forgot="${id}"]`)?.addEventListener('click', async () => {
+    const email = form.email.value.trim();
+    const err = form.querySelector('[data-err]');
+    if (!email) { err.textContent = 'Önce e-posta adresinizi yazın.'; return; }
+    try { await auth.sendPasswordResetEmail(email); err.innerHTML = '<span class="ok-msg">Şifre sıfırlama bağlantısı e-postanıza gönderildi.</span>'; }
+    catch (_) { err.textContent = 'Bağlantı gönderilemedi. E-posta adresini kontrol edin.'; }
+  });
+}
+
+/* =================== YÖNLENDİRME =================== */
+let authReady = false;
+function route() {
+  const h = location.hash || '';
+  if (h.startsWith('#v=')) return VerifyView.render(h.slice(3));
+  if (h === '#admin') return AdminView.render();
+  return PortalView.render();
+}
+auth.onAuthStateChanged(() => { authReady = true; route(); });
+window.addEventListener('hashchange', route);
+
+/* =================== 1) ÖĞRETMEN PORTALI =================== */
+const PortalView = {
+  async render() {
+    const v = $('#view');
+    v.className = 'wrap';
+    if (!authReady) { v.innerHTML = logoBlock() + '<p class="center muted">Yükleniyor…</p>'; return; }
+    const user = auth.currentUser;
+    if (!user) {
+      v.innerHTML = logoBlock() + loginForm('portal-login', 'Öğretmen Girişi', 'Giriş Yap') +
+        `<p class="center muted small" style="margin-top:14px">Hesaplar yönetici tarafından açılır. Hesabınız yoksa okul yöneticinizle iletişime geçin.</p>`;
+      bindLogin('portal-login');
+      return;
+    }
+    v.innerHTML = logoBlock() + '<p class="center muted">Hesap bilgileri yükleniyor…</p>';
+    let rec = null, hasCert = false;
+    try {
+      rec = (await teacherRef(user.uid).once('value')).val();
+      hasCert = (await db.ref('badgeBank/certs/' + user.uid).once('value')).exists();
+    } catch (e) { console.warn(e); }
+    const name = (rec && rec.displayName) || user.email;
+    const active = isBBActive(rec);
+    let status;
+    if (!rec) status = '<div class="note bad">Bu e-posta için öğretmen kaydı bulunamadı.</div>';
+    else if (rec.suspended || rec.bbSuspended) status = '<div class="note bad">Hesabınız Badge Bank için askıya alınmış. Yöneticinizle iletişime geçin.</div>';
+    else if (!active) status = '<div class="note warn">Hesabınız Badge Bank için henüz etkinleştirilmedi (sınıf hakkı: 0). Yöneticiniz etkinleştirdiğinde kurulum dosyasını buradan indirebilirsiniz.</div>';
+    else if (!hasCert) status = '<div class="note warn">Hesabınız etkin, ancak tahta anahtarınız henüz hazırlanmadı. Yöneticinizden "Sertifikayı Yenile" yapmasını isteyin.</div>';
+    else status = '<div class="note good">Hesabınız etkin. Akıllı tahtaya kurup QR kodla açabilirsiniz.</div>';
+
+    v.innerHTML = logoBlock() + `
+      <div class="card">
+        <h2>Hoş geldiniz, ${esc(name)}</h2>
+        <div class="kv"><span>E-posta</span><b>${esc(user.email)}</b></div>
+        <div class="kv"><span>Okul</span><b>${esc((rec && rec.school) || '—')}</b></div>
+        <div class="kv"><span>Badge Bank sınıf hakkı</span><b class="limit-big">${Number((rec && rec.bbMaxClasses) || 0)}</b></div>
+        ${status}
+      </div>
+      ${active ? `
+      <div class="card center">
+        <h2>Akıllı Tahta Kurulumu</h2>
+        <p class="muted small">Windows 10/11 · yaklaşık 110 MB</p>
+        <a class="btn primary big wide" href="${DOWNLOAD_URL}" rel="noopener">⬇ Kurulum Dosyasını İndir</a>
+        <ol class="steps" style="text-align:left;margin-top:16px">
+          <li>İndirdiğiniz <b>BadgeBank-Kurulum.exe</b> dosyasını akıllı tahtada çalıştırın. Windows "bilinmeyen yayımcı" uyarısı verirse <b>Ek bilgi → Yine de çalıştır</b>.</li>
+          <li>Uygulama her açılışta ekranda bir <b>QR kod</b> gösterir.</li>
+          <li>QR kodu telefonunuzun kamerasıyla okutun ve bu sitedeki e-posta/şifrenizle giriş yapın — tahta açılır.</li>
+          <li>Tahta internete bağlı değilse telefonunuz tahtayla <b>aynı Wi-Fi</b> ağında olmalıdır. İlk açılışta Windows güvenlik duvarı sorarsa <b>İzin ver</b> deyin.</li>
+          <li>Uygulama kapatıldığında oturum silinir; bir sonraki açılışta QR ile yeniden doğrulama gerekir.</li>
+        </ol>
+      </div>` : ''}
+      <div class="center" style="margin-top:14px"><button class="btn ghost" id="portal-logout">Çıkış Yap</button></div>`;
+    $('#portal-logout').addEventListener('click', () => auth.signOut());
+  },
+};
+
+/* =================== 2) TAHTA DOĞRULAMA (telefon) =================== */
+const VerifyView = {
+  payload: null,
+  running: false,
+  autoRun: false,
+
+  parse(raw) {
+    try {
+      const p = JSON.parse(textFromB64url(decodeURIComponent(raw)));
+      if (p.v !== 1 || !/^[0-9a-f]{32}$/.test(p.s) || !/^[0-9a-f]{16}$/.test(p.f) || !Number.isFinite(p.e)) return null;
+      p.h = Array.isArray(p.h) ? p.h.filter((ip) => /^\d{1,3}(\.\d{1,3}){3}$/.test(ip)).slice(0, 2) : [];
+      p.p = Number.isInteger(p.p) && p.p > 1024 && p.p < 65536 ? p.p : null;
+      return p;
+    } catch (_) { return null; }
+  },
+
+  render(raw) {
+    const v = $('#view');
+    v.className = 'wrap';
+    const p = this.parse(raw);
+    this.payload = p;
+    if (!p) { v.innerHTML = logoBlock(true) + '<div class="card"><div class="note bad">Bu QR kodu okunamadı. Tahtadaki kodu yeniden okutun.</div></div>'; return; }
+    if (Date.now() > p.e * 1000 + 3 * 60 * 1000) {
+      v.innerHTML = logoBlock(true) + '<div class="card center"><div class="big-ok">⌛</div><h2>Kodun süresi doldu</h2><p class="muted">Tahtadaki <b>yeni</b> QR kodu okutun.</p></div>';
+      return;
+    }
+    if (!authReady) { v.innerHTML = logoBlock(true) + '<p class="center muted">Yükleniyor…</p>'; return; }
+    if (this.running) return;
+    const user = auth.currentUser;
+    if (!user) {
+      v.innerHTML = logoBlock(true) + loginForm('verify-login', '🔓 Tahtayı Aç', 'Giriş Yap ve Tahtayı Aç') +
+        `<p class="center muted small" style="margin-top:12px">Kodun son geçerlilik saati: ${fmtTime(p.e * 1000)}</p>`;
+      this.autoRun = true; // girişten hemen sonra ikinci bir dokunuş gerekmesin
+      bindLogin('verify-login');
+      return;
+    }
+    if (this.autoRun) { this.autoRun = false; this.run(user); return; }
+    v.innerHTML = logoBlock(true) + `
+      <div class="card center">
+        <h2>🔓 Tahtayı Aç</h2>
+        <p class="muted"><b style="color:var(--bb-text)">${esc(user.email)}</b> olarak giriş yaptınız.</p>
+        <button class="btn primary big wide" id="do-unlock">Tahtanın Kilidini Aç</button>
+        <button class="linkbtn small" id="switch-acc" style="margin-top:10px">Başka hesapla giriş yap</button>
+        <p class="muted small">Kodun son geçerlilik saati: ${fmtTime(p.e * 1000)}</p>
+      </div>`;
+    $('#do-unlock').addEventListener('click', () => this.run(user));
+    $('#switch-acc').addEventListener('click', () => auth.signOut());
+  },
+
+  progressHTML() {
+    return `<div class="card"><h2>Tahta açılıyor…</h2><ul class="progress" id="prog">
+      <li data-k="acc"><span class="ic">1</span><span>Hesap ve Badge Bank izni kontrol ediliyor</span></li>
+      <li data-k="sign"><span class="ic">2</span><span>Bu tahtaya özel tek kullanımlık onay imzalanıyor</span></li>
+      <li data-k="send"><span class="ic">3</span><span>Onay tahtaya gönderiliyor</span></li>
+    </ul><div id="prog-extra"></div></div>`;
+  },
+  step(k, cls, text) {
+    const li = document.querySelector(`#prog [data-k="${k}"]`);
+    if (!li) return;
+    li.className = cls;
+    li.querySelector('.ic').textContent = cls === 'done' ? '✓' : cls === 'fail' ? '!' : li.querySelector('.ic').textContent;
+    if (text) li.lastElementChild.textContent = text;
+  },
+  fail(k, msg) {
+    this.step(k, 'fail');
+    $('#prog-extra').innerHTML = `<div class="note bad">${msg}</div>`;
+    this.running = false;
+  },
+
+  async run(user) {
+    const p = this.payload;
+    this.running = true;
+    $('#view').innerHTML = logoBlock(true) + this.progressHTML();
+
+    // 1) Hesap: askıda değil, Badge Bank sınıf hakkı var
+    this.step('acc', 'run');
+    let rec, key, cert;
+    try {
+      rec = (await teacherRef(user.uid).once('value')).val();
+      if (!rec) return this.fail('acc', 'Bu e-posta için öğretmen kaydı bulunamadı.');
+      if (rec.suspended || rec.bbSuspended) return this.fail('acc', 'Hesabınız Badge Bank için askıya alınmış.');
+      if (!(Number(rec.bbMaxClasses) > 0)) return this.fail('acc', 'Hesabınız Badge Bank için etkin değil (sınıf hakkı 0). Yöneticinizle iletişime geçin.');
+      [key, cert] = await Promise.all([
+        db.ref('badgeBank/keys/' + user.uid).once('value').then((s) => s.val()),
+        db.ref('badgeBank/certs/' + user.uid).once('value').then((s) => s.val()),
+      ]);
+      if (!key || !cert) return this.fail('acc', 'Tahta anahtarınız henüz hazırlanmamış. Yöneticinizden "Sertifikayı Yenile" yapmasını isteyin.');
+      if (cert.exp * 1000 < Date.now()) return this.fail('acc', 'Tahta sertifikanızın süresi dolmuş. Yöneticinizden yenilemesini isteyin.');
+    } catch (e) {
+      console.error(e);
+      return this.fail('acc', 'Hesap bilgileri okunamadı. İnternet bağlantınızı kontrol edin.');
+    }
+    this.step('acc', 'done', `Hesap doğrulandı: ${rec.displayName || user.email}`);
+
+    // 2) Tek kullanımlık, bu tahtaya (parmak izi) ve bu koda (sid) bağlı jeton
+    this.step('sign', 'run');
+    let tokenStr;
+    try {
+      const tok = { v:1, sid:p.s, fp:p.f, uid:user.uid, iat:nowSec(), exp:nowSec() + 600 };
+      tok.sig = await signText(await importPrivate(key), tokenPayload(tok));
+      tok.cert = cert;
+      tokenStr = b64urlFromText(JSON.stringify(tok));
+    } catch (e) {
+      console.error(e);
+      return this.fail('sign', 'Onay imzalanamadı. Tarayıcınızı güncelleyip tekrar deneyin.');
+    }
+    this.step('sign', 'done');
+
+    // 3a) İnternet yolu: jeton Firebase'e yazılır; tahta çevrimiçiyse birkaç saniyede alır
+    this.step('send', 'run', 'Onay tahtaya gönderiliyor (internet)…');
+    const sref = db.ref('badgeBank/sessions/' + p.s);
+    let consumed = false;
+    try {
+      await sref.set({ t: tokenStr, uid: user.uid, at: firebase.database.ServerValue.TIMESTAMP });
+    } catch (e) {
+      console.warn('Oturum yazılamadı (daha önce kullanılmış olabilir)', e);
+    }
+    const onConsumed = (snap) => {
+      if (snap.val() !== true || consumed) return;
+      consumed = true;
+      this.success();
+    };
+    sref.child('consumed').on('value', onConsumed);
+
+    // 3b) Yerel ağ yolu: tahta çevrimdışıysa telefon aynı Wi-Fi'deki tahtayı doğrudan açar
+    const lanLinks = p.p ? p.h.map((ip) => `http://${ip}:${p.p}/bb?t=${tokenStr}`) : [];
+    setTimeout(() => {
+      if (consumed) return;
+      if (!lanLinks.length) {
+        $('#prog-extra').innerHTML = `<div class="note warn">Tahta henüz yanıt vermedi. Tahta internete bağlıysa birkaç saniye bekleyin. Bağlı değilse tahtayı Wi-Fi'ye bağlayıp yeni kodu okutun.</div>`;
+        return;
+      }
+      let left = 4;
+      $('#prog-extra').innerHTML = `
+        <div class="note warn">Tahta internete bağlı görünmüyor. Telefonunuz tahtayla <b>aynı Wi-Fi</b> ağındaysa onay doğrudan gönderilecek
+          (<span id="lan-count">${left}</span> sn). Tarayıcı "güvenli değil" uyarısı verirse <b>Devam et</b> deyin.</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+          ${lanLinks.map((u, i) => `<a class="btn ${i ? 'ghost' : 'primary'} wide" href="${u}">📶 Wi-Fi ile gönder${lanLinks.length > 1 ? ` (${esc(p.h[i])})` : ''}</a>`).join('')}
+        </div>`;
+      const t = setInterval(() => {
+        if (consumed) { clearInterval(t); return; }
+        left -= 1;
+        const el = $('#lan-count'); if (el) el.textContent = left;
+        if (left <= 0) { clearInterval(t); location.href = lanLinks[0]; }
+      }, 1000);
+    }, 6000);
+  },
+
+  success() {
+    this.running = false;
+    $('#view').innerHTML = logoBlock(true) + `<div class="card center"><div class="big-ok">✅</div><h2>Tahta açıldı!</h2>
+      <p class="muted">Bu sayfayı kapatabilirsiniz. İyi dersler!</p></div>`;
+  },
+};
+
+/* =================== 3) YÖNETİCİ PANELİ (#admin) =================== */
+const AdminView = {
+  teachers: {}, certs: {}, listening: false, editing: null, filter: '',
+  masterKey: null, rulesCheck: null,
+
+  render() {
+    const v = $('#view');
+    v.className = 'wrap wide';
+    if (!authReady) { v.innerHTML = '<p class="center muted">Yükleniyor…</p>'; return; }
+    const user = auth.currentUser;
+    if (!user) {
+      v.className = 'wrap';
+      v.innerHTML = logoBlock(true) + loginForm('admin-login', '🔐 Yönetici Girişi', 'Giriş Yap');
+      bindLogin('admin-login');
+      return;
+    }
+    if (user.uid !== ADMIN_UID) {
+      v.className = 'wrap';
+      v.innerHTML = logoBlock(true) + '<div class="card center"><div class="note bad">Bu sayfaya erişim yetkiniz yok.</div><button class="btn ghost" id="adm-out" style="margin-top:12px">Çıkış Yap</button></div>';
+      $('#adm-out').addEventListener('click', () => auth.signOut());
+      return;
+    }
+    this.listen();
+    this.restoreMasterKey();
+    if (!this.rulesCheck) this.checkRules();
+    this.draw();
+  },
+
+  listen() {
+    if (this.listening) return;
+    this.listening = true;
+    db.ref('admin/teachers').on('value', (s) => { this.teachers = s.val() || {}; this.drawList(); });
+    db.ref('badgeBank/certs').on('value', (s) => { this.certs = s.val() || {}; this.drawList(); });
+  },
+
+  // Güvenlik kuralları gizli anahtarları herkese açık bırakıyor mu? (oturumsuz REST isteği)
+  async checkRules() {
+    this.rulesCheck = 'checking';
+    const probe = async (p) => { try { const r = await fetch(`${firebaseConfig.databaseURL}/${p}.json?shallow=true`); return r.ok; } catch (_) { return false; } };
+    const leaks = [];
+    if (await probe('badgeBank/keys')) leaks.push('badgeBank/keys');
+    if (await probe('badgeBank/certs')) leaks.push('badgeBank/certs');
+    if (await probe('admin/teachers')) leaks.push('admin/teachers');
+    this.rulesCheck = leaks;
+    this.draw();
+  },
+
+  /* ---- Ana anahtar ---- */
+  async loadMasterJwk(jwk, remember) {
+    if (!jwk || jwk.x !== MASTER_PUBLIC_JWK.x || jwk.y !== MASTER_PUBLIC_JWK.y || !jwk.d) throw new Error('Bu anahtar, akıllı tahta uygulamasındaki ana anahtarla eşleşmiyor.');
+    this.masterKey = await importPrivate(jwk);
+    if (remember) localStorage.setItem('bb-admin-master', JSON.stringify({ x:jwk.x, y:jwk.y, d:jwk.d }));
+  },
+  async restoreMasterKey() {
+    if (this.masterKey) return;
+    try { const saved = JSON.parse(localStorage.getItem('bb-admin-master') || 'null'); if (saved) { await this.loadMasterJwk(saved, false); this.draw(); } } catch (_) {}
+  },
+
+  /* ---- Sertifika üretimi / iptali ---- */
+  async issueCert(uid) {
+    const rec = this.teachers[uid];
+    if (!this.masterKey) throw new Error('Önce ana anahtarı yükleyin.');
+    const kp = await crypto.subtle.generateKey(ECDSA, true, ['sign', 'verify']);
+    const priv = await crypto.subtle.exportKey('jwk', kp.privateKey);
+    const cert = { uid, email: rec.email || '', name: rec.displayName || rec.email || '', school: rec.school || '',
+      limit: Number(rec.bbMaxClasses), iat: nowSec(), exp: nowSec() + CERT_DAYS * 86400, x: priv.x, y: priv.y };
+    cert.sig = await signText(this.masterKey, certPayload(cert));
+    await db.ref().update({
+      ['badgeBank/keys/' + uid]: { x: priv.x, y: priv.y, d: priv.d },
+      ['badgeBank/certs/' + uid]: cert,
+      ['badgeBank/revoked/' + uid]: null,
+    });
+  },
+  async revoke(uid) {
+    await db.ref().update({ ['badgeBank/keys/' + uid]: null, ['badgeBank/certs/' + uid]: null, ['badgeBank/revoked/' + uid]: true });
+  },
+  // Kayıt durumuna göre sertifikayı üret ya da iptal et
+  async sync(uid) {
+    const rec = (await teacherRef(uid).once('value')).val();
+    this.teachers[uid] = rec;
+    if (isBBActive(rec)) {
+      if (!this.masterKey) { alert('Değişiklik kaydedildi. Öğretmenin tahtayı açabilmesi için ana anahtarı yükleyip "Sertifikayı Yenile" yapın.'); return; }
+      await this.issueCert(uid);
+    } else {
+      await this.revoke(uid);
+    }
+  },
+
+  /* ---- Çizim ---- */
+  draw() {
+    if (location.hash !== '#admin' || !auth.currentUser || auth.currentUser.uid !== ADMIN_UID) return;
+    const rc = this.rulesCheck;
+    const rulesHTML = rc === 'checking' || rc === null ? '<div class="note warn">Güvenlik kuralları kontrol ediliyor…</div>'
+      : rc.length ? `<div class="note bad"><b>⚠ Güvenlik kuralları eksik!</b> Şu yollar giriş yapmadan okunabiliyor: <code>${rc.join(', ')}</code>. Firebase konsolu → Realtime Database → Kurallar bölümüne "badgeBank" kurallarını ekleyin (KURULUM-REHBERI dosyasına bakın).</div>`
+      : '<div class="note good">Güvenlik kuralları uygun: gizli anahtarlar ve öğretmen kayıtları dışarıdan okunamıyor.</div>';
+    $('#view').innerHTML = `
+      <img class="bb-logo sm" src="${LOGO}" alt="Badge Bank logosu">
+      <p class="bb-sub"><b>Badge Bank — Yönetici Paneli</b></p>
+      ${rulesHTML}
+      <div class="grid2" style="margin-top:16px">
+        <div class="card">
+          <h3>🔑 Ana İmza Anahtarı</h3>
+          ${this.masterKey
+            ? '<div class="note good">Ana anahtar yüklü. Sertifikalar üretilebilir.</div><button class="btn ghost sm" id="mk-forget" style="margin-top:10px">Bu tarayıcıdan unut</button>'
+            : `<p class="muted small">Öğretmenlerin tahtayı açabilmesi için sertifikaları bu anahtar imzalar. <b>GIZLI-BadgeBank-Ana-Anahtar.json</b> dosyasını seçin. Dosyayı asla GitHub'a yüklemeyin.</p>
+               <input type="file" id="mk-file" accept=".json,application/json">
+               <label class="small muted" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="mk-remember"> Bu tarayıcıda hatırla (yalnızca kendi bilgisayarınızda)</label>
+               <p class="error" id="mk-err"></p>`}
+        </div>
+        <div class="card">
+          <h3>➕ Yeni Öğretmen Hesabı</h3>
+          <form id="new-teacher" autocomplete="off">
+            <div class="grid2">
+              <input type="email" name="email" placeholder="E-posta" required>
+              <input type="text" name="name" placeholder="Ad Soyad" required>
+              <input type="text" name="school" placeholder="Okulu">
+              <input type="number" name="limit" placeholder="Sınıf limiti" min="0" value="1" required>
+            </div>
+            <input type="text" name="password" placeholder="Şifre (en az 6 karakter)" style="margin-top:10px">
+            <button class="btn primary wide" type="submit" style="margin-top:10px">Hesabı Oluştur</button>
+            <p class="muted small">E-posta zaten kayıtlıysa (The Agents / ClassClans) şifre değişmez; yalnızca Badge Bank bilgileri güncellenir.</p>
+            <p class="error" id="nt-err"></p>
+          </form>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="toolbar">
+          <h3 style="margin:0">👩‍🏫 Öğretmenler</h3>
+          <input type="search" id="t-filter" placeholder="Ad, e-posta veya okul ara…" value="${esc(this.filter)}">
+          <button class="btn ghost sm" id="clean-sessions" title="24 saatten eski QR oturum kayıtlarını siler">🧹 Eski oturumları temizle</button>
+          <button class="btn ghost sm" id="adm-logout">Çıkış</button>
+        </div>
+        <div class="t-list" id="t-list"></div>
+      </div>`;
+    this.bind();
+    this.drawList();
+  },
+
+  drawList() {
+    const box = $('#t-list');
+    if (!box) return;
+    const q = this.filter.toLocaleLowerCase('tr');
+    const rows = Object.entries(this.teachers)
+      .filter(([uid]) => uid !== ADMIN_UID)
+      .filter(([, r]) => !q || [r.displayName, r.email, r.school].some((x) => String(x || '').toLocaleLowerCase('tr').includes(q)))
+      .sort((a, b) => String(a[1].displayName || a[1].email).localeCompare(String(b[1].displayName || b[1].email), 'tr'));
+    if (!rows.length) { box.innerHTML = '<p class="muted">Kayıt yok.</p>'; return; }
+    box.innerHTML = rows.map(([uid, r]) => {
+      const limit = Number(r.bbMaxClasses || 0);
+      const cert = this.certs[uid];
+      const susp = r.suspended || r.bbSuspended;
+      const pills = [
+        susp ? '<span class="pill susp">Askıda</span>' : limit > 0 ? '<span class="pill on">Etkin</span>' : '<span class="pill off">Badge Bank kapalı</span>',
+        !susp && limit > 0 && !cert ? '<span class="pill warn">Sertifika yok</span>' : '',
+        cert && cert.limit !== limit ? '<span class="pill warn">Sertifika eski</span>' : '',
+      ].join('');
+      const ed = this.editing && this.editing.uid === uid ? this.editing.kind : null;
+      return `<div class="t-item">
+        <div class="t-head">
+          <div>
+            <div class="t-name">${esc(r.displayName || r.email)} ${pills}</div>
+            <div class="t-meta">${esc(r.email || '')}${r.school ? ' · ' + esc(r.school) : ''}${r.suspended ? ' · <b>tüm uygulamalarda askıda</b>' : ''}</div>
+          </div>
+          <div class="center"><div class="limit-big">${limit}</div><div class="t-meta">sınıf limiti</div></div>
+        </div>
+        ${ed === 'name' ? `<div class="t-edit">
+            <input id="ed-name" value="${esc(r.displayName || '')}" placeholder="Ad Soyad">
+            <input id="ed-school" value="${esc(r.school || '')}" placeholder="Okulu">
+            <button class="btn primary sm" data-act="save-name" data-uid="${uid}">Kaydet</button>
+            <button class="btn ghost sm" data-act="cancel">Vazgeç</button></div>` : ''}
+        ${ed === 'limit' ? `<div class="t-edit">
+            <input id="ed-limit" type="number" min="0" value="${limit}" style="max-width:140px">
+            <button class="btn primary sm" data-act="save-limit" data-uid="${uid}">Kaydet</button>
+            <button class="btn ghost sm" data-act="cancel">Vazgeç</button>
+            <span class="t-meta">0 = Badge Bank kullanamaz</span></div>` : ''}
+        <div class="t-actions">
+          <button class="btn ghost sm" data-act="edit-name" data-uid="${uid}">✏️ Adı Düzenle</button>
+          <button class="btn ghost sm" data-act="edit-limit" data-uid="${uid}">🔢 Limitini Düzenle</button>
+          <button class="btn ghost sm" data-act="reset" data-uid="${uid}">✉️ Şifre Sıfırlama Bağlantısı Gönder</button>
+          ${r.bbSuspended
+            ? `<button class="btn ghost sm" data-act="unsuspend" data-uid="${uid}">▶ Askıdan Çıkar</button>`
+            : `<button class="btn danger sm" data-act="suspend" data-uid="${uid}">⏸ Askıya Al</button>`}
+          ${!susp && limit > 0 ? `<button class="btn ghost sm" data-act="cert" data-uid="${uid}">🔄 Sertifikayı Yenile</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  bind() {
+    $('#adm-logout').addEventListener('click', () => auth.signOut());
+    $('#t-filter').addEventListener('input', (e) => { this.filter = e.target.value; this.drawList(); });
+    $('#mk-forget')?.addEventListener('click', () => { localStorage.removeItem('bb-admin-master'); this.masterKey = null; this.draw(); });
+    $('#mk-file')?.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const json = JSON.parse(await file.text());
+        await this.loadMasterJwk(json.jwk || json, $('#mk-remember').checked);
+        this.draw();
+      } catch (err) { $('#mk-err').textContent = err.message || 'Dosya okunamadı.'; }
+    });
+    $('#clean-sessions').addEventListener('click', async () => {
+      const snap = await db.ref('badgeBank/sessions').once('value');
+      const old = {};
+      snap.forEach((c) => { const at = (c.val() || {}).at; if (!at || at < Date.now() - 86400000) old['badgeBank/sessions/' + c.key] = null; });
+      const n = Object.keys(old).length;
+      if (n) await db.ref().update(old);
+      alert(n ? `${n} eski oturum kaydı silindi.` : 'Silinecek eski oturum yok.');
+    });
+    $('#new-teacher').addEventListener('submit', (e) => { e.preventDefault(); this.createTeacher(e.target); });
+    $('#t-list').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-act]');
+      if (b) this.action(b.dataset.act, b.dataset.uid, b);
+    });
+  },
+
+  async createTeacher(form) {
+    const err = $('#nt-err');
+    err.textContent = '';
+    const email = form.email.value.trim().toLowerCase();
+    const name = form.name.value.trim();
+    const school = form.school.value.trim();
+    const pw = form.password.value;
+    const limit = parseInt(form.limit.value, 10);
+    if (!Number.isInteger(limit) || limit < 0) { err.textContent = 'Sınıf limiti 0 veya daha büyük bir tam sayı olmalı.'; return; }
+    const btn = form.querySelector('button[type=submit]');
+    btn.disabled = true;
+    try {
+      const q = (await db.ref('admin/teachers').orderByChild('email').equalTo(email).once('value')).val();
+      const existingUid = q ? Object.keys(q)[0] : null;
+      let uid;
+      if (existingUid) {
+        uid = existingUid;
+        const upd = { bbMaxClasses: limit };
+        if (name) upd.displayName = name;
+        if (school) upd.school = school;
+        await teacherRef(uid).update(upd);
+      } else {
+        if (!pw || pw.length < 6) { err.textContent = 'Yeni hesap için en az 6 karakterli şifre belirleyin.'; return; }
+        // Yönetici oturumu kapanmasın diye hesap ikincil bir Firebase örneğinde oluşturulur
+        let sec;
+        try { sec = firebase.app('Secondary'); } catch (_) { sec = firebase.initializeApp(firebaseConfig, 'Secondary'); }
+        const cred = await sec.auth().createUserWithEmailAndPassword(email, pw);
+        uid = cred.user.uid;
+        await sec.auth().signOut();
+        // Badge Bank'tan açılan hesap diğer uygulamalara kapalı başlar (sonradan kendi panellerinden açılabilir)
+        await teacherRef(uid).set({ email, displayName: name || email, school, suspended: false, createdAt: Date.now(),
+          classCodes: {}, maxClasses: 0, ccMaxClasses: 0, wnMaxClasses: 0, bbMaxClasses: limit });
+      }
+      await this.sync(uid);
+      form.reset();
+      form.limit.value = 1;
+      alert(existingUid
+        ? `Bu e-posta zaten kayıtlıydı; Badge Bank bilgileri güncellendi: ${email}`
+        : `Hesap oluşturuldu: ${email}\nŞifre: ${pw}\n\nBu bilgileri öğretmene iletin.`);
+    } catch (e) {
+      console.error(e);
+      err.textContent = 'Hata: ' + (e.message || e);
+    } finally { btn.disabled = false; }
+  },
+
+  async action(act, uid, btn) {
+    const r = this.teachers[uid] || {};
+    try {
+      switch (act) {
+        case 'edit-name': this.editing = { uid, kind: 'name' }; this.drawList(); return;
+        case 'edit-limit': this.editing = { uid, kind: 'limit' }; this.drawList(); return;
+        case 'cancel': this.editing = null; this.drawList(); return;
+        case 'save-name': {
+          const name = $('#ed-name').value.trim();
+          if (!name) { alert('Ad soyad boş olamaz.'); return; }
+          await teacherRef(uid).update({ displayName: name, school: $('#ed-school').value.trim() });
+          this.editing = null;
+          if (isBBActive(r)) await this.sync(uid);
+          return;
+        }
+        case 'save-limit': {
+          const n = parseInt($('#ed-limit').value, 10);
+          if (!Number.isInteger(n) || n < 0) { alert('Sınıf limiti 0 veya daha büyük bir tam sayı olmalı.'); return; }
+          await teacherRef(uid).update({ bbMaxClasses: n });
+          this.editing = null;
+          await this.sync(uid);
+          return;
+        }
+        case 'reset':
+          if (!r.email) { alert('E-posta bulunamadı.'); return; }
+          await auth.sendPasswordResetEmail(r.email);
+          alert(r.email + ' adresine şifre sıfırlama bağlantısı gönderildi.');
+          return;
+        case 'suspend':
+          if (!confirm((r.displayName || r.email) + ' Badge Bank için askıya alınsın mı? Tahtayı artık açamaz (diğer uygulamalar etkilenmez).')) return;
+          await teacherRef(uid).update({ bbSuspended: true });
+          await this.sync(uid);
+          return;
+        case 'unsuspend':
+          await teacherRef(uid).update({ bbSuspended: false });
+          await this.sync(uid);
+          return;
+        case 'cert':
+          btn.disabled = true;
+          await this.issueCert(uid);
+          alert('Sertifika yenilendi.');
+          return;
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Hata: ' + (e.message || e));
+    }
+  },
+};
+</script>
+</body>
+</html>

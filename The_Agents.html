@@ -431,6 +431,8 @@ function adminCreateTeacherSubmit(){
       const update = {};
       if(name) update.displayName = name;
       if(maxClasses !== null) update.maxClasses = maxClasses;
+      // Badge Bank kaydı henüz yoksa otomatik 0 sınıfla oluştur (varsa dokunma)
+      if(val[existingUid].bbMaxClasses === undefined) update.bbMaxClasses = 0;
       return db.ref('admin/teachers/'+existingUid).update(update).then(function(){
         emailEl.value=''; nameEl.value=''; pwEl.value=''; if(maxClassesEl) maxClassesEl.value='';
         alert('Bu e-posta zaten kayıtlı bir hesaba aitti — şifresi değişmedi, sadece The Agents için izin verilen sınıf sayısı güncellendi: '+email);
@@ -448,6 +450,7 @@ function adminCreateTeacherSubmit(){
         if(maxClasses !== null) record.maxClasses = maxClasses;
         record.ccMaxClasses = maxClasses;
         record.wnMaxClasses = maxClasses; // Who's Next? için de aynı başlangıç sınıf sayısı
+        record.bbMaxClasses = 0; // Badge Bank: otomatik 0 sınıf (yönetici BadgeBank.html#admin panelinden açar)
         return db.ref('admin/teachers/'+newUid).set(record);
       });
     }).then(function(){
