@@ -177,16 +177,21 @@
     flex:1;
     position:relative;
     display:flex;
-    align-items:center;
+    align-items:stretch;
     justify-content:center;
     padding:64px 40px;
     overflow:hidden;
   }
+  /* Logolar üstte, giriş düğmeleri altta hizalı: açıklama uzunluğu farklı olsa da düğme kartın dibine yaslanır */
   .panel-inner{
     position:relative;
     z-index:2;
+    width:100%;
     max-width:360px;
     text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
   }
   .panel-logo{
     width:203px;
@@ -200,6 +205,7 @@
   }
   .panel-cta{
     display:inline-block;
+    margin-top:auto;
     padding:13px 30px;
     border-radius:999px;
     font-family:'Space Grotesk', sans-serif;

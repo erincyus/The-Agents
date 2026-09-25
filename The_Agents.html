@@ -364,7 +364,60 @@ function logoutTeacher(){
 }
 
 // ================= ADMIN PANELİ =================
-const AdminState = { teachers: {}, presence: {}, listenersAttached: false, expandedTeacher: null, editingTeacher: null };
+const AdminState = { teachers: {}, presence: {}, bbCerts: {}, listenersAttached: false, expandedTeacher: null, editingTeacher: null, permsTeacher: null, bulk: null };
+
+function adminEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+// Sınıf sayısı gösterimi: sayı değilse sınırsız
+function adminLimitText(v){ return (typeof v !== 'number') ? 'Sınırsız' : (v === 0 ? 'Yok (0)' : String(v)); }
+
+// ---- Badge Bank tahta sertifikası (BadgeBank.html#admin ile birebir aynı imza düzeni) ----
+// Ana anahtar BadgeBank.html#admin'de "Bu tarayıcıda hatırla" ile kaydedildiyse aynı site
+// olduğu için buradan da okunur; böylece Badge Bank izni buradan değişince sertifika da yenilenir.
+const BB_MASTER_X = 'sN9LI3RpEV8BCaGgchAFJjUmlUn12-veN_COlGWux8w';
+const BB_MASTER_Y = 'eEI_Xvv9g6hsUvhSx1fsbOdI_zcib3eMBSzqCp-X9Zw';
+const BB_CERT_DAYS = 365;
+const BB_ECDSA = { name:'ECDSA', namedCurve:'P-256' };
+function bbB64url(bytes){ let s=''; new Uint8Array(bytes).forEach(function(b){ s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function bbIsActive(rec){ return !!rec && !rec.suspended && !rec.bbSuspended && Number(rec.bbMaxClasses) > 0; }
+function bbHasMasterKey(){
+  try{ const s = JSON.parse(localStorage.getItem('bb-admin-master') || 'null'); return !!(s && s.x === BB_MASTER_X && s.y === BB_MASTER_Y && s.d); }catch(e){ return false; }
+}
+function bbImportMasterKey(){
+  if(!bbHasMasterKey() || !window.crypto || !crypto.subtle) return Promise.resolve(null);
+  const s = JSON.parse(localStorage.getItem('bb-admin-master'));
+  return crypto.subtle.importKey('jwk', { kty:'EC', crv:'P-256', x:s.x, y:s.y, d:s.d, ext:true }, BB_ECDSA, false, ['sign']).catch(function(){ return null; });
+}
+async function bbIssueCert(uid, rec, masterKey){
+  const kp = await crypto.subtle.generateKey(BB_ECDSA, true, ['sign','verify']);
+  const priv = await crypto.subtle.exportKey('jwk', kp.privateKey);
+  const now = Math.floor(Date.now()/1000);
+  const cert = { uid, email: rec.email || '', name: rec.displayName || rec.email || '', school: rec.school || '',
+    limit: Number(rec.bbMaxClasses), iat: now, exp: now + BB_CERT_DAYS*86400, x: priv.x, y: priv.y };
+  const payload = JSON.stringify(['BBC1', cert.uid, cert.email, cert.name, cert.school, cert.limit, cert.iat, cert.exp, cert.x, cert.y]);
+  const sig = await crypto.subtle.sign({ name:'ECDSA', hash:'SHA-256' }, masterKey, new TextEncoder().encode(payload));
+  cert.sig = bbB64url(sig);
+  const upd = {};
+  upd['badgeBank/keys/'+uid] = { x: priv.x, y: priv.y, d: priv.d };
+  upd['badgeBank/certs/'+uid] = cert;
+  upd['badgeBank/revoked/'+uid] = null;
+  await db.ref().update(upd);
+}
+// Kayda göre Badge Bank sertifikasını üretir ya da iptal eder. Dönüş: 'issued' | 'revoked' | 'nokey'
+async function bbSyncCert(uid){
+  const rec = (await db.ref('admin/teachers/'+uid).once('value')).val();
+  if(!bbIsActive(rec)){
+    if(!AdminState.bbCerts[uid]) return 'revoked'; // zaten sertifikası yok
+    const upd = {};
+    upd['badgeBank/keys/'+uid] = null; upd['badgeBank/certs/'+uid] = null; upd['badgeBank/revoked/'+uid] = true;
+    await db.ref().update(upd);
+    return 'revoked';
+  }
+  const mk = await bbImportMasterKey();
+  if(!mk) return 'nokey';
+  await bbIssueCert(uid, rec, mk);
+  return 'issued';
+}
+const BB_NOKEY_MSG = 'Badge Bank izni kaydedildi, ancak öğretmenin tahtayı açabilmesi için sertifika gerekiyor. BadgeBank.html#admin sayfasında ana anahtarı "Bu tarayıcıda hatırla" ile yükleyin; sonra buradan tekrar kaydedin ya da orada "Sertifikayı Yenile"ye basın.';
 
 const EMAILJS_SERVICE_ID = 'service_agents';
 const EMAILJS_TEMPLATE_ID = 'template_r5eegyl';
@@ -373,14 +426,14 @@ if(window.emailjs){
   try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); }catch(e){ console.warn('EmailJS başlatılamadı', e); }
 }
 const LOGO_RAW_URL = 'https://raw.githubusercontent.com/erincyus/The-Agents/main/agents-logo.png';
-function sendWelcomeEmail(toEmail, toName, password){
+function sendWelcomeEmail(toEmail, toName, password, loginLink, logoHtml){
   if(!window.emailjs){ return Promise.reject(new Error('EmailJS yüklenemedi')); }
   return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
     to_email: toEmail,
     to_name: toName || toEmail,
     password: password,
-    login_link: window.location.origin + '/#ogretmen',
-    logo_html: '<br><img src="'+LOGO_RAW_URL+'" width="180" alt="The Agents MEV">'
+    login_link: loginLink || (window.location.origin + '/#ogretmen'),
+    logo_html: logoHtml || ('<br><img src="'+LOGO_RAW_URL+'" width="180" alt="The Agents MEV">')
   });
 }
 
@@ -402,6 +455,10 @@ function attachAdminListeners(){
     AdminState.presence = snap.val() || {};
     render();
   });
+  db.ref('badgeBank/certs').on('value', function(snap){
+    AdminState.bbCerts = snap.val() || {};
+    render();
+  }, function(){ /* okunamazsa sertifika durumu gösterilmez */ });
 }
 
 function adminCreateTeacherSubmit(){
@@ -409,10 +466,12 @@ function adminCreateTeacherSubmit(){
   const nameEl = document.getElementById('newTeacherName');
   const pwEl = document.getElementById('newTeacherPw');
   const maxClassesEl = document.getElementById('newTeacherMaxClasses');
+  const schoolEl = document.getElementById('newTeacherSchool');
   const err = document.getElementById('adminCreateError');
   if(err) err.textContent = '';
   const email = (emailEl.value||'').trim().toLowerCase();
   const name = nameEl.value.trim();
+  const school = schoolEl ? schoolEl.value.trim() : '';
   const pw = pwEl.value;
   const maxClassesRaw = maxClassesEl ? maxClassesEl.value.trim() : '';
   if(!email){ if(err) err.textContent = 'E-posta zorunlu.'; return; }
@@ -430,11 +489,12 @@ function adminCreateTeacherSubmit(){
     if(existingUid){
       const update = {};
       if(name) update.displayName = name;
+      if(school) update.school = school;
       if(maxClasses !== null) update.maxClasses = maxClasses;
       // Badge Bank kaydı henüz yoksa otomatik 0 sınıfla oluştur (varsa dokunma)
       if(val[existingUid].bbMaxClasses === undefined) update.bbMaxClasses = 0;
       return db.ref('admin/teachers/'+existingUid).update(update).then(function(){
-        emailEl.value=''; nameEl.value=''; pwEl.value=''; if(maxClassesEl) maxClassesEl.value='';
+        emailEl.value=''; nameEl.value=''; pwEl.value=''; if(maxClassesEl) maxClassesEl.value=''; if(schoolEl) schoolEl.value='';
         alert('Bu e-posta zaten kayıtlı bir hesaba aitti — şifresi değişmedi, sadece The Agents için izin verilen sınıf sayısı güncellendi: '+email);
       });
     }
@@ -446,7 +506,7 @@ function adminCreateTeacherSubmit(){
         // Yeni hesap: ClassClans tarafı da AYNI sınıf sayısıyla başlasın (siz
         // isterseniz sonradan ClassClans'ın kendi panelinden bağımsız olarak
         // değiştirebilirsiniz — bu satır sadece BAŞLANGIÇ değeridir).
-        const record = { email, displayName: name || email, suspended:false, createdAt: Date.now(), classCodes:{} };
+        const record = { email, displayName: name || email, school, suspended:false, createdAt: Date.now(), classCodes:{} };
         if(maxClasses !== null) record.maxClasses = maxClasses;
         record.ccMaxClasses = maxClasses;
         record.wnMaxClasses = maxClasses; // Who's Next? için de aynı başlangıç sınıf sayısı
@@ -454,7 +514,7 @@ function adminCreateTeacherSubmit(){
         return db.ref('admin/teachers/'+newUid).set(record);
       });
     }).then(function(){
-      emailEl.value=''; nameEl.value=''; pwEl.value=''; if(maxClassesEl) maxClassesEl.value='';
+      emailEl.value=''; nameEl.value=''; pwEl.value=''; if(maxClassesEl) maxClassesEl.value=''; if(schoolEl) schoolEl.value='';
       sendWelcomeEmail(email, name, pw).then(function(){
         alert('Öğretmen hesabı oluşturuldu ve hoş geldiniz e-postası gönderildi: '+email);
       }).catch(function(emailErr){
@@ -481,19 +541,59 @@ function adminSaveTeacherMaxClasses(uid){
 
 function adminToggleSuspend(uid, suspend){
   if(!db) return;
-  db.ref('admin/teachers/'+uid+'/suspended').set(!!suspend);
+  db.ref('admin/teachers/'+uid+'/suspended').set(!!suspend).then(function(){
+    // Askı tüm uygulamaları kapsar: Badge Bank tahta sertifikası da iptal edilir / yeniden üretilir
+    return bbSyncCert(uid);
+  }).then(function(res){
+    if(res === 'nokey' && !suspend) alert(BB_NOKEY_MSG);
+  }).catch(function(e){ alert('Hata: '+(e.message||e)); });
 }
 
 function adminSaveTeacherName(uid){
   const input = document.getElementById('editNameInput_'+uid);
+  const schoolInput = document.getElementById('editSchoolInput_'+uid);
   if(!input) return;
   const name = input.value.trim();
   if(!name){ alert('Ad soyad boş olamaz.'); return; }
   if(!db) return;
-  db.ref('admin/teachers/'+uid+'/displayName').set(name).then(function(){
+  const update = { displayName: name };
+  if(schoolInput) update.school = schoolInput.value.trim();
+  db.ref('admin/teachers/'+uid).update(update).then(function(){
     AdminState.editingTeacher = null;
     render();
-  });
+    // Badge Bank sertifikasında ad ve kurum da yazılı; etkinse yenile
+    if(bbIsActive(AdminState.teachers[uid]) && bbHasMasterKey()) return bbSyncCert(uid);
+  }).catch(function(e){ alert('Hata: '+(e.message||e)); });
+}
+
+// Tek bir öğretmenin 4 uygulamadaki sınıf izinlerini kaydeder
+function adminSavePerms(uid){
+  if(!db) return;
+  const read = function(id, allowUnlimited, label){
+    const el = document.getElementById(id);
+    const raw = el ? el.value.trim() : '';
+    if(raw === '') return allowUnlimited ? { v:null } : { err: label+' için bir sayı yazın (0 = kapalı).' };
+    const n = parseInt(raw, 10);
+    if(!Number.isInteger(n) || n < 0 || String(n) !== raw) return { err: label+' için 0 veya daha büyük bir tam sayı yazın.' };
+    return { v:n };
+  };
+  const ta = read('permTA_'+uid, true, 'The Agents');
+  const cc = read('permCC_'+uid, true, 'ClassClans');
+  const wn = read('permWN_'+uid, true, "Who's Next?");
+  const bb = read('permBB_'+uid, false, 'Badge Bank');
+  const firstErr = [ta, cc, wn, bb].find(function(x){ return x.err; });
+  if(firstErr){ alert(firstErr.err); return; }
+  const bbSusp = document.getElementById('permBBSusp_'+uid);
+  const before = AdminState.teachers[uid] || {};
+  const update = { maxClasses: ta.v, ccMaxClasses: cc.v, wnMaxClasses: wn.v, bbMaxClasses: bb.v, bbSuspended: !!(bbSusp && bbSusp.checked) };
+  const bbChanged = Number(before.bbMaxClasses||0) !== bb.v || !!before.bbSuspended !== update.bbSuspended;
+  db.ref('admin/teachers/'+uid).update(update).then(function(){
+    if(!bbChanged && (!bbIsActive(Object.assign({}, before, update)) || AdminState.bbCerts[uid])) return 'same';
+    return bbSyncCert(uid);
+  }).then(function(res){
+    if(res === 'nokey') alert(BB_NOKEY_MSG);
+    else alert('İzinler kaydedildi.' + (res === 'issued' ? '\nBadge Bank tahta sertifikası da güncellendi.' : ''));
+  }).catch(function(e){ alert('Hata: '+(e.message||e)); });
 }
 
 function adminSendPasswordReset(email){
@@ -522,6 +622,260 @@ function adminInspectClass(code){
       alert('Sınıf: '+code+'\nHafta: '+week+'\nÖğrenci sayısı: '+names.length+(names.length?('\n\n'+names.join(', ')):''));
     });
   }).catch(function(e){ alert('Veri alınamadı: '+(e.message||e)); });
+}
+
+// ================= EXCEL İLE TOPLU ÖĞRETMEN EKLEME =================
+const BULK_COLUMNS = ['E-posta', 'Ad Soyad', 'Kurum Adı', 'Şifre',
+  'The Agents Sınıf Sayısı', 'ClassClans Sınıf Sayısı', "Who's Next? Sınıf Sayısı", 'Badge Bank Sınıf Sayısı'];
+const BULK_APPS = [['maxClasses','The Agents'], ['ccMaxClasses','ClassClans'], ['wnMaxClasses',"Who's Next?"], ['bbMaxClasses','Badge Bank']];
+
+function bulkNorm(s){
+  return String(s == null ? '' : s).toLocaleLowerCase('tr')
+    .replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c')
+    .replace(/[^a-z0-9]/g,'');
+}
+// Başlık adından hangi bilgi olduğunu anlar (küçük yazım farklarını tolere eder)
+function bulkHeaderKey(h){
+  const n = bulkNorm(h);
+  if(!n) return null;
+  if(n.includes('agents')) return 'maxClasses';
+  if(n.includes('clans')) return 'ccMaxClasses';
+  if(n.includes('next')) return 'wnMaxClasses';
+  if(n.includes('badge')) return 'bbMaxClasses';
+  if(n.includes('posta') || n.includes('mail')) return 'email';
+  if(n.includes('sifre') || n.includes('parola') || n.includes('password')) return 'password';
+  if(n.includes('kurum') || n.includes('okul')) return 'school';
+  if(n.includes('sinif') || n.includes('limit')) return 'allLimit'; // tek "sınıf sayısı" sütunu: 4 uygulamaya birden
+  if(n.includes('ad') || n.includes('isim')) return 'name';
+  return null;
+}
+function bulkParseLimit(v){
+  const s = String(v == null ? '' : v).trim();
+  if(s === '') return { given:false };
+  const n = bulkNorm(s);
+  if(n === 'sinirsiz' || n === 's') return { given:true, v:null };
+  const num = Number(s);
+  if(Number.isInteger(num) && num >= 0) return { given:true, v:num };
+  return { given:true, err:'"'+s+'" geçerli bir sınıf sayısı değil' };
+}
+
+function adminDownloadBulkTemplate(){
+  if(!window.XLSX){ alert('Excel aracı yüklenemedi, sayfayı yenileyin.'); return; }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([BULK_COLUMNS]);
+  ws['!cols'] = BULK_COLUMNS.map(function(h){ return { wch: Math.max(20, h.length + 4) }; });
+  XLSX.utils.book_append_sheet(wb, ws, 'Öğretmenler');
+  const help = [
+    ['NASIL DOLDURULUR?'],
+    ['Öğretmenleri "Öğretmenler" sayfasına, başlıkların altına her satıra bir öğretmen gelecek şekilde yazın. Başlık satırını silmeyin.'],
+    [],
+    ['Sütun', 'Zorunlu mu?', 'Açıklama'],
+    ['E-posta', 'Evet', 'Öğretmenin giriş e-postası. Hoş geldiniz e-postası bu adrese gider.'],
+    ['Ad Soyad', 'Yeni hesapta evet', 'Öğretmenin adı soyadı.'],
+    ['Kurum Adı', 'Hayır (önerilir)', 'Okul / kurum adı. Admin panelinde öğretmenler bu ada göre gruplanır. Aynı kurumu her satırda aynı şekilde yazın.'],
+    ['Şifre', 'Yeni hesapta evet', 'En az 6 karakter. Öğretmene e-postayla gönderilir. Sistemde zaten kayıtlı e-postalarda şifre DEĞİŞMEZ.'],
+    ['The Agents Sınıf Sayısı', 'Hayır', 'İzin verilen sınıf sayısı. 0 = kapalı. "sınırsız" yazılabilir. Boş = yeni hesapta 0, mevcut hesapta değişmez.'],
+    ['ClassClans Sınıf Sayısı', 'Hayır', 'Aynı kural.'],
+    ["Who's Next? Sınıf Sayısı", 'Hayır', 'Aynı kural.'],
+    ['Badge Bank Sınıf Sayısı', 'Hayır', 'Aynı kural, ancak Badge Bank için "sınırsız" yazılamaz; bir sayı yazın.'],
+    [],
+    ['ÖRNEK (bu sayfadaki satırlar sisteme yüklenmez)'],
+    BULK_COLUMNS,
+    ['ayse.yilmaz@ornekokul.k12.tr', 'Ayşe Yılmaz', 'Atatürk Ortaokulu', 'Gizli123', 1, 1, 1, 1],
+    ['mehmet.kaya@ornekokul.k12.tr', 'Mehmet Kaya', 'Atatürk Ortaokulu', 'Parola456', 2, 0, 'sınırsız', 0],
+  ];
+  const wsHelp = XLSX.utils.aoa_to_sheet(help);
+  wsHelp['!cols'] = [{ wch:30 }, { wch:22 }, { wch:90 }, { wch:14 }, { wch:22 }, { wch:22 }, { wch:22 }, { wch:22 }];
+  XLSX.utils.book_append_sheet(wb, wsHelp, 'Nasıl Doldurulur');
+  XLSX.writeFile(wb, 'ogretmen-hesaplari-sablonu.xlsx');
+}
+
+function adminBulkFile(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(!window.XLSX){ alert('Excel aracı yüklenemedi, sayfayı yenileyin.'); return; }
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type:'array' });
+      const sheetName = wb.SheetNames.find(function(n){ return bulkNorm(n).includes('ogretmen'); }) || wb.SheetNames[0];
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:'', raw:true });
+      // Başlık satırı: "E-posta" sütunu olan ilk satır
+      let headIdx = -1, colKeys = [];
+      for(let i = 0; i < Math.min(aoa.length, 15); i++){
+        const keys = aoa[i].map(bulkHeaderKey);
+        if(keys.includes('email')){ headIdx = i; colKeys = keys; break; }
+      }
+      if(headIdx < 0){ alert('Dosyada "E-posta" başlığı bulunamadı. Lütfen sayfadaki boş şablonu indirip onu doldurun.'); return; }
+      const byEmail = {};
+      Object.entries(AdminState.teachers || {}).forEach(function([uid, t]){ if(t && t.email) byEmail[String(t.email).toLowerCase()] = uid; });
+      const seen = {};
+      const rows = [];
+      for(let i = headIdx + 1; i < aoa.length; i++){
+        const cells = aoa[i];
+        if(!cells || cells.every(function(c){ return String(c).trim() === ''; })) continue;
+        const raw = {};
+        colKeys.forEach(function(k, ci){ if(k && raw[k] === undefined) raw[k] = cells[ci]; });
+        const email = String(raw.email == null ? '' : raw.email).trim().toLowerCase();
+        const row = { line: i + 1, email, name: String(raw.name == null ? '' : raw.name).trim(),
+          school: String(raw.school == null ? '' : raw.school).trim(), password: String(raw.password == null ? '' : raw.password).trim(),
+          limits: {}, errors: [] };
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) row.errors.push('E-posta geçersiz');
+        else if(seen[email]) row.errors.push('Bu e-posta dosyada birden fazla satırda var');
+        seen[email] = true;
+        const all = bulkParseLimit(raw.allLimit);
+        if(all.err) row.errors.push('Sınıf sayısı: '+all.err);
+        BULK_APPS.forEach(function([k, label]){
+          let p = bulkParseLimit(raw[k]);
+          if(!p.given && all.given && !all.err) p = all;
+          if(p.err) row.errors.push(label+': '+p.err);
+          else if(p.given) row.limits[k] = p.v;
+        });
+        if(row.limits.bbMaxClasses === null) row.errors.push('Badge Bank için "sınırsız" yazılamaz, sayı yazın');
+        row.existingUid = byEmail[email] || null;
+        if(!row.existingUid){
+          if(!row.name) row.errors.push('Ad Soyad boş');
+          if(row.password.length < 6) row.errors.push('Yeni hesap için en az 6 karakterli şifre gerekli');
+        }
+        row.status = row.errors.length ? 'error' : (row.existingUid ? 'update' : 'new');
+        rows.push(row);
+      }
+      if(!rows.length){ alert('Dosyada başlıkların altında dolu satır bulunamadı.'); return; }
+      AdminState.bulk = { fileName: file.name, rows, running:false, done:false, sendMail:true };
+      render();
+    }catch(e){
+      console.error(e);
+      alert('Excel dosyası okunamadı: '+(e.message||e));
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function adminBulkClear(){ if(AdminState.bulk && AdminState.bulk.running) return; AdminState.bulk = null; render(); }
+
+async function adminBulkRun(){
+  const bulk = AdminState.bulk;
+  if(!bulk || bulk.running || !db) return;
+  const todo = bulk.rows.filter(function(r){ return (r.status === 'new' || r.status === 'update') && r.state !== 'ok'; });
+  if(!todo.length){ alert('İşlenecek geçerli satır yok.'); return; }
+  const nNew = todo.filter(function(r){ return r.status === 'new'; }).length;
+  const nUpd = todo.length - nNew;
+  const errCount = bulk.rows.filter(function(r){ return r.status === 'error'; }).length;
+  if(!confirm(nNew+' yeni hesap oluşturulacak'+(bulk.sendMail && nNew ? ' ve e-postaları gönderilecek' : '')+', '+nUpd+' mevcut hesap güncellenecek.'
+    + (errCount ? '\n'+errCount+' hatalı satır atlanacak.' : '') + '\n\nDevam edilsin mi?')) return;
+  bulk.running = true;
+  render();
+  let lastMailAt = 0;
+  const sleep = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
+  for(const row of todo){
+    row.state = 'run'; row.result = 'İşleniyor…'; render();
+    try{
+      let uid = row.existingUid;
+      if(uid){
+        const upd = Object.assign({}, row.limits);
+        if(row.name) upd.displayName = row.name;
+        if(row.school) upd.school = row.school;
+        await db.ref('admin/teachers/'+uid).update(upd);
+        row.result = 'Güncellendi (şifresi değişmedi, e-posta gönderilmedi)';
+      } else {
+        const secAuth = getSecondaryAuth();
+        const cred = await secAuth.createUserWithEmailAndPassword(row.email, row.password);
+        uid = cred.user.uid;
+        await secAuth.signOut();
+        const rec = { email: row.email, displayName: row.name || row.email, school: row.school, suspended:false, createdAt: Date.now(),
+          classCodes:{}, maxClasses:0, ccMaxClasses:0, wnMaxClasses:0, bbMaxClasses:0 };
+        BULK_APPS.forEach(function([k]){
+          if(!(k in row.limits)) return;
+          if(row.limits[k] === null) delete rec[k]; else rec[k] = row.limits[k]; // alan yok = sınırsız
+        });
+        await db.ref('admin/teachers/'+uid).set(rec);
+        row.existingUid = uid;
+        row.result = 'Hesap oluşturuldu';
+        if(bulk.sendMail){
+          // EmailJS saniyede 1 gönderime izin veriyor
+          const wait = 1200 - (Date.now() - lastMailAt);
+          if(wait > 0) await sleep(wait);
+          try{
+            await sendWelcomeEmail(row.email, row.name, row.password, window.location.origin + '/',
+              '<br><img src="'+window.location.origin+'/assets/site_logo.png" width="180" alt="TheGamifyClass.com">');
+            row.result += ' · e-posta gönderildi';
+          }catch(mailErr){
+            row.result += ' · E-POSTA GÖNDERİLEMEDİ ('+((mailErr && (mailErr.text||mailErr.message)) || 'bilinmeyen hata')+')';
+            row.mailFailed = true;
+          }
+          lastMailAt = Date.now();
+        }
+      }
+      if('bbMaxClasses' in row.limits){
+        const r = await bbSyncCert(uid);
+        if(r === 'issued') row.result += ' · Badge Bank sertifikası hazır';
+        else if(r === 'nokey') row.result += ' · Badge Bank sertifikası bekliyor (ana anahtar yok)';
+      }
+      row.state = 'ok';
+    }catch(e){
+      row.state = 'fail';
+      const code = e && e.code;
+      row.result = code === 'auth/email-already-in-use' ? 'Bu e-postayla giriş hesabı var ama öğretmen kaydı yok (Firebase → Authentication\'dan silip tekrar deneyin)'
+        : code === 'auth/too-many-requests' ? 'Çok hızlı hesap açıldı; birkaç dakika bekleyip "Kalanları Tekrar Dene"ye basın'
+        : code === 'auth/invalid-email' ? 'E-posta geçersiz'
+        : code === 'auth/weak-password' ? 'Şifre çok zayıf (en az 6 karakter)'
+        : 'Hata: '+((e && e.message) || e);
+    }
+    render();
+  }
+  bulk.running = false; bulk.done = true;
+  render();
+  const ok = bulk.rows.filter(function(r){ return r.state === 'ok'; }).length;
+  const fail = bulk.rows.filter(function(r){ return r.state === 'fail'; }).length;
+  const mailFail = bulk.rows.filter(function(r){ return r.mailFailed; }).length;
+  alert('Toplu işlem bitti.\n\nBaşarılı: '+ok+(fail ? '\nHata: '+fail : '')+(mailFail ? '\nE-postası gönderilemeyen: '+mailFail+' (bilgileri bu öğretmenlere kendiniz iletin)' : ''));
+}
+
+function adminBulkSectionHtml(){
+  const b = AdminState.bulk;
+  let body = '';
+  if(b){
+    const cnt = { new:0, update:0, error:0 };
+    b.rows.forEach(function(r){ cnt[r.status]++; });
+    const limCell = function(r, k){
+      if(!(k in r.limits)) return r.status === 'new' ? '0' : '–';
+      return r.limits[k] === null ? '∞' : String(r.limits[k]);
+    };
+    const statusCell = function(r){
+      if(r.state === 'ok') return `<span style="color:var(--cyber)">✓ ${adminEsc(r.result)}</span>`;
+      if(r.state === 'fail') return `<span style="color:var(--danger)">✗ ${adminEsc(r.result)}</span>`;
+      if(r.state === 'run') return `<span style="color:var(--gold-soft)">⏳ ${adminEsc(r.result)}</span>`;
+      if(r.status === 'error') return `<span style="color:var(--danger)">Atlanacak: ${adminEsc(r.errors.join('; '))}</span>`;
+      return r.status === 'new' ? '<span style="color:var(--cyber)">Yeni hesap</span>' : '<span style="color:var(--gold-soft)">Mevcut hesap · güncellenecek</span>';
+    };
+    const remaining = b.rows.filter(function(r){ return (r.status === 'new' || r.status === 'update') && r.state !== 'ok'; }).length;
+    body = `
+    <div class="mt-4 text-xs mono text-[var(--ink-dim)]">DOSYA: ${adminEsc(b.fileName)} · ${b.rows.length} satır · <span style="color:var(--cyber)">${cnt.new} yeni</span> · <span style="color:var(--gold-soft)">${cnt.update} mevcut</span>${cnt.error ? ` · <span style="color:var(--danger)">${cnt.error} hatalı</span>` : ''}</div>
+    <div class="mt-2 overflow-x-auto" style="max-height:420px;overflow-y:auto">
+      <table class="w-full text-xs">
+        <thead><tr class="text-left text-[var(--ink-dim)]"><th class="p-1">Satır</th><th class="p-1">E-posta</th><th class="p-1">Ad Soyad</th><th class="p-1">Kurum</th><th class="p-1" title="The Agents / ClassClans / Who's Next? / Badge Bank">TA/CC/WN/BB</th><th class="p-1">Durum</th></tr></thead>
+        <tbody>${b.rows.map(function(r){ return `<tr class="border-t border-white/10 align-top">
+          <td class="p-1 mono">${r.line}</td><td class="p-1 mono">${adminEsc(r.email)}</td><td class="p-1">${adminEsc(r.name)}</td><td class="p-1">${adminEsc(r.school)}</td>
+          <td class="p-1 mono">${BULK_APPS.map(function([k]){ return limCell(r, k); }).join(' / ')}</td><td class="p-1">${statusCell(r)}</td></tr>`; }).join('')}</tbody>
+      </table>
+    </div>
+    <div class="flex flex-wrap gap-2 items-center mt-3">
+      ${b.running ? '<span class="text-xs mono" style="color:var(--gold-soft)">⏳ İşleniyor, lütfen sayfayı kapatmayın…</span>' : `
+        ${remaining ? `<button class="btn btn-gold px-4 py-2 text-sm" onclick="adminBulkRun()">${b.done ? '🔁 Kalanları Tekrar Dene' : '✅ Hesapları Oluştur / Güncelle'}</button>` : ''}
+        <label class="text-xs flex items-center gap-2"><input type="checkbox" ${b.sendMail ? 'checked' : ''} onchange="AdminState.bulk.sendMail=this.checked"> Yeni hesaplara hoş geldiniz e-postası (şifreyle) gönder</label>
+        <button class="btn btn-ghost px-3 py-2 text-xs" onclick="adminBulkClear()">${b.done ? 'Kapat' : 'Vazgeç'}</button>`}
+    </div>`;
+  }
+  return `
+    <div class="card p-5">
+      <div class="font-medium mb-1">📥 Excel ile Toplu Öğretmen Ekle</div>
+      <div class="text-xs text-[var(--ink-dim)] mb-3">1) Boş şablonu indirin → 2) Her satıra bir öğretmen yazın (e-posta, ad soyad, kurum, şifre, her uygulama için sınıf sayısı) → 3) Dosyayı seçin, önizlemeyi kontrol edip onaylayın. Yeni hesaplara şifreleriyle hoş geldiniz e-postası gider. Sistemde zaten kayıtlı e-postaların şifresi değişmez; yalnızca dolu yazılan bilgiler güncellenir.</div>
+      <div class="flex flex-wrap gap-2 items-center">
+        <button class="btn btn-ghost px-3 py-2 text-xs" onclick="adminDownloadBulkTemplate()">⬇ Boş Excel Şablonunu İndir</button>
+        ${b && b.running ? '' : `<label class="btn btn-gold px-3 py-2 text-xs" style="cursor:pointer">📂 Doldurduğum Excel'i Seç<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="adminBulkFile(this)"></label>`}
+      </div>
+      ${body}
+    </div>`;
 }
 
 function viewAdminGiris(){
@@ -555,21 +909,56 @@ function viewAdminPanel(){
   attachAdminListeners();
   const teachers = AdminState.teachers || {};
   const presence = AdminState.presence || {};
-  const teacherEntries = Object.entries(teachers).filter(function([uid, t]){ return uid !== ADMIN_UID && t && t.email; });
+  const certs = AdminState.bbCerts || {};
+  const schoolKey = function(t){ return String((t && t.school) || '').trim().toLocaleLowerCase('tr'); };
+  // Kurum adına göre sıralı (aynı kurum alt alta), kurumu boş olanlar en sonda; kurum içinde ada göre
+  const teacherEntries = Object.entries(teachers).filter(function([uid, t]){ return uid !== ADMIN_UID && t && t.email; })
+    .sort(function(a, b){
+      const sa = schoolKey(a[1]), sb = schoolKey(b[1]);
+      if(!sa !== !sb) return sa ? -1 : 1;
+      const c = sa.localeCompare(sb, 'tr');
+      if(c) return c;
+      return String(a[1].displayName || a[1].email).localeCompare(String(b[1].displayName || b[1].email), 'tr');
+    });
+  const schoolCounts = {};
+  teacherEntries.forEach(function([, t]){ const k = schoolKey(t); schoolCounts[k] = (schoolCounts[k] || 0) + 1; });
+  let lastSchool = null;
 
   const rows = teacherEntries.map(function([uid, t]){
     const isOnline = !!(presence[uid] && presence[uid].online);
     const classCodes = Object.keys(t.classCodes||{});
     const expanded = AdminState.expandedTeacher === uid;
     const editing = AdminState.editingTeacher === uid;
-    return `
+    const permsOpen = AdminState.permsTeacher === uid;
+    const sk = schoolKey(t);
+    let groupHeader = '';
+    if(sk !== lastSchool){
+      lastSchool = sk;
+      const title = sk ? String(t.school).trim().toLocaleUpperCase('tr') : 'KURUM BELİRTİLMEMİŞ';
+      groupHeader = `<div class="pt-4 pb-1 flex items-center gap-2 text-xs mono tracking-wider" style="color:var(--gold-soft);border-bottom:1px solid rgba(196,166,255,0.25)">🏫 ${adminEsc(title)} <span class="text-[var(--ink-dim)]">· ${schoolCounts[sk]} öğretmen</span></div>`;
+    }
+    const bbLimit = Number(t.bbMaxClasses || 0);
+    const bbCert = certs[uid];
+    const bbStatus = (t.suspended || t.bbSuspended) ? '<span style="color:var(--danger)">Askıda</span>'
+      : bbLimit <= 0 ? '<span class="text-[var(--ink-dim)]">Kapalı</span>'
+      : !bbCert ? '<span style="color:var(--gold-soft)">Sertifika yok — tahtayı açamaz</span>'
+      : bbCert.limit !== bbLimit ? '<span style="color:var(--gold-soft)">Sertifika eski</span>'
+      : '<span style="color:var(--cyber)">Etkin, sertifika hazır</span>';
+    const permInput = function(id, label, value, hint, allowUnlimited){
+      return `<div>
+        <div class="text-xs mono text-[var(--ink-dim)] mb-1">${label}</div>
+        <input id="${id}" type="number" min="0" step="1" value="${(typeof value === 'number') ? value : (allowUnlimited ? '' : 0)}" placeholder="${allowUnlimited ? 'Sınırsız' : '0'}" class="w-full px-3 py-2 text-sm">
+        <div class="text-[11px] text-[var(--ink-dim)] mt-1">${hint}</div>
+      </div>`;
+    };
+    return `${groupHeader}
     <div class="card p-4">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
           <span class="inline-block w-2 h-2 rounded-full" style="background:${isOnline?'var(--cyber)':'rgba(255,255,255,0.25)'}"></span>
           <div>
             <div class="font-medium">${t.displayName || t.email}</div>
-            <div class="text-xs mono text-[var(--ink-dim)]">${t.email} ${isOnline?' · <span style="color:var(--cyber)">ÇEVRİMİÇİ</span>':''}</div>
+            <div class="text-xs mono text-[var(--ink-dim)]">${t.email}${t.school ? ' · '+adminEsc(t.school) : ''} ${isOnline?' · <span style="color:var(--cyber)">ÇEVRİMİÇİ</span>':''}</div>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
@@ -582,9 +971,10 @@ function viewAdminPanel(){
       ${editing ? `
       <div class="mt-3 pt-3 border-t border-white/10 space-y-3">
         <div>
-          <div class="text-xs mono text-[var(--ink-dim)] mb-1">AD SOYAD</div>
-          <div class="flex gap-2">
-            <input id="editNameInput_${uid}" type="text" value="${(t.displayName||'').replace(/"/g,'&quot;')}" class="flex-1 px-3 py-2 text-sm">
+          <div class="text-xs mono text-[var(--ink-dim)] mb-1">AD SOYAD · KURUM ADI</div>
+          <div class="flex flex-wrap gap-2">
+            <input id="editNameInput_${uid}" type="text" value="${adminEsc(t.displayName||'')}" placeholder="Ad Soyad" class="flex-1 px-3 py-2 text-sm" style="min-width:160px">
+            <input id="editSchoolInput_${uid}" type="text" value="${adminEsc(t.school||'')}" placeholder="Kurum adı" class="flex-1 px-3 py-2 text-sm" style="min-width:160px">
             <button class="btn btn-cyber px-3 py-2 text-xs" onclick="adminSaveTeacherName('${uid}')">Kaydet</button>
           </div>
         </div>
@@ -593,19 +983,30 @@ function viewAdminPanel(){
           <div class="text-xs text-[var(--ink-dim)] mb-2">Güvenlik gereği admin panelinden doğrudan yeni bir şifre yazılamıyor — Firebase, başka bir kullanıcının şifresini elle değiştirmeye izin vermiyor. Bunun yerine öğretmenin e-postasına bir şifre sıfırlama bağlantısı gönderebilirsiniz; öğretmen o bağlantıyla kendi yeni şifresini belirler.</div>
           <button class="btn btn-gold px-3 py-2 text-xs" onclick="adminSendPasswordReset('${(t.email||'').replace(/'/g,"")}')">Şifre Sıfırlama Bağlantısı Gönder</button>
         </div>
-        <div>
-          <div class="text-xs mono text-[var(--ink-dim)] mb-1">İZİN VERİLECEK SINIF SAYISI</div>
-          <div class="flex gap-2">
-            <input id="editMaxClassesInput_${uid}" type="number" min="0" step="1" value="${(t.maxClasses!==undefined && t.maxClasses!==null) ? t.maxClasses : ''}" placeholder="Sınırsız" class="flex-1 px-3 py-2 text-sm">
-            <button class="btn btn-cyber px-3 py-2 text-xs" onclick="adminSaveTeacherMaxClasses('${uid}')">Kaydet</button>
-          </div>
-          <div class="text-xs text-[var(--ink-dim)] mt-1">Boş bırakıp kaydederseniz sınırsız olur. 0 girerseniz bu öğretmen The Agents'ı kullanamaz.</div>
-        </div>
-        <div>
-          <div class="text-xs mono text-[var(--ink-dim)] mb-1">CLASSCLANS ERİŞİMİ</div>
-          <div class="text-xs text-[var(--ink-dim)]">İzin verilen sınıf sayısı: <b>${(typeof t.ccMaxClasses !== 'number') ? 'Sınırsız' : (t.ccMaxClasses===0 ? 'Yok (0)' : t.ccMaxClasses)}</b> — bu değeri ClassClans'ın kendi Yönetici Paneli'nden değiştirebilirsiniz.</div>
-        </div>
+        <div class="text-xs text-[var(--ink-dim)]">Sınıf izinleri aşağıdaki <b>🎮 Uygulama İzinleri</b> bölümünden değiştirilir.</div>
       </div>` : ''}
+      <div class="mt-2">
+        <button class="btn btn-ghost px-2 py-1 text-xs" onclick="AdminState.permsTeacher = AdminState.permsTeacher==='${uid}' ? null : '${uid}'; render();">
+          🎮 Uygulama İzinleri — TA: ${adminLimitText(t.maxClasses)} · CC: ${adminLimitText(t.ccMaxClasses)} · WN: ${adminLimitText(t.wnMaxClasses)} · BB: ${bbLimit === 0 ? 'Yok (0)' : bbLimit}${t.bbSuspended ? ' (askıda)' : ''} ${permsOpen?'▲':'▼'}
+        </button>
+        ${permsOpen ? `
+        <div class="mt-2 p-3 rounded" style="background:rgba(255,255,255,0.04)">
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            ${permInput('permTA_'+uid, '🕵️ THE AGENTS', t.maxClasses, 'Açtığı sınıf: '+classCodes.length+' · Boş = sınırsız, 0 = kapalı', true)}
+            ${permInput('permCC_'+uid, '🏹 CLASSCLANS', t.ccMaxClasses, 'Boş = sınırsız, 0 = kapalı', true)}
+            ${permInput('permWN_'+uid, "🎯 WHO'S NEXT?", t.wnMaxClasses, 'Boş = sınırsız, 0 = kapalı', true)}
+            <div>
+              ${permInput('permBB_'+uid, '🏅 BADGE BANK', bbLimit, '0 = kapalı (sınırsız seçeneği yok)', false)}
+              <label class="text-xs flex items-center gap-2 mt-1"><input id="permBBSusp_${uid}" type="checkbox" ${t.bbSuspended ? 'checked' : ''}> Yalnızca Badge Bank'te askıya al</label>
+              <div class="text-[11px] mt-1">Tahta: ${bbStatus}</div>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 mt-3">
+            <button class="btn btn-cyber px-3 py-2 text-xs" onclick="adminSavePerms('${uid}')">İzinleri Kaydet</button>
+            <span class="text-[11px] text-[var(--ink-dim)]">${bbHasMasterKey() ? 'Badge Bank izni değişince tahta sertifikası otomatik yenilenir.' : 'Badge Bank sertifikasının buradan otomatik yenilenmesi için BadgeBank.html#admin sayfasında ana anahtarı "Bu tarayıcıda hatırla" ile yükleyin.'}</span>
+          </div>
+        </div>` : ''}
+      </div>
       <div class="mt-2">
         <button class="btn btn-ghost px-2 py-1 text-xs" onclick="AdminState.expandedTeacher = AdminState.expandedTeacher==='${uid}' ? null : '${uid}'; render();">
           ${classCodes.length}${(typeof t.maxClasses === 'number') ? ' / '+t.maxClasses : ''} sınıf ${expanded?'▲':'▼'}
@@ -633,15 +1034,18 @@ function viewAdminPanel(){
 
     <div class="card p-5">
       <div class="font-medium mb-3">Yeni Öğretmen Ekle</div>
-      <div class="grid sm:grid-cols-4 gap-2">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
         <input id="newTeacherEmail" type="email" placeholder="E-posta" class="px-3 py-2 text-sm">
         <input id="newTeacherName" type="text" placeholder="Ad Soyad (opsiyonel)" class="px-3 py-2 text-sm">
+        <input id="newTeacherSchool" type="text" placeholder="Kurum adı" class="px-3 py-2 text-sm">
         <input id="newTeacherPw" type="text" placeholder="Şifre (yeni hesap: en az 6 karakter; ClassClans'ta zaten hesabı olana izin eklemek için boş bırakın)" class="px-3 py-2 text-sm">
         <input id="newTeacherMaxClasses" type="number" min="0" step="1" placeholder="İzin Verilecek Sınıf Sayısı (0=erişim yok, boş=sınırsız)" class="px-3 py-2 text-sm">
       </div>
       <div id="adminCreateError" class="text-xs mt-2" style="color:var(--danger)"></div>
       <button class="btn btn-gold px-4 py-2 mt-2" onclick="adminCreateTeacherSubmit()">Öğretmen Hesabı Oluştur / İzni Güncelle</button>
     </div>
+
+    ${adminBulkSectionHtml()}
 
     <div class="space-y-3">
       <div class="font-medium">Öğretmenler (${teacherEntries.length})</div>
@@ -2518,6 +2922,16 @@ function render(){
     const tableScrollLeft = tableWrap ? tableWrap.scrollLeft : 0;
 
     const route = currentRoute();
+    // Admin panelinde canlı güncellemeler (çevrimiçi durumu vb.) sayfayı yeniden çizince yazılanlar kaybolmasın
+    const keptInputs = {};
+    let keptFocus = null;
+    if(route==='admin'){
+      document.querySelectorAll('#app input[id]').forEach(function(el){
+        if(el.type === 'file') return;
+        keptInputs[el.id] = (el.type === 'checkbox') ? el.checked : el.value;
+      });
+      if(document.activeElement && document.activeElement.id) keptFocus = document.activeElement.id;
+    }
     let html = '';
     if(route==='ogretmen') html = isTeacherAuthed() ? viewOgretmen() : viewOgretmenGiris();
     else if(route==='admin') html = (isTeacherAuthed() && isCurrentUserAdmin()) ? viewAdminPanel() : viewAdminGiris();
@@ -2528,6 +2942,13 @@ function render(){
     else html = viewGiris();
 
     document.getElementById('app').innerHTML = html;
+
+    Object.keys(keptInputs).forEach(function(id){
+      const el = document.getElementById(id);
+      if(!el) return;
+      if(el.type === 'checkbox') el.checked = keptInputs[id]; else el.value = keptInputs[id];
+    });
+    if(keptFocus){ const f = document.getElementById(keptFocus); if(f) try{ f.focus({ preventScroll:true }); }catch(e){} }
 
     window.scrollTo(scrollX, scrollY);
     const newWrap = document.getElementById('teacherTableWrap');

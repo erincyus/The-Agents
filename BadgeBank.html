@@ -117,6 +117,8 @@
   .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
   .toolbar input{ flex:1; min-width:200px; }
   .t-list{ display:flex; flex-direction:column; gap:10px; }
+  .t-group{ margin-top:10px; padding:4px 2px; border-bottom:1px solid rgba(79,143,247,.35); font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:.85rem; letter-spacing:.04em; color:var(--bb-gold); }
+  .t-group span{ color:var(--bb-muted); font-weight:500; }
   .t-item{ border:1px solid var(--stroke); border-radius:16px; padding:14px; background:rgba(0,0,0,.2); }
   .t-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .t-name{ font-weight:700; font-size:1.02rem; }
@@ -208,6 +210,7 @@ async function signText(privateKey, text) {
 const importPrivate = (jwk) => crypto.subtle.importKey('jwk', { kty:'EC', crv:'P-256', x:jwk.x, y:jwk.y, d:jwk.d, ext:true }, ECDSA, false, ['sign']);
 
 const teacherRef = (uid) => db.ref('admin/teachers/' + uid);
+const schoolKey = (rec) => String((rec && rec.school) || '').trim().toLocaleLowerCase('tr');
 const isBBActive = (rec) => !!rec && !rec.suspended && !rec.bbSuspended && Number(rec.bbMaxClasses) > 0;
 
 function logoBlock(small) {
@@ -309,6 +312,11 @@ const PortalView = {
           <li>Tahta internete bağlı değilse telefonunuz tahtayla <b>aynı Wi-Fi</b> ağında olmalıdır. İlk açılışta Windows güvenlik duvarı sorarsa <b>İzin ver</b> deyin.</li>
           <li>Uygulama kapatıldığında oturum silinir; bir sonraki açılışta QR ile yeniden doğrulama gerekir.</li>
         </ol>
+      </div>` : ''}
+      ${user.uid === ADMIN_UID ? `<div class="card center">
+        <h2>🔐 Yönetici hesabıyla giriş yaptınız</h2>
+        <p class="muted small">Öğretmen hesaplarını ve Badge Bank izinlerini yönetici panelinden yönetebilirsiniz. Kendinize de Badge Bank hakkı oradaki "Kendi hesabım" kartından verilir.</p>
+        <a class="btn primary big wide" href="#admin">Yönetici Paneline Git</a>
       </div>` : ''}
       <div class="center" style="margin-top:14px"><button class="btn ghost" id="portal-logout">Çıkış Yap</button></div>`;
     $('#portal-logout').addEventListener('click', () => auth.signOut());
@@ -585,7 +593,7 @@ const AdminView = {
             <div class="grid2">
               <input type="email" name="email" placeholder="E-posta" required>
               <input type="text" name="name" placeholder="Ad Soyad" required>
-              <input type="text" name="school" placeholder="Okulu">
+              <input type="text" name="school" placeholder="Kurum adı">
               <input type="number" name="limit" placeholder="Sınıf limiti" min="0" value="1" required>
             </div>
             <input type="text" name="password" placeholder="Şifre (en az 6 karakter)" style="margin-top:10px">
@@ -595,6 +603,7 @@ const AdminView = {
           </form>
         </div>
       </div>
+      <div class="card" style="margin-top:16px" id="self-box"></div>
       <div class="card" style="margin-top:16px">
         <div class="toolbar">
           <h3 style="margin:0">👩‍🏫 Öğretmenler</h3>
@@ -608,16 +617,73 @@ const AdminView = {
     this.drawList();
   },
 
+  // Yönetici kendi hesabına da Badge Bank hakkı verebilsin (listede yönetici gösterilmez)
+  drawSelf() {
+    const box = $('#self-box');
+    const u = auth.currentUser;
+    if (!box || !u) return;
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return; // yazarken silinmesin
+    const r = this.teachers[ADMIN_UID] || {};
+    const limit = Number(r.bbMaxClasses || 0);
+    const cert = this.certs[ADMIN_UID];
+    const status = limit <= 0 ? '<span class="pill off">Badge Bank kapalı</span>'
+      : !cert ? '<span class="pill warn">Sertifika yok</span>'
+      : cert.limit !== limit ? '<span class="pill warn">Sertifika eski</span>'
+      : '<span class="pill on">Etkin, tahtayı açabilirsiniz</span>';
+    box.innerHTML = `<h3>👤 Kendi hesabım <span class="t-meta">(${esc(u.email)})</span> ${status}</h3>
+      <div class="t-edit">
+        <input id="self-name" value="${esc(r.displayName || '')}" placeholder="Ad Soyad">
+        <input id="self-school" value="${esc(r.school || '')}" placeholder="Kurum adı">
+        <input id="self-limit" type="number" min="0" value="${limit}" style="max-width:120px" title="Badge Bank sınıf hakkı">
+        <button class="btn primary sm" id="self-save">Kaydet</button>
+      </div>
+      <p class="t-meta">Son kutu Badge Bank sınıf hakkınızdır (0 = kapalı). Kaydedince tahta sertifikanız da hazırlanır (ana anahtar yüklü olmalı).</p>`;
+  },
+
+  async saveSelf() {
+    const u = auth.currentUser;
+    const n = parseInt($('#self-limit').value, 10);
+    if (!Number.isInteger(n) || n < 0) { alert('Sınıf hakkı 0 veya daha büyük bir tam sayı olmalı.'); return; }
+    const btn = $('#self-save');
+    btn.disabled = true;
+    try {
+      await teacherRef(ADMIN_UID).update({
+        email: String(u.email || '').toLowerCase(),
+        displayName: $('#self-name').value.trim() || u.email,
+        school: $('#self-school').value.trim(),
+        bbMaxClasses: n,
+      });
+      document.activeElement && document.activeElement.blur();
+      await this.sync(ADMIN_UID);
+      alert(n > 0 && this.masterKey ? 'Kaydedildi. Badge Bank tahta sertifikanız hazır.' : 'Kaydedildi.');
+    } catch (e) {
+      console.error(e);
+      alert('Hata: ' + (e.message || e));
+    } finally { btn.disabled = false; this.drawSelf(); }
+  },
+
   drawList() {
+    this.drawSelf();
     const box = $('#t-list');
     if (!box) return;
     const q = this.filter.toLocaleLowerCase('tr');
     const rows = Object.entries(this.teachers)
       .filter(([uid]) => uid !== ADMIN_UID)
       .filter(([, r]) => !q || [r.displayName, r.email, r.school].some((x) => String(x || '').toLocaleLowerCase('tr').includes(q)))
-      .sort((a, b) => String(a[1].displayName || a[1].email).localeCompare(String(b[1].displayName || b[1].email), 'tr'));
+      .sort((a, b) => {
+        // Kurum adına göre (aynı kurum alt alta), kurumu boş olanlar en sonda; kurum içinde ada göre
+        const sa = schoolKey(a[1]), sb = schoolKey(b[1]);
+        if (!sa !== !sb) return sa ? -1 : 1;
+        return sa.localeCompare(sb, 'tr') || String(a[1].displayName || a[1].email).localeCompare(String(b[1].displayName || b[1].email), 'tr');
+      });
     if (!rows.length) { box.innerHTML = '<p class="muted">Kayıt yok.</p>'; return; }
+    const counts = {};
+    rows.forEach(([, r]) => { const k = schoolKey(r); counts[k] = (counts[k] || 0) + 1; });
+    let lastSchool = null;
     box.innerHTML = rows.map(([uid, r]) => {
+      const sk = schoolKey(r);
+      const header = sk === lastSchool ? '' : `<div class="t-group">🏫 ${sk ? esc(String(r.school).trim().toLocaleUpperCase('tr')) : 'KURUM BELİRTİLMEMİŞ'} <span>· ${counts[sk]} öğretmen</span></div>`;
+      lastSchool = sk;
       const limit = Number(r.bbMaxClasses || 0);
       const cert = this.certs[uid];
       const susp = r.suspended || r.bbSuspended;
@@ -627,7 +693,7 @@ const AdminView = {
         cert && cert.limit !== limit ? '<span class="pill warn">Sertifika eski</span>' : '',
       ].join('');
       const ed = this.editing && this.editing.uid === uid ? this.editing.kind : null;
-      return `<div class="t-item">
+      return `${header}<div class="t-item">
         <div class="t-head">
           <div>
             <div class="t-name">${esc(r.displayName || r.email)} ${pills}</div>
@@ -637,7 +703,7 @@ const AdminView = {
         </div>
         ${ed === 'name' ? `<div class="t-edit">
             <input id="ed-name" value="${esc(r.displayName || '')}" placeholder="Ad Soyad">
-            <input id="ed-school" value="${esc(r.school || '')}" placeholder="Okulu">
+            <input id="ed-school" value="${esc(r.school || '')}" placeholder="Kurum adı">
             <button class="btn primary sm" data-act="save-name" data-uid="${uid}">Kaydet</button>
             <button class="btn ghost sm" data-act="cancel">Vazgeç</button></div>` : ''}
         ${ed === 'limit' ? `<div class="t-edit">
@@ -680,6 +746,7 @@ const AdminView = {
       alert(n ? `${n} eski oturum kaydı silindi.` : 'Silinecek eski oturum yok.');
     });
     $('#new-teacher').addEventListener('submit', (e) => { e.preventDefault(); this.createTeacher(e.target); });
+    $('#self-box').addEventListener('click', (e) => { if (e.target.id === 'self-save') this.saveSelf(); });
     $('#t-list').addEventListener('click', (e) => {
       const b = e.target.closest('[data-act]');
       if (b) this.action(b.dataset.act, b.dataset.uid, b);
@@ -699,11 +766,14 @@ const AdminView = {
     btn.disabled = true;
     try {
       const q = (await db.ref('admin/teachers').orderByChild('email').equalTo(email).once('value')).val();
-      const existingUid = q ? Object.keys(q)[0] : null;
+      // Yönetici kendi e-postasını yazdıysa: kaydında e-posta alanı olmayabilir, kendi hesabı güncellenir
+      const self = auth.currentUser;
+      const isSelf = !!(self && String(self.email || '').toLowerCase() === email);
+      const existingUid = isSelf ? self.uid : (q ? Object.keys(q)[0] : null);
       let uid;
       if (existingUid) {
         uid = existingUid;
-        const upd = { bbMaxClasses: limit };
+        const upd = { bbMaxClasses: limit, email };
         if (name) upd.displayName = name;
         if (school) upd.school = school;
         await teacherRef(uid).update(upd);

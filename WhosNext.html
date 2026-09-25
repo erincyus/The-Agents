@@ -1283,7 +1283,14 @@ async function viewAdmin(){
     teachers=(await db.ref('admin/teachers').once('value')).val()||{};
     wn=(await db.ref(`${ROOT}/teachers`).once('value')).val()||{};
   }catch(e){ toast(friendly(e),'err'); }
-  const rows=Object.keys(teachers).map(uid=>Object.assign({uid},teachers[uid])).sort((a,b)=>(a.email||'').localeCompare(b.email||''));
+  // Kurum adına göre sıralı (aynı kurum alt alta), kurumu boş olanlar en sonda
+  const sKey=t=>String(t.school||'').trim().toLocaleLowerCase('tr');
+  const rows=Object.keys(teachers).map(uid=>Object.assign({uid},teachers[uid])).sort((a,b)=>{
+    const sa=sKey(a), sb=sKey(b);
+    if(!sa!==!sb) return sa?-1:1;
+    return sa.localeCompare(sb,'tr')||String(a.displayName||a.email||'').localeCompare(String(b.displayName||b.email||''),'tr');
+  });
+  let lastSchool=null;
   app.innerHTML=`${topbar(`<span class="chip warn">Yönetici</span><button class="btn ghost sm" id="goTeach">Öğretmen paneli</button><button class="btn ghost sm" id="lo">Çıkış</button>`)}
   <div class="page">
     <h1>Yönetici paneli</h1>
@@ -1293,6 +1300,7 @@ async function viewAdmin(){
       <div class="two">
         <div><label class="f" for="nName">Ad soyad</label><input class="inp" id="nName" autocomplete="off"></div>
         <div><label class="f" for="nMail">E-posta</label><input class="inp" id="nMail" type="email" autocomplete="off"></div>
+        <div><label class="f" for="nSchool">Kurum adı</label><input class="inp" id="nSchool" autocomplete="off"></div>
         <div><label class="f" for="nPw">Şifre</label><input class="inp" id="nPw" type="text" autocomplete="off" placeholder="en az 6 karakter"></div>
         <div><label class="f" for="nLim">İzin verilecek sınıf sayısı</label><input class="inp" id="nLim" type="number" min="0" step="1" placeholder="boş = sınırsız, 0 = izin yok"></div>
       </div>
@@ -1303,17 +1311,19 @@ async function viewAdmin(){
     <div class="panel">
       <h3>Öğretmenler (${rows.length})</h3>
       <div class="tbwrap"><table class="tb">
-        <thead><tr><th>Ad soyad</th><th>E-posta</th><th>Who's Next? hakkı</th><th>Açtığı sınıf</th><th>Durum</th><th></th></tr></thead>
+        <thead><tr><th>Kurum</th><th>Ad soyad</th><th>E-posta</th><th>Who's Next? hakkı</th><th>Açtığı sınıf</th><th>Durum</th><th></th></tr></thead>
         <tbody>${rows.map(t=>{
           const lim=typeof t.wnMaxClasses==='number'?(t.wnMaxClasses===0?'Yok (0)':t.wnMaxClasses):'Sınırsız';
           const cnt=Object.keys((wn[t.uid]&&wn[t.uid].classIds)||{}).length;
-          return `<tr class="${t.suspended?'off':''}"><td>${esc(t.displayName||'')}</td><td>${esc(t.email||'')}</td><td><b>${lim}</b></td><td>${cnt}</td><td>${t.suspended?'Askıda':'Aktif'}</td>
+          const sk=sKey(t), first=sk!==lastSchool; lastSchool=sk;
+          return `<tr class="${t.suspended?'off':''}"${first?' style="border-top:2px solid rgba(92,231,255,.45)"':''}><td>${first?'<b>'+(sk?esc(String(t.school).trim()):'<span class="hint">Kurum belirtilmemiş</span>')+'</b>':''}</td><td>${esc(t.displayName||'')}</td><td>${esc(t.email||'')}</td><td><b>${lim}</b></td><td>${cnt}</td><td>${t.suspended?'Askıda':'Aktif'}</td>
             <td><div class="row" style="gap:.4rem">
               <button class="btn ghost sm" data-a="lim" data-u="${t.uid}">Sınıf hakkı</button>
               <button class="btn ghost sm" data-a="name" data-u="${t.uid}">Adı düzenle</button>
+              <button class="btn ghost sm" data-a="school" data-u="${t.uid}">Kurumu düzenle</button>
               <button class="btn ghost sm" data-a="pw" data-e="${esc(t.email||'')}">Şifre sıfırla</button>
               <button class="btn ghost sm" data-a="sus" data-u="${t.uid}" data-s="${t.suspended?1:0}">${t.suspended?'Etkinleştir':'Askıya al'}</button>
-            </div></td></tr>`;}).join('')||'<tr><td colspan="6" class="hint">Henüz öğretmen yok.</td></tr>'}</tbody>
+            </div></td></tr>`;}).join('')||'<tr><td colspan="7" class="hint">Henüz öğretmen yok.</td></tr>'}</tbody>
       </table></div>
       <p class="hint">"Askıya al" öğretmeni üç oyundan birden (The Agents, ClassClans, Who's Next?) çıkarır; verileri silinmez.</p>
     </div>
@@ -1338,6 +1348,10 @@ async function adminAction(a,b,teachers){
       const v=await askText({title:'Ad soyad',label:'Yeni ad soyad',value:(teachers[uid]&&teachers[uid].displayName)||'',validate:x=>x.trim()?'':'Ad soyad boş olamaz.'});
       if(v==null) return;
       await db.ref('admin/teachers/'+uid).update({displayName:v.trim()}); viewAdmin();
+    }else if(a==='school'){
+      const v=await askText({title:'Kurum adı',label:'Kurum adı',value:(teachers[uid]&&teachers[uid].school)||''});
+      if(v==null) return;
+      await db.ref('admin/teachers/'+uid).update({school:v.trim()}); viewAdmin();
     }else if(a==='pw'){
       await auth.sendPasswordResetEmail(b.dataset.e); toast(b.dataset.e+' adresine şifre sıfırlama bağlantısı gönderildi.','ok');
     }else if(a==='sus'){
@@ -1353,7 +1367,7 @@ function getSecondaryAuth(){
 }
 async function adminCreateTeacher(){
   const err=$('#nErr'); err.textContent='';
-  const name=$('#nName').value.trim(), email=$('#nMail').value.trim().toLowerCase(), pw=$('#nPw').value, limRaw=$('#nLim').value.trim();
+  const name=$('#nName').value.trim(), email=$('#nMail').value.trim().toLowerCase(), pw=$('#nPw').value, limRaw=$('#nLim').value.trim(), school=$('#nSchool').value.trim();
   if(!name||!email){ err.textContent='Ad soyad ve e-posta zorunlu.'; return; }
   if(!email.includes('@')||!email.includes('.')){ err.textContent='Geçerli bir e-posta yaz.'; return; }
   let lim=null;
@@ -1363,7 +1377,8 @@ async function adminCreateTeacher(){
     const q=(await db.ref('admin/teachers').orderByChild('email').equalTo(email).once('value')).val();
     const existing=q?Object.keys(q)[0]:null;
     if(existing){
-      await db.ref('admin/teachers/'+existing).update({wnMaxClasses:lim,displayName:name});
+      const upd={wnMaxClasses:lim,displayName:name}; if(school) upd.school=school;
+      await db.ref('admin/teachers/'+existing).update(upd);
       toast('Bu e-posta zaten kayıtlıydı; şifre değişmedi, Who\'s Next? sınıf hakkı güncellendi.','ok'); return viewAdmin();
     }
     if(!pw){ err.textContent='Bu e-posta için henüz hesap yok; bir şifre belirle.'; btn.disabled=false; return; }
@@ -1372,7 +1387,7 @@ async function adminCreateTeacher(){
     const cred=await sec.createUserWithEmailAndPassword(email,pw);
     await sec.signOut();
     // Yeni hesapta diğer oyunlar güvenli tarafta kapalı başlar (The Agents ve ClassClans'ın kendi panelinden açılır).
-    await db.ref('admin/teachers/'+cred.user.uid).set({email,displayName:name,suspended:false,createdAt:Date.now(),classCodes:{},maxClasses:0,ccMaxClasses:0,wnMaxClasses:lim});
+    await db.ref('admin/teachers/'+cred.user.uid).set({email,displayName:name,school,suspended:false,createdAt:Date.now(),classCodes:{},maxClasses:0,ccMaxClasses:0,wnMaxClasses:lim,bbMaxClasses:0});
     let mailNote='';
     try{
       if(!window.emailjs) throw new Error('EmailJS yüklenemedi');

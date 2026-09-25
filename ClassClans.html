@@ -386,6 +386,7 @@ footer.site-footer b{color:#4a3216;}
     <div class="form-grid">
       <div><label>Adı Soyadı</label><input id="newTeacherName" placeholder="ör: Ertuna Ancay"></div>
       <div><label>E-posta</label><input id="newTeacherEmail" type="email" placeholder="ertuna@mail.com"></div>
+      <div><label>Kurum Adı</label><input id="newTeacherSchool" placeholder="ör: Atatürk Ortaokulu"></div>
       <div><label>Şifre <span class="note">(The Agents'ta zaten hesabı olan bir öğretmene sadece ClassClans izni veriyorsanız BOŞ bırakın)</span></label><input id="newTeacherPassword" placeholder="yeni hesap için en az 6 karakter"></div>
       <div><label>İzin Verilecek Sınıf Sayısı <span class="note">(0 = bu öğretmen ClassClans'ı kullanamaz; boş = sınırsız; yeni hesapta bu sayı The Agents için de başlangıç değeri olur)</span></label><input id="newTeacherClassLimit" type="number" min="0" step="1" value="1" placeholder="ör. 1"></div>
     </div>
@@ -394,7 +395,7 @@ footer.site-footer b{color:#4a3216;}
 
     <h3 style="margin-top:22px;">Öğretmenler</h3>
     <table class="acct-table">
-      <thead><tr><th>Adı Soyadı</th><th>E-posta</th><th>Sınıf Limiti</th><th>Durum</th><th>İşlemler</th></tr></thead>
+      <thead><tr><th>Kurum</th><th>Adı Soyadı</th><th>E-posta</th><th>Sınıf Limiti</th><th>Durum</th><th>İşlemler</th></tr></thead>
       <tbody id="teacherTableBody"></tbody>
     </table>
 
@@ -1045,8 +1046,9 @@ async function loginAdmin(email, password){
   }
   return {ok:true};
 }
-async function adminCreateTeacher(email, fullName, password, classLimit){
+async function adminCreateTeacher(email, fullName, password, classLimit, school){
   email = normEmail(email);
+  school = String(school || '').trim();
   if(!email || !fullName) return {error:'Lütfen ad soyad ve e-posta alanlarını doldurun.'};
   if(!email.includes('@') || !email.includes('.')) return {error:'Lütfen geçerli bir e-posta adresi girin.'};
   // Boş bırakılırsa "sınırsız" anlamına gelir (The Agents ile aynı kural).
@@ -1068,7 +1070,9 @@ async function adminCreateTeacher(email, fullName, password, classLimit){
     // (ve varsa adını) güncelliyoruz — The Agents'taki limit ve girişi bozulmaz.
     // limitRaw null ise alan silinir (= sınırsız); RTDB'de update() içinde
     // null değer o alanı otomatik olarak kaldırır.
-    await rtdb.ref('admin/teachers/'+existingUid).update({ ccMaxClasses: limitRaw, displayName: fullName });
+    const upd = { ccMaxClasses: limitRaw, displayName: fullName };
+    if(school) upd.school = school;
+    await rtdb.ref('admin/teachers/'+existingUid).update(upd);
     return {ok:true, email, updatedExisting:true};
   }
   if(!password) return {error:'Bu e-posta için henüz hesap yok; lütfen bir şifre belirleyin.'};
@@ -1083,8 +1087,8 @@ async function adminCreateTeacher(email, fullName, password, classLimit){
     // öğretmene The Agents'ı da açmak isterseniz The Agents'ın kendi
     // panelinden e-postasını girip izin verirsiniz.
     await rtdb.ref('admin/teachers/'+uid).set({
-      email, displayName: fullName, suspended:false, createdAt:Date.now(),
-      classCodes:{}, maxClasses:0, ccMaxClasses: limitRaw, wnMaxClasses: limitRaw
+      email, displayName: fullName, school, suspended:false, createdAt:Date.now(),
+      classCodes:{}, maxClasses:0, ccMaxClasses: limitRaw, wnMaxClasses: limitRaw, bbMaxClasses:0
     });
     return {ok:true, email};
   }catch(e){
@@ -2889,24 +2893,48 @@ async function renderTeacherTable(){
       entries = Object.keys(val).map(uid=>({uid, ...val[uid]}));
     }catch(e){ console.error('Öğretmen listesi okunamadı', e); }
   }
-  entries.sort((a,b)=>(a.email||'').localeCompare(b.email||''));
+  // Kurum adına göre sırala (aynı kurum alt alta), kurumu boş olanlar en sonda
+  const schoolKey = t => String(t.school||'').trim().toLocaleLowerCase('tr');
+  entries.sort((a,b)=>{
+    const sa = schoolKey(a), sb = schoolKey(b);
+    if(!sa !== !sb) return sa ? -1 : 1;
+    return sa.localeCompare(sb,'tr') || String(a.displayName||a.email||'').localeCompare(String(b.displayName||b.email||''),'tr');
+  });
+  const escT = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const tbody = document.getElementById('teacherTableBody');
+  let lastSchool = null;
   tbody.innerHTML = entries.map(t=>{
     const cc = t.ccMaxClasses;
     const limitText = (typeof cc !== 'number') ? 'Sınırsız' : (cc === 0 ? 'Yok (0)' : cc);
-    return `<tr class="${t.suspended?'disabled-row':''}">
+    const sk = schoolKey(t);
+    const firstOfSchool = sk !== lastSchool;
+    lastSchool = sk;
+    return `<tr class="${t.suspended?'disabled-row':''}"${firstOfSchool ? ' style="border-top:2px solid rgba(217,164,65,.55)"' : ''}>
+      <td>${firstOfSchool ? '<b>'+(sk ? escT(String(t.school).trim()) : '<span class="note">Kurum belirtilmemiş</span>')+'</b>' : ''}</td>
       <td>${t.displayName||''}</td>
       <td>${t.email||''}</td>
       <td>${limitText}</td>
       <td>${t.suspended?'Askıya Alındı':'Aktif'}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="ghost-btn small-btn" data-act="editname" data-uid="${t.uid}">✏️ Adı Düzenle</button>
+        <button class="ghost-btn small-btn" data-act="editschool" data-uid="${t.uid}">🏫 Kurumu Düzenle</button>
         <button class="ghost-btn small-btn" data-act="editlimit" data-uid="${t.uid}">🔢 ClassClans Limitini Düzenle</button>
         <button class="ghost-btn small-btn" data-act="pw" data-e="${t.email}">🔑 Şifre Sıfırlama Bağlantısı Gönder</button>
         <button class="ghost-btn small-btn" data-act="toggle" data-uid="${t.uid}" data-cur="${t.suspended?'1':'0'}">${t.suspended?'✅ Etkinleştir (her iki oyun)':'🚫 Askıya Al (her iki oyun)'}</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="5" class="note">Henüz öğretmen eklenmedi.</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="note">Henüz öğretmen eklenmedi.</td></tr>';
+
+  tbody.querySelectorAll('[data-act="editschool"]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const uid = b.dataset.uid;
+      const doc = (await rtdb.ref('admin/teachers/'+uid).once('value')).val();
+      const v = prompt('Kurum adı:', (doc && doc.school) || '');
+      if(v === null) return;
+      await rtdb.ref('admin/teachers/'+uid).update({school:v.trim()});
+      renderTeacherTable();
+    });
+  });
 
   tbody.querySelectorAll('[data-act="editname"]').forEach(b=>{
     b.addEventListener('click', async ()=>{
@@ -3042,11 +3070,13 @@ document.getElementById('btnAddTeacher').addEventListener('click', async ()=>{
   const email = document.getElementById('newTeacherEmail').value.trim();
   const pw = document.getElementById('newTeacherPassword').value;
   const classLimit = document.getElementById('newTeacherClassLimit').value;
+  const school = document.getElementById('newTeacherSchool').value.trim();
   const errEl = document.getElementById('addTeacherError');
   errEl.classList.remove('show');
-  const res = await adminCreateTeacher(email, name, pw, classLimit);
+  const res = await adminCreateTeacher(email, name, pw, classLimit, school);
   if(res.error){ errEl.textContent = res.error; errEl.classList.add('show'); return; }
   document.getElementById('newTeacherName').value='';
+  document.getElementById('newTeacherSchool').value='';
   document.getElementById('newTeacherEmail').value='';
   document.getElementById('newTeacherPassword').value='';
   document.getElementById('newTeacherClassLimit').value='1';
