@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Sürüm: 2026-09-26 — menüde Sınıf Araçları ve Oynanış & Kurallar bağlantıları bulunur; beş panel: The Agents, ClassClans, Who's Next?, Badge Bank, Evomyth -->
+<!-- Sürüm: 2026-09-26 — menüde Sınıf Araçları ve Oynanış & Kurallar bağlantıları bulunur; beş panel (üstte 3, altta 2): The Agents, Evomyth, Badge Bank, ClassClans, Who's Next? -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -439,16 +439,28 @@
     line-height:1.5;
   }
 
+  /* ---------- Panel düzeni: geniş ekranda üstte 3, altta 2 panel ---------- */
+  /* Eğik kenarlar oyuna göre değil, panelin satırdaki yerine göre belirlenir (ilk / orta / son) */
+  .panels{ display:block; min-height:0; }
+  .panel-row{ display:flex; min-height:560px; }
+  .panels .panel.pos-first{ clip-path:polygon(0 0, 100% 0, calc(100% - var(--sk)) 100%, 0 100%); margin-left:0; padding-left:40px; padding-right:calc(var(--sk) + 24px); }
+  .panels .panel.pos-mid{ clip-path:polygon(var(--sk) 0, 100% 0, calc(100% - var(--sk)) 100%, 0 100%); margin-left:calc(-1 * (var(--sk) + var(--ov))); padding-left:calc(var(--sk) + 24px); padding-right:calc(var(--sk) + 24px); }
+  .panels .panel.pos-last{ clip-path:polygon(var(--sk) 0, 100% 0, 100% 100%, 0 100%); margin-left:calc(-1 * (var(--sk) + var(--ov))); padding-left:calc(var(--sk) + 24px); padding-right:40px; }
+  .panel-row + .panel-row{ border-top:1px solid rgba(255,255,255,0.06); }
+
   /* ---------- Responsive ---------- */
-  /* Beş panel yan yana sığmadığında (geniş olmayan ekranlar) alt alta dizilir */
-  @media (max-width: 1400px){
-    .panels{ --sk:36px; --ov:4px; flex-direction:column; min-height:auto; }
-    .panel, .panel--agents, .panel--clans, .panel--whos, .panel--badge, .panel--evomyth{ padding:56px 26px; margin-left:0; }
-    .panel--agents{ clip-path:polygon(0 0, 100% 0, 100% calc(100% - var(--sk)), 0 100%); }
-    .panel--clans{ clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
-    .panel--whos{ clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
-    .panel--badge{ clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
-    .panel--evomyth{ clip-path:polygon(0 var(--sk), 100% 0, 100% 100%, 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
+  /* Üç panel yan yana sığmadığında (tablet, telefon) hepsi alt alta dizilir */
+  @media (max-width: 1100px){
+    .panels{ --sk:36px; --ov:4px; }
+    .panel-row{ flex-direction:column; min-height:0; }
+    .panel-row + .panel-row{ border-top:0; }
+    .panels .panel.pos-first, .panels .panel.pos-mid, .panels .panel.pos-last{
+      padding:56px 26px; margin-left:0;
+      clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%);
+      margin-top:calc(-1 * (var(--sk) + var(--ov)));
+    }
+    .panels .panel-row:first-child .panel:first-child{ clip-path:polygon(0 0, 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:0; }
+    .panels .panel-row:last-child .panel:last-child{ clip-path:polygon(0 var(--sk), 100% 0, 100% 100%, 0 100%); }
   }
   @media (max-width: 480px){
     .site-header{ padding:14px 18px; }
@@ -487,56 +499,59 @@
   </section>
 
   <section class="panels">
-    <a class="panel panel--agents" href="The_Agents.html">
-      <div class="panel-inner">
-        <img class="panel-logo" src="assets/the_agents_logo.png" alt="The Agents oyun logosu">
-        <h2>The Agents</h2>
-        <h3>Bilim İnsanları ve Ajanlar</h3>
-        <p class="panel-desc">Aranızda gizlenmiş ajanları bulmaya çalışırken haftalık görevlerini tamamla, sana gönderilen soruları doğru cevapla. Puanları topla ki görevden uzaklaştırılma! Kimseye tam olarak güvenme; her hafta yeni bir ipucu getirir.</p>
-        <span class="panel-cta">Operasyona Katıl</span>
-      </div>
-    </a>
+    <div class="panel-row">
+      <a class="panel panel--agents pos-first" href="The_Agents.html">
+        <div class="panel-inner">
+          <img class="panel-logo" src="assets/the_agents_logo.png" alt="The Agents oyun logosu">
+          <h2>The Agents</h2>
+          <h3>Bilim İnsanları ve Ajanlar</h3>
+          <p class="panel-desc">Aranızda gizlenmiş ajanları bulmaya çalışırken haftalık görevlerini tamamla, sana gönderilen soruları doğru cevapla. Puanları topla ki görevden uzaklaştırılma! Kimseye tam olarak güvenme; her hafta yeni bir ipucu getirir.</p>
+          <span class="panel-cta">Operasyona Katıl</span>
+        </div>
+      </a>
 
-    <a class="panel panel--clans" href="ClassClans.html">
-      <div class="panel-inner">
-        <img class="panel-logo" src="assets/classclans_logo.png" alt="ClassClans oyun logosu">
-        <h2>ClassClans</h2>
-        <h3>Aztek, İnka, Maya ve Navajo mirası</h3>
-        <p class="panel-desc">Klanını seç, topraklarını genişlet, soruları çöz ve puanları topla. Kadim uygarlıkların rekabetini sınıfının içinde yeniden canlandır.</p>
-        <span class="panel-cta">Klanına Katıl</span>
-      </div>
-    </a>
+      <a class="panel panel--evomyth pos-mid" href="Evomyth.html">
+        <div class="panel-inner">
+          <img class="panel-logo" src="assets/evomyth_logo.png" alt="Evomyth oyun logosu">
+          <h2>Evomyth</h2>
+          <h3>Görevleri tamamla, Evoletlerini evrimleştir</h3>
+          <p class="panel-desc">Ödevini yap, mitolojik Evoletler kazan! EP biriktirip Evoletlerini Temel'den Mega Pantheon Guard'a evrimleştir, MythBattle Arena'da sınıf arkadaşlarınla kapış ve 6 kişilik takımla üç başlı ejderha Yelbegen'e karşı Semruk'u kurtar.</p>
+          <span class="panel-cta">Panteon'a Gir</span>
+        </div>
+      </a>
 
-    <a class="panel panel--whos" href="WhosNext.html">
-      <div class="panel-inner">
-        <img class="panel-logo" src="assets/whos_next_logo.png" alt="Who's Next? oyun logosu">
-        <h2>Who's Next?</h2>
-        <h3>Sıradaki öğrenci kim?</h3>
-        <p class="panel-desc">Kartlar arasında dönen çerçeve sıradaki öğrenciyi seçer. Sınıf kodunla akıllı tahtada oyunu aç, çerçeve dönmeye başlasın; sıra kimdeyse soru onun!</p>
-        <span class="panel-cta">Oyunu Aç</span>
-      </div>
-    </a>
+      <a class="panel panel--badge pos-last" href="BadgeBank.html">
+        <div class="panel-inner">
+          <img class="panel-logo" src="assets/badge_bank_logo.png" alt="Badge Bank logosu">
+          <h2>Badge Bank</h2>
+          <h3>Badge App for Positive Behavior</h3>
+          <p class="panel-desc">Akıllı tahtanın kenarında duran rozet bankasıyla olumlu davranışları puanla, rozet ve seviyelerle ödüllendir. Tüm sınıf yükseldikçe sınıf maskotunuz da birlikte büyüsün!</p>
+          <span class="panel-cta">Rozet Bankasına Gir</span>
+        </div>
+      </a>
+    </div>
 
-    <a class="panel panel--badge" href="BadgeBank.html">
-      <div class="panel-inner">
-        <img class="panel-logo" src="assets/badge_bank_logo.png" alt="Badge Bank logosu">
-        <h2>Badge Bank</h2>
-        <h3>Badge App for Positive Behavior</h3>
-        <p class="panel-desc">Akıllı tahtanın kenarında duran rozet bankasıyla olumlu davranışları puanla, rozet ve seviyelerle ödüllendir. Tüm sınıf yükseldikçe sınıf maskotunuz da birlikte büyüsün!</p>
-        <span class="panel-cta">Rozet Bankasına Gir</span>
-      </div>
-    </a>
+    <div class="panel-row">
+      <a class="panel panel--clans pos-first" href="ClassClans.html">
+        <div class="panel-inner">
+          <img class="panel-logo" src="assets/classclans_logo.png" alt="ClassClans oyun logosu">
+          <h2>ClassClans</h2>
+          <h3>Aztek, İnka, Maya ve Navajo mirası</h3>
+          <p class="panel-desc">Klanını seç, topraklarını genişlet, soruları çöz ve puanları topla. Kadim uygarlıkların rekabetini sınıfının içinde yeniden canlandır.</p>
+          <span class="panel-cta">Klanına Katıl</span>
+        </div>
+      </a>
 
-    <a class="panel panel--evomyth" href="Evomyth.html">
-      <div class="panel-inner">
-        <img class="panel-logo" src="assets/evomyth_logo.png" alt="Evomyth oyun logosu">
-        <h2>Evomyth</h2>
-        <h3>Görevleri tamamla, Evoletlerini evrimleştir</h3>
-        <p class="panel-desc">Ödevini yap, mitolojik Evoletler kazan! EP biriktirip Evoletlerini Temel'den Mega Pantheon Guard'a evrimleştir, MythBattle Arena'da sınıf arkadaşlarınla kapış ve 6 kişilik takımla üç başlı ejderha Yelbegen'e karşı Semruk'u kurtar.</p>
-        <span class="panel-cta">Panteon'a Gir</span>
-      </div>
-    </a>
-
+      <a class="panel panel--whos pos-last" href="WhosNext.html">
+        <div class="panel-inner">
+          <img class="panel-logo" src="assets/whos_next_logo.png" alt="Who's Next? oyun logosu">
+          <h2>Who's Next?</h2>
+          <h3>Sıradaki öğrenci kim?</h3>
+          <p class="panel-desc">Kartlar arasında dönen çerçeve sıradaki öğrenciyi seçer. Sınıf kodunla akıllı tahtada oyunu aç, çerçeve dönmeye başlasın; sıra kimdeyse soru onun!</p>
+          <span class="panel-cta">Oyunu Aç</span>
+        </div>
+      </a>
+    </div>
   </section>
 
   <footer class="site-footer">
