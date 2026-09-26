@@ -1,0 +1,3 @@
+﻿Evolet görselleri bu klasörde: <evoletId>-<evre>.webp (evre: 1 Temel, 2 Gelişmiş/mid, 3 Mega Pantheon Guard/mpg) ve yelbegen.webp.
+Arka planları temizlenmiş halleri; kaynak çizimler: Desktop\AkilliTahta\evomyth\Evoletlerin görselleri
+Yeniden üretmek için: evomyth\test\tools\evolet-cut.html (yerel önizleme sunucusunda).
