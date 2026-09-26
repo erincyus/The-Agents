@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<!--
+  Evomyth — thegamifyclass.com
+  Tek sayfa, dört bölüm (adresin sonundaki # ile seçilir):
+    Evomyth.html               → Öğrenci girişi + öğrenci portalı (Panteon, Arena, Yelbegen, Liderlik)
+    Evomyth.html#ogretmen      → Öğretmen girişi: hesap durumu, akıllı tahta kurulumu, şifre listeleri
+    Evomyth.html#tahta=<kod>   → Akıllı tahtadaki QR okutulunca açılır; öğretmen tahtanın kilidini açar
+    Evomyth.html#admin         → Gizli yönetici paneli (yalnızca yönetici hesabı)
+  Yerel test: adresin sonuna ?mock=1 eklenirse gerçek veritabanı yerine sahte (tarayıcı içi) veritabanı kullanılır.
+-->
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evomyth | TheGamifyClass.com</title>
+<meta name="description" content="Evomyth — Görevleri tamamla, Evoletlerini evrimleştir, savaşı kazan! thegamifyclass.com eğitsel oyunlaştırma.">
+<link rel="icon" href="assets/evomyth_logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="evomyth/evomyth.css">
+<script>
+  // Gerçek Firebase ya da (yalnızca ?mock=1 ile) yerel test veritabanı
+  (function () {
+    var mock = /[?&]mock=1/.test(location.search);
+    var v = '10.13.0', g = 'https://www.gstatic.com/firebasejs/' + v + '/';
+    var src = mock ? ['evomyth/mock-firebase.js'] : [g + 'firebase-app-compat.js', g + 'firebase-auth-compat.js', g + 'firebase-database-compat.js'];
+    document.write(src.map(function (s) { return '<script src="' + s + '"><\/script>'; }).join(''));
+  })();
+</script>
+<script src="evomyth/core.js"></script>
+<script src="evomyth/data.js"></script>
+<style>
+  .site-header{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:12px 22px; border-bottom:1px solid rgba(255,255,255,.07); background:rgba(3,8,16,.6); position:sticky; top:0; z-index:50; backdrop-filter:blur(10px); }
+  .brand-row{ display:flex; align-items:center; gap:10px; color:inherit; text-decoration:none; }
+  .brand-row img{ width:46px; height:46px; object-fit:contain; }
+  .wordmark{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.05rem; background:linear-gradient(90deg,#e43550,#38d9e0); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .tagline{ font-size:.75rem; color:var(--em-muted); }
+  .nav{ display:flex; gap:8px; flex-wrap:wrap; }
+  main{ flex:1; padding:26px 16px 50px; }
+  .wrap{ max-width:520px; margin:0 auto; animation:evo-fade .4s; }
+  .wrap.wide{ max-width:1180px; }
+  .hero-logo{ width:min(300px,78vw); margin:0 auto 4px; display:block; filter:drop-shadow(0 16px 34px rgba(0,0,0,.6)); }
+  .hero-logo.sm{ width:170px; }
+  .sub{ text-align:center; color:var(--em-muted); margin:0 0 20px; }
+  .card + .card{ margin-top:14px; }
+  .center{ text-align:center; }
+  .small{ font-size:.85rem; }
+  .kv{ display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px dashed var(--em-stroke); font-size:.92rem; }
+  .kv span{ color:var(--em-muted); }
+  .big-num{ font-family:'Cinzel',serif; font-weight:800; font-size:1.4rem; color:var(--em-copper); }
+  .steps{ padding-left:22px; font-size:.92rem; } .steps li{ margin:6px 0; }
+  .linkbtn{ background:none; border:0; color:var(--em-muted); text-decoration:underline; cursor:pointer; font:inherit; padding:4px; }
+  .progress{ list-style:none; padding:0; margin:12px 0 0; }
+  .progress li{ display:flex; gap:10px; padding:8px 0; color:var(--em-muted); }
+  .progress li .ic{ width:24px; height:24px; border-radius:50%; flex-shrink:0; display:grid; place-items:center; font-size:.8rem; background:rgba(255,255,255,.08); }
+  .progress li.done{ color:var(--em-text); } .progress li.done .ic{ background:var(--em-ok); color:#05301a; }
+  .progress li.run .ic{ background:var(--em-green); animation:evo-float 1s infinite; }
+  .progress li.fail{ color:#ffc2c9; } .progress li.fail .ic{ background:var(--em-danger); }
+  .huge{ font-size:64px; text-align:center; }
+  .site-footer{ padding:18px 22px 24px; font-size:.78rem; color:var(--em-muted); }
+  /* Öğrenci uygulaması */
+  .app-head{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+  .app-head .who{ flex:1; min-width:220px; }
+  .app-head h1{ margin:0; font-family:'Cinzel',serif; font-size:1.5rem; }
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 16px; border-bottom:1px solid var(--em-stroke); padding-bottom:10px; }
+  .tab{ padding:9px 16px; border-radius:999px; border:1px solid var(--em-stroke); background:rgba(255,255,255,.04); color:var(--em-text); cursor:pointer; font:600 .92rem 'Space Grotesk',sans-serif; position:relative; }
+  .tab.on{ background:linear-gradient(135deg,var(--em-green),var(--em-green2)); border-color:transparent; }
+  .tab .dot{ position:absolute; top:-3px; right:-3px; width:12px; height:12px; border-radius:50%; background:var(--em-danger); box-shadow:0 0 0 2px #081a2c; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .spread{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .mate{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; background:rgba(255,255,255,.04); border:1px solid var(--em-stroke); }
+  .mate .on{ width:10px; height:10px; border-radius:50%; background:#555; flex-shrink:0; } .mate .on.y{ background:var(--em-ok); box-shadow:0 0 8px var(--em-ok); }
+  .mate .grow{ flex:1; min-width:0; }
+  .mates{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:8px; }
+  .pick-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:10px; max-height:60vh; overflow:auto; padding:4px; }
+  .pick-grid .evo-card{ cursor:pointer; }
+  .pick-grid .evo-card.dis{ cursor:not-allowed; opacity:.5; }
+  .ghost-card{ border:2px dashed rgba(255,255,255,.15); border-radius:20px; display:grid; place-items:center; min-height:180px; color:var(--em-muted); text-align:center; padding:10px; font-size:.85rem; }
+  .ghost-card .q{ font-size:46px; filter:grayscale(1) brightness(.35); }
+  .streak{ display:flex; gap:6px; align-items:center; }
+  .streak i{ width:20px; height:20px; border-radius:50%; background:rgba(255,255,255,.1); display:inline-block; }
+  .streak i.f{ background:linear-gradient(135deg,#8a7dff,#c3b8ff); box-shadow:0 0 8px #8a7dff; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  /* Yönetici */
+  .t-group{ margin-top:12px; padding:4px 2px; border-bottom:1px solid rgba(18,162,106,.4); font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:.85rem; letter-spacing:.04em; color:var(--em-copper); }
+  .t-item{ border:1px solid var(--em-stroke); border-radius:16px; padding:14px; background:rgba(0,0,0,.2); margin-top:8px; }
+  .t-head{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .t-meta{ color:var(--em-muted); font-size:.85rem; }
+  .pill{ display:inline-block; padding:2px 10px; border-radius:999px; font-size:.75rem; font-weight:700; margin-left:4px; }
+  .pill.on{ background:rgba(61,220,132,.16); color:#9ff0c2; } .pill.off{ background:rgba(255,255,255,.08); color:var(--em-muted); } .pill.susp{ background:rgba(255,93,108,.18); color:#ffb3bc; }
+  .t-actions, .t-edit{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .t-edit .einput{ flex:1; min-width:130px; padding:8px 10px; font-size:.9rem; margin:0; }
+  @media (max-width:640px){ .grid2{ grid-template-columns:1fr; } .site-header{ padding:10px 14px; } }
+</style>
+</head>
+<body class="evo-body" style="display:flex;flex-direction:column;min-height:100vh">
+
+<header class="site-header">
+  <a class="brand-row" href="index.html">
+    <img src="assets/site_logo.png" alt="TheGamifyClass.com logosu">
+    <div><div class="wordmark">TheGamifyClass.com</div><div class="tagline">Educational Gamification</div></div>
+  </a>
+  <nav class="nav">
+    <a class="ebtn sm" href="#" id="nav-student">🎮 Öğrenci</a>
+    <a class="ebtn sm" href="#ogretmen">👩‍🏫 Öğretmen</a>
+    <a class="ebtn sm" href="index.html">← Ana Sayfa</a>
+  </nav>
+</header>
+
+<main><div class="wrap" id="view"></div></main>
+
+<footer class="site-footer">© 2026 Erincyus. Tüm hakları saklıdır.<br>Designed &amp; Developed by Erinç Tuncay · thegamifyclass.com</footer>
+
+<script>
+'use strict';
+const { db, auth } = EVO.initFirebase();
+const $ = (s, r = document) => r.querySelector(s);
+const esc = EVO.esc;
+const LOGO = 'assets/evomyth_logo.png';
+// Kurulum dosyası GitHub "Releases" bölümünde, sabit etiketle (evomyth-v1). "latest" kullanılmaz:
+// depodaki en son sürüm Badge Bank'ınki olabilir. Uygulama arayüzü siteden yüklediği için exe nadiren değişir.
+const DOWNLOAD_URL = 'https://github.com/erincyus/The-Agents/releases/download/evomyth-v1/Evomyth-Tahta-Kurulum.exe';
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+const logo = (sm, sub) => `<img class="hero-logo${sm ? ' sm' : ''}" src="${LOGO}" alt="Evomyth logosu">${sub ? `<p class="sub">${sub}</p>` : ''}`;
+
+function loginForm(id, title, button, userLabel, userType) {
+  return `<div class="epanel card">
+    <h2 class="evo-h" style="margin:0 0 6px">${title}</h2>
+    <form id="${id}" autocomplete="on">
+      <label class="efield">${userLabel || 'E-posta'}<input type="${userType || 'email'}" name="user" required autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+      <label class="efield">Şifre<input type="password" name="password" required autocomplete="current-password"></label>
+      <button class="ebtn primary wide lg" type="submit">${button}</button>
+      <p class="eerr" data-err></p>
+    </form>
+  </div>`;
+}
+function bindLogin(id, toEmail, onDone) {
+  const form = document.getElementById(id);
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = form.querySelector('[data-err]'), btn = form.querySelector('button[type=submit]');
+    err.textContent = ''; btn.disabled = true;
+    try {
+      const raw = form.user.value.trim();
+      await auth.signInWithEmailAndPassword(toEmail ? toEmail(raw) : raw, form.password.value);
+      onDone && onDone();
+    } catch (ex) { err.textContent = EVO.authError(ex); }
+    finally { btn.disabled = false; }
+  });
+}
+
+/* =================== YÖNLENDİRME =================== */
+let authReady = false, current = null;
+function route() {
+  const h = location.hash || '';
+  const next = h.startsWith('#tahta=') ? 'tahta' : h === '#admin' ? 'admin' : h === '#ogretmen' ? 'teacher' : 'student';
+  if (current && current !== next && current === 'student') window.Portal && Portal.stop();
+  current = next;
+  $('#view').className = 'wrap';
+  if (next === 'tahta') return TahtaView.render(h.slice(7));
+  if (next === 'admin') return AdminView.render();
+  if (next === 'teacher') return TeacherView.render();
+  return StudentView.render();
+}
+auth.onAuthStateChanged(() => { authReady = true; route(); });
+window.addEventListener('hashchange', route);
+$('#nav-student').addEventListener('click', (e) => { e.preventDefault(); history.pushState('', '', location.pathname + location.search); route(); });
+
+/* =================== 1) ÖĞRENCİ =================== */
+const StudentView = {
+  async render() {
+    const v = $('#view');
+    if (!authReady) { v.innerHTML = logo(false) + '<p class="center emuted">Yükleniyor…</p>'; return; }
+    const user = auth.currentUser;
+    if (!user || !String(user.email || '').endsWith('@' + EVO.STUDENT_DOMAIN)) {
+      v.innerHTML = logo(false, '<b style="color:var(--em-text)">Görevleri tamamla, Evoletlerini evrimleştir, savaşı kazan!</b>') +
+        (user ? `<div class="enote warn">Şu an <b>${esc(user.email || 'tahta oturumu')}</b> olarak giriş yapılmış. Öğrenci girişi için önce çıkış yapın. <button class="linkbtn" id="st-out">Çıkış Yap</button></div>` : '') +
+        loginForm('st-login', '🎮 Öğrenci Girişi', 'Oyuna Gir', 'Kullanıcı adı', 'text') +
+        `<p class="center emuted small" style="margin-top:14px">Kullanıcı adını ve şifreni öğretmenin verir.<br>Öğretmen misiniz? <a href="#ogretmen" style="text-decoration:underline">Öğretmen girişi</a></p>`;
+      $('#st-out')?.addEventListener('click', () => auth.signOut());
+      bindLogin('st-login', (u) => EVO.studentEmail(EVO.slug(u).replace(/[^a-z0-9._]/g, '') || u));
+      return;
+    }
+    v.className = 'wrap wide';
+    v.innerHTML = '<p class="center emuted">Panteon yükleniyor…</p>';
+    const me = await EVO.S.whoAmI(user.uid).catch(() => null);
+    if (!me) {
+      v.className = 'wrap';
+      v.innerHTML = logo(true) + `<div class="epanel center"><div class="enote bad">Bu hesap hiçbir sınıfa bağlı değil. Öğretmeninle görüş.</div><button class="ebtn" id="st-out">Çıkış Yap</button></div>`;
+      $('#st-out').addEventListener('click', () => auth.signOut());
+      return;
+    }
+    Portal.start(v, { uid: user.uid, cid: me.cid, sid: me.sid });
+  },
+};
+
+/* =================== 2) ÖĞRETMEN =================== */
+const TeacherView = {
+  async render() {
+    const v = $('#view');
+    if (!authReady) { v.innerHTML = logo(true) + '<p class="center emuted">Yükleniyor…</p>'; return; }
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous || String(user.email || '').endsWith('@' + EVO.STUDENT_DOMAIN)) {
+      v.innerHTML = logo(false, 'Öğretmen paneli') + (user && !user.isAnonymous ? `<div class="enote warn">Öğrenci hesabıyla giriş yapılmış. <button class="linkbtn" id="t-out">Çıkış Yap</button></div>` : '') +
+        loginForm('t-login', '👩‍🏫 Öğretmen Girişi', 'Giriş Yap') +
+        `<p class="center emuted small" style="margin-top:14px">Hesaplar yönetici tarafından açılır. Hesabınız yoksa yöneticinizle iletişime geçin.</p>`;
+      $('#t-out')?.addEventListener('click', () => auth.signOut());
+      bindLogin('t-login');
+      return;
+    }
+    v.innerHTML = logo(true) + '<p class="center emuted">Hesap bilgileri yükleniyor…</p>';
+    let rec = null, classes = [];
+    try { rec = await EVO.T.teacherRecord(user.uid); if (rec) classes = await EVO.T.classesOf(user.uid); } catch (e) { console.warn(e); }
+    const active = EVO.T.isActive(rec);
+    let status;
+    if (!rec) status = '<div class="enote bad">Bu e-posta için öğretmen kaydı bulunamadı.</div>';
+    else if (rec.suspended || rec.evSuspended) status = '<div class="enote bad">Hesabınız Evomyth için askıya alınmış. Yöneticinizle iletişime geçin.</div>';
+    else if (!active) status = '<div class="enote warn">Hesabınız Evomyth için henüz etkin değil (sınıf kotası: 0). Yöneticiniz kota tanımladığında akıllı tahtayı açabilirsiniz.</div>';
+    else status = '<div class="enote ok">Hesabınız etkin. Akıllı tahtada QR kodu telefonunuzla okutarak Evomyth\'i açabilirsiniz.</div>';
+    v.innerHTML = logo(true) + `
+      <div class="epanel card">
+        <h2 class="evo-h" style="margin:0 0 8px">Hoş geldiniz, ${esc((rec && rec.displayName) || user.email)}</h2>
+        <div class="kv"><span>E-posta</span><b>${esc(user.email)}</b></div>
+        <div class="kv"><span>Kurum</span><b>${esc((rec && rec.school) || '—')}</b></div>
+        <div class="kv"><span>Evomyth sınıf kotası</span><b class="big-num">${classes.length} / ${Number((rec && rec.evMaxClasses) || 0)}</b></div>
+        ${status}
+      </div>
+      ${active ? `
+      <div class="epanel card center">
+        <h2 class="evo-h" style="margin:0 0 6px">Akıllı Tahta</h2>
+        <p class="emuted small">Windows 10/11 · yaklaşık 100 MB</p>
+        <a class="ebtn primary lg wide" href="${DOWNLOAD_URL}" rel="noopener">⬇ Evomyth Tahta Kurulumunu İndir</a>
+        <a class="ebtn wide" style="margin-top:8px" href="Evomyth-Tahta.html${EVO.isMock() ? '?mock=1' : ''}" target="_blank" rel="noopener">🖥 Kurmadan tarayıcıda aç</a>
+        <ol class="steps" style="text-align:left;margin-top:14px">
+          <li><b>Evomyth-Tahta-Kurulum.exe</b> dosyasını akıllı tahtada çalıştırın. Windows "bilinmeyen yayımcı" derse <b>Ek bilgi → Yine de çalıştır</b>.</li>
+          <li>Uygulama açılışta bir <b>QR kod</b> gösterir. Telefon kameranızla okutun, bu sitedeki e-posta ve şifrenizle giriş yapın.</li>
+          <li>Tahta açılır; ekranın kenarında ince bir kontrol çubuğu olarak durur (sola, sağa ya da üste taşıyabilirsiniz).</li>
+          <li>Uygulama kapanınca oturum biter; her açılışta QR ile yeniden giriş gerekir. Tahta oturumu en fazla ${EVO.BOARD_HOURS} saat sürer.</li>
+        </ol>
+      </div>` : ''}
+      ${classes.length ? `<div class="epanel card"><h3 class="evo-h" style="margin:0 0 8px">Sınıflarınız</h3>
+        ${classes.map((c) => `<div class="kv"><span>${esc(c.name)}</span><button class="ebtn sm" data-creds="${c.cid}" data-name="${esc(c.name)}">📊 Şifre listesini indir</button></div>`).join('')}
+        <p class="emuted small">Öğrenci ekleme, EP verme ve ödev kontrolü akıllı tahta uygulamasından yapılır.</p></div>` : ''}
+      ${user.uid === EVO.ADMIN_UID ? `<div class="epanel card center"><a class="ebtn copper wide lg" href="#admin">🔐 Yönetici Paneline Git</a></div>` : ''}
+      <div class="center" style="margin-top:14px"><button class="ebtn" id="t-out">Çıkış Yap</button></div>`;
+    $('#t-out').addEventListener('click', () => auth.signOut());
+    v.querySelectorAll('[data-creds]').forEach((b) => b.addEventListener('click', () => downloadCreds(b.dataset.creds, b.dataset.name)));
+  },
+};
+async function downloadCreds(cid, name) {
+  const [creds, students] = await Promise.all([EVO.T.credentials(cid), EVO.ref(`classes/${cid}/students`).once('value').then((s) => s.val() || {})]);
+  const rows = Object.entries(students).sort((a, b) => a[1].name.localeCompare(b[1].name, 'tr')).map(([sid, s]) => [s.name, (creds[sid] || {}).u || s.username, (creds[sid] || {}).p || '']);
+  EVO.Xlsx.download(EVO.Xlsx.build([{ name: 'Öğrenciler', widths: [28, 24, 14], rows: [[{ v: 'Ad Soyad', s: 1 }, { v: 'Kullanıcı Adı', s: 1 }, { v: 'Şifre', s: 1 }], ...rows, [], [{ v: 'Giriş: www.thegamifyclass.com/Evomyth.html', s: 5 }]] }]), `Evomyth ${name} şifreler.xlsx`);
+}
+
+/* =================== 3) TAHTA QR ONAYI (telefon) =================== */
+const TahtaView = {
+  running: false, autoRun: false,
+  render(code) {
+    const v = $('#view');
+    if (!/^[0-9a-f]{32}$/.test(code)) { v.innerHTML = logo(true) + '<div class="epanel"><div class="enote bad">Bu QR kodu okunamadı. Tahtadaki kodu yeniden okutun.</div></div>'; return; }
+    if (!authReady) { v.innerHTML = logo(true) + '<p class="center emuted">Yükleniyor…</p>'; return; }
+    if (this.running) return;
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous || String(user.email || '').endsWith('@' + EVO.STUDENT_DOMAIN)) {
+      v.innerHTML = logo(true) + loginForm('tahta-login', '🔓 Evomyth Tahtasını Aç', 'Giriş Yap ve Tahtayı Aç');
+      this.autoRun = true;
+      bindLogin('tahta-login');
+      return;
+    }
+    if (this.autoRun) { this.autoRun = false; this.run(user, code); return; }
+    v.innerHTML = logo(true) + `<div class="epanel center"><h2 class="evo-h">🔓 Tahtayı Aç</h2>
+      <p class="emuted"><b style="color:var(--em-text)">${esc(user.email)}</b> olarak giriş yaptınız.</p>
+      <button class="ebtn primary lg wide" id="do-unlock">Tahtanın Kilidini Aç</button>
+      <button class="linkbtn small" id="switch" style="margin-top:10px">Başka hesapla giriş yap</button></div>`;
+    $('#do-unlock').addEventListener('click', () => this.run(user, code));
+    $('#switch').addEventListener('click', () => auth.signOut());
+  },
+  step(k, cls, text) {
+    const li = document.querySelector(`#prog [data-k="${k}"]`); if (!li) return;
+    li.className = cls; li.querySelector('.ic').textContent = cls === 'done' ? '✓' : cls === 'fail' ? '!' : li.querySelector('.ic').textContent;
+    if (text) li.lastElementChild.textContent = text;
+  },
+  fail(k, msg) { this.step(k, 'fail'); $('#prog-extra').innerHTML = `<div class="enote bad">${msg}</div>`; this.running = false; },
+  async run(user, code) {
+    this.running = true;
+    $('#view').innerHTML = logo(true) + `<div class="epanel"><h2 class="evo-h">Tahta açılıyor…</h2><ul class="progress" id="prog">
+      <li data-k="acc"><span class="ic">1</span><span>Hesap ve Evomyth sınıf kotası kontrol ediliyor</span></li>
+      <li data-k="link"><span class="ic">2</span><span>Tahta hesabınıza bağlanıyor</span></li></ul><div id="prog-extra"></div></div>`;
+    this.step('acc', 'run');
+    let rec;
+    try { rec = await EVO.T.teacherRecord(user.uid); } catch (e) { return this.fail('acc', 'Hesap bilgileri okunamadı. İnternet bağlantınızı kontrol edin.'); }
+    if (!rec) return this.fail('acc', 'Bu e-posta için öğretmen kaydı bulunamadı.');
+    if (rec.suspended || rec.evSuspended) return this.fail('acc', 'Hesabınız Evomyth için askıya alınmış.');
+    if (!(Number(rec.evMaxClasses) > 0)) return this.fail('acc', 'Hesabınızın Evomyth sınıf kotası 0 olduğu için tahtayı açamazsınız. Yöneticinizle iletişime geçin.');
+    this.step('acc', 'done', `Hesap doğrulandı: ${rec.displayName || user.email}`);
+    this.step('link', 'run');
+    try { await EVO.Board.approve(code, user.uid, rec); }
+    catch (e) { return this.fail('link', EVO.authError(e)); }
+    this.step('link', 'done');
+    this.running = false;
+    $('#view').innerHTML = logo(true) + `<div class="epanel center"><div class="huge">✅</div><h2 class="evo-h">Tahta açıldı!</h2><p class="emuted">Bu sayfayı kapatabilirsiniz. İyi dersler!</p></div>`;
+  },
+};
+
+/* =================== 4) YÖNETİCİ (#admin) =================== */
+const AdminView = {
+  teachers: {}, tclasses: {}, listening: false, editing: null, filter: '', rulesCheck: null,
+  render() {
+    const v = $('#view');
+    if (!authReady) { v.innerHTML = '<p class="center emuted">Yükleniyor…</p>'; return; }
+    const user = auth.currentUser;
+    if (!user || user.isAnonymous) { v.innerHTML = logo(true) + loginForm('adm-login', '🔐 Yönetici Girişi', 'Giriş Yap'); bindLogin('adm-login'); return; }
+    if (user.uid !== EVO.ADMIN_UID) {
+      v.innerHTML = logo(true) + '<div class="epanel center"><div class="enote bad">Bu sayfaya erişim yetkiniz yok.</div><button class="ebtn" id="adm-out">Çıkış Yap</button></div>';
+      $('#adm-out').addEventListener('click', () => auth.signOut()); return;
+    }
+    v.className = 'wrap wide';
+    this.listen();
+    if (!this.rulesCheck) this.checkRules();
+    this.seedConfig();
+    this.draw();
+  },
+  listen() {
+    if (this.listening) return;
+    this.listening = true;
+    db.ref('admin/teachers').on('value', (s) => { this.teachers = s.val() || {}; this.drawList(); });
+    EVO.ref('teacherClasses').on('value', (s) => { this.tclasses = s.val() || {}; this.drawList(); });
+  },
+  // Güvenlik kuralları gizli verileri dışarı açık bırakıyor mu? (oturumsuz istek)
+  async checkRules() {
+    this.rulesCheck = 'checking';
+    if (EVO.isMock()) { this.rulesCheck = []; this.draw(); return; }
+    const probe = async (p) => { try { const r = await fetch(`${EVO.FIREBASE.databaseURL}/${p}.json?shallow=true`); return r.ok; } catch (_) { return false; } };
+    const leaks = [];
+    for (const p of ['evomyth/creds', 'evomyth/classes', 'evomyth/users', 'admin/teachers']) if (await probe(p)) leaks.push(p);
+    this.rulesCheck = leaks; this.draw();
+  },
+  // Güvenlik kurallarının level/iksir maliyetini doğrulayabilmesi için ayarlar veritabanına yazılır
+  async seedConfig() {
+    try {
+      const cur = (await EVO.ref('config/version').once('value')).val();
+      if (cur === EVO.VERSION) return;
+      const cost = {}; for (let L = 1; L <= 150; L++) cost[L] = EVO.levelCost(L);
+      await EVO.ref('config').set({ version: EVO.VERSION, cost, potion: { kucuk: { cost: EVO.POTIONS.kucuk.cost, cut: EVO.POTIONS.kucuk.cutMs }, buyuk: { cost: EVO.POTIONS.buyuk.cost } }, rest: EVO.REST_MS });
+    } catch (e) { console.warn('config yazılamadı', e); }
+  },
+  draw() {
+    if (location.hash !== '#admin' || !auth.currentUser || auth.currentUser.uid !== EVO.ADMIN_UID) return;
+    const rc = this.rulesCheck;
+    const rules = rc === 'checking' || rc === null ? '<div class="enote warn">Güvenlik kuralları kontrol ediliyor…</div>'
+      : rc.length ? `<div class="enote bad"><b>⚠ Güvenlik kuralları eksik!</b> Şu yollar giriş yapmadan okunabiliyor: <code>${rc.join(', ')}</code>. Firebase konsolu → Realtime Database → Kurallar bölümüne "evomyth" kurallarını ekleyin (EVOMYTH-KURULUM-REHBERI dosyasına bakın).</div>`
+      : '<div class="enote ok">Güvenlik kuralları uygun: öğrenci şifreleri ve öğretmen kayıtları dışarıdan okunamıyor.</div>';
+    $('#view').innerHTML = `${logo(true, '<b style="color:var(--em-text)">Evomyth — Yönetici Paneli</b>')}${rules}
+      <div class="grid2" style="margin-top:14px">
+        <div class="epanel">
+          <h3 class="evo-h" style="margin:0 0 8px">➕ Yeni Öğretmen Hesabı</h3>
+          <form id="new-teacher" autocomplete="off">
+            <div class="grid2">
+              <input class="einput" type="email" name="email" placeholder="E-posta" required>
+              <input class="einput" type="text" name="name" placeholder="Ad Soyad" required>
+              <input class="einput" type="text" name="school" placeholder="Kurum adı">
+              <input class="einput" type="number" name="limit" placeholder="Sınıf kotası" min="0" value="1" required title="0 = sınıf açamaz">
+            </div>
+            <input class="einput" type="text" name="password" placeholder="Şifre (en az 6 karakter)" style="margin-top:10px">
+            <button class="ebtn primary wide" type="submit" style="margin-top:10px">Hesabı Oluştur</button>
+            <p class="emuted small">Sınıf kotası <b>0</b> ise öğretmen sınıf açamaz ve tahtayı açamaz. E-posta zaten kayıtlıysa (The Agents, Badge Bank…) şifre değişmez; yalnızca Evomyth bilgileri güncellenir.</p>
+            <p class="eerr" id="nt-err"></p>
+          </form>
+        </div>
+        <div class="epanel" id="self-box"></div>
+      </div>
+      <div class="epanel" style="margin-top:14px">
+        <div class="spread"><h3 class="evo-h" style="margin:0">👩‍🏫 Öğretmenler</h3>
+          <div class="row"><input class="einput" type="search" id="t-filter" placeholder="Ad, e-posta veya okul ara…" value="${esc(this.filter)}" style="min-width:220px;margin:0">
+          <button class="ebtn sm" id="clean">🧹 Eski QR kayıtlarını temizle</button><button class="ebtn sm" id="adm-out">Çıkış</button></div></div>
+        <div id="t-list"></div>
+      </div>`;
+    this.bind(); this.drawList();
+  },
+  drawSelf() {
+    const box = $('#self-box'), u = auth.currentUser;
+    if (!box || !u) return;
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+    const r = this.teachers[EVO.ADMIN_UID] || {};
+    const n = Number(r.evMaxClasses || 0);
+    box.innerHTML = `<h3 class="evo-h" style="margin:0 0 8px">👤 Kendi hesabım</h3><p class="t-meta">${esc(u.email)} ${n > 0 ? '<span class="pill on">Evomyth etkin</span>' : '<span class="pill off">Evomyth kapalı</span>'}</p>
+      <div class="t-edit"><input class="einput" id="self-name" value="${esc(r.displayName || '')}" placeholder="Ad Soyad"><input class="einput" id="self-school" value="${esc(r.school || '')}" placeholder="Kurum">
+      <input class="einput" id="self-limit" type="number" min="0" value="${n}" style="max-width:110px" title="Evomyth sınıf kotası"><button class="ebtn primary sm" id="self-save">Kaydet</button></div>
+      <p class="t-meta">Son kutu kendi Evomyth sınıf kotanızdır (0 = kapalı).</p>
+      <p class="t-meta" style="margin-top:12px">Oyun ayarları: level maliyetleri ve iksir fiyatları sürüm <b>${EVO.VERSION}</b> olarak veritabanına yazıldı (güvenlik kuralları bunlarla doğrular).</p>`;
+  },
+  drawList() {
+    this.drawSelf();
+    const box = $('#t-list'); if (!box) return;
+    const q = this.filter.toLocaleLowerCase('tr');
+    const sk = (r) => String((r && r.school) || '').trim().toLocaleLowerCase('tr');
+    const rows = Object.entries(this.teachers).filter(([uid, r]) => uid !== EVO.ADMIN_UID && r && r.email)
+      .filter(([, r]) => !q || [r.displayName, r.email, r.school].some((x) => String(x || '').toLocaleLowerCase('tr').includes(q)))
+      .sort((a, b) => { const sa = sk(a[1]), sb = sk(b[1]); if (!sa !== !sb) return sa ? -1 : 1; return sa.localeCompare(sb, 'tr') || String(a[1].displayName || a[1].email).localeCompare(String(b[1].displayName || b[1].email), 'tr'); });
+    if (!rows.length) { box.innerHTML = '<p class="emuted">Kayıt yok.</p>'; return; }
+    let last = null;
+    box.innerHTML = rows.map(([uid, r]) => {
+      const s = sk(r), head = s === last ? '' : `<div class="t-group">🏫 ${s ? esc(String(r.school).trim().toLocaleUpperCase('tr')) : 'KURUM BELİRTİLMEMİŞ'}</div>`; last = s;
+      const n = Number(r.evMaxClasses || 0), susp = r.suspended || r.evSuspended;
+      const cls = Object.values(this.tclasses[uid] || {});
+      const ed = this.editing && this.editing.uid === uid ? this.editing.kind : null;
+      return `${head}<div class="t-item"><div class="t-head">
+        <div><b>${esc(r.displayName || r.email)}</b> ${susp ? '<span class="pill susp">Askıda</span>' : n > 0 ? '<span class="pill on">Etkin</span>' : '<span class="pill off">Evomyth kapalı (0)</span>'}
+          <div class="t-meta">${esc(r.email)}${r.school ? ' · ' + esc(r.school) : ''}${cls.length ? ' · Sınıflar: ' + cls.map(esc).join(', ') : ''}</div></div>
+        <div class="center"><div class="big-num">${cls.length} / ${n}</div><div class="t-meta">sınıf / kota</div></div></div>
+        ${ed === 'name' ? `<div class="t-edit"><input class="einput" id="ed-name" value="${esc(r.displayName || '')}" placeholder="Ad Soyad"><input class="einput" id="ed-school" value="${esc(r.school || '')}" placeholder="Kurum"><button class="ebtn primary sm" data-act="save-name" data-uid="${uid}">Kaydet</button><button class="ebtn sm" data-act="cancel">Vazgeç</button></div>` : ''}
+        ${ed === 'limit' ? `<div class="t-edit"><input class="einput" id="ed-limit" type="number" min="0" value="${n}" style="max-width:120px"><button class="ebtn primary sm" data-act="save-limit" data-uid="${uid}">Kaydet</button><button class="ebtn sm" data-act="cancel">Vazgeç</button><span class="t-meta">0 = Evomyth kullanamaz</span></div>` : ''}
+        <div class="t-actions">
+          <button class="ebtn sm" data-act="edit-name" data-uid="${uid}">✏️ Adı / Kurumu Düzenle</button>
+          <button class="ebtn sm" data-act="edit-limit" data-uid="${uid}">🔢 Kotayı Düzenle</button>
+          <button class="ebtn sm" data-act="reset" data-uid="${uid}">✉️ Şifre Sıfırlama Bağlantısı</button>
+          ${r.evSuspended ? `<button class="ebtn sm" data-act="unsuspend" data-uid="${uid}">▶ Askıdan Çıkar</button>` : `<button class="ebtn danger sm" data-act="suspend" data-uid="${uid}">⏸ Askıya Al</button>`}
+        </div></div>`;
+    }).join('');
+  },
+  bind() {
+    $('#adm-out').addEventListener('click', () => auth.signOut());
+    $('#t-filter').addEventListener('input', (e) => { this.filter = e.target.value; this.drawList(); });
+    $('#new-teacher').addEventListener('submit', (e) => { e.preventDefault(); this.createTeacher(e.target); });
+    $('#self-box').addEventListener('click', (e) => { if (e.target.id === 'self-save') this.saveSelf(); });
+    $('#t-list').addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) this.action(b.dataset.act, b.dataset.uid); });
+    $('#clean').addEventListener('click', async () => {
+      const req = (await EVO.ref('boardReq').once('value')).val() || {}, boards = (await EVO.ref('boards').once('value')).val() || {};
+      const upd = {}; const now = EVO.now();
+      Object.entries(req).forEach(([k, x]) => { if (!x || !x.at || now - x.at > 86400e3) upd['boardReq/' + k] = null; });
+      Object.entries(boards).forEach(([k, x]) => { if (!x || !x.exp || x.exp < now) upd['boards/' + k] = null; });
+      if (Object.keys(upd).length) await EVO.ref('').update(upd);
+      alert(Object.keys(upd).length ? `${Object.keys(upd).length} eski kayıt silindi.` : 'Silinecek eski kayıt yok.');
+    });
+  },
+  async saveSelf() {
+    const u = auth.currentUser, n = parseInt($('#self-limit').value, 10);
+    if (!Number.isInteger(n) || n < 0) { alert('Kota 0 veya daha büyük bir tam sayı olmalı.'); return; }
+    await db.ref('admin/teachers/' + EVO.ADMIN_UID).update({ email: String(u.email || '').toLowerCase(), displayName: $('#self-name').value.trim() || u.email, school: $('#self-school').value.trim(), evMaxClasses: n });
+    document.activeElement && document.activeElement.blur();
+    EVO.toast('Kaydedildi.'); this.drawSelf();
+  },
+  async createTeacher(form) {
+    const err = $('#nt-err'); err.textContent = '';
+    const email = form.email.value.trim().toLowerCase(), name = form.name.value.trim(), school = form.school.value.trim(), pw = form.password.value, limit = parseInt(form.limit.value, 10);
+    if (!Number.isInteger(limit) || limit < 0) { err.textContent = 'Sınıf kotası 0 veya daha büyük bir tam sayı olmalı.'; return; }
+    const btn = form.querySelector('button[type=submit]'); btn.disabled = true;
+    try {
+      const q = (await db.ref('admin/teachers').orderByChild('email').equalTo(email).once('value')).val();
+      const self = auth.currentUser, isSelf = String(self.email || '').toLowerCase() === email;
+      const existing = isSelf ? self.uid : q ? Object.keys(q)[0] : null;
+      if (existing) {
+        const upd = { evMaxClasses: limit, email }; if (name) upd.displayName = name; if (school) upd.school = school;
+        await db.ref('admin/teachers/' + existing).update(upd);
+      } else {
+        if (!pw || pw.length < 6) { err.textContent = 'Yeni hesap için en az 6 karakterli şifre belirleyin.'; return; }
+        let sec; try { sec = firebase.app('Secondary'); } catch (_) { sec = firebase.initializeApp(EVO.FIREBASE, 'Secondary'); }
+        const cred = await sec.auth().createUserWithEmailAndPassword(email, pw);
+        const uid = cred.user.uid; await sec.auth().signOut();
+        // Evomyth'ten açılan hesap diğer uygulamalara kapalı başlar (The Agents panelinden açılabilir)
+        await db.ref('admin/teachers/' + uid).set({ email, displayName: name || email, school, suspended: false, createdAt: Date.now(), classCodes: {}, maxClasses: 0, ccMaxClasses: 0, wnMaxClasses: 0, bbMaxClasses: 0, evMaxClasses: limit });
+      }
+      form.reset(); form.limit.value = 1;
+      alert(existing ? `Bu e-posta zaten kayıtlıydı; Evomyth kotası güncellendi: ${email}` : `Hesap oluşturuldu: ${email}\nŞifre: ${pw}\n\nBu bilgileri öğretmene iletin.`);
+    } catch (e) { console.error(e); err.textContent = 'Hata: ' + EVO.authError(e); }
+    finally { btn.disabled = false; }
+  },
+  async action(act, uid) {
+    const r = this.teachers[uid] || {}, ref = db.ref('admin/teachers/' + uid);
+    try {
+      switch (act) {
+        case 'edit-name': this.editing = { uid, kind: 'name' }; return this.drawList();
+        case 'edit-limit': this.editing = { uid, kind: 'limit' }; return this.drawList();
+        case 'cancel': this.editing = null; return this.drawList();
+        case 'save-name': { const n = $('#ed-name').value.trim(); if (!n) return alert('Ad soyad boş olamaz.'); this.editing = null; return ref.update({ displayName: n, school: $('#ed-school').value.trim() }); }
+        case 'save-limit': { const n = parseInt($('#ed-limit').value, 10); if (!Number.isInteger(n) || n < 0) return alert('Kota 0 veya daha büyük bir tam sayı olmalı.'); this.editing = null; return ref.update({ evMaxClasses: n }); }
+        case 'reset': await auth.sendPasswordResetEmail(r.email); return alert(r.email + ' adresine şifre sıfırlama bağlantısı gönderildi.');
+        case 'suspend': if (!confirm((r.displayName || r.email) + ' Evomyth için askıya alınsın mı? Tahtayı artık açamaz (diğer uygulamalar etkilenmez).')) return; return ref.update({ evSuspended: true });
+        case 'unsuspend': return ref.update({ evSuspended: false });
+      }
+    } catch (e) { alert('Hata: ' + EVO.authError(e)); }
+  },
+};
+</script>
+<script src="evomyth/portal.js"></script>
+</body>
+</html>

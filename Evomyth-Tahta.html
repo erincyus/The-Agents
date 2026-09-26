@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<!--
+  Evomyth — Akıllı Tahta kontrol çubuğu (thegamifyclass.com/Evomyth-Tahta.html)
+  Masaüstü uygulaması (Evomyth-Tahta-Kurulum.exe) bu sayfayı ince, her zaman üstte duran
+  bir pencerede açar. Tarayıcıda da çalışır. Giriş: öğretmen telefonuyla QR okutur.
+  Yerel test: ?mock=1
+-->
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evomyth Tahta | TheGamifyClass.com</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="assets/evomyth_logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="evomyth/evomyth.css">
+<script>
+  (function () {
+    var mock = /[?&]mock=1/.test(location.search);
+    var v = '10.13.0', g = 'https://www.gstatic.com/firebasejs/' + v + '/';
+    var src = mock ? ['evomyth/mock-firebase.js'] : [g + 'firebase-app-compat.js', g + 'firebase-auth-compat.js', g + 'firebase-database-compat.js'];
+    src.push('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js');
+    document.write(src.map(function (s) { return '<script src="' + s + '"><\/script>'; }).join(''));
+  })();
+</script>
+<script src="evomyth/core.js"></script>
+<script src="evomyth/data.js"></script>
+<style>
+  :root{ --bar:96px; }
+  html, body{ height:100%; }
+  body{ margin:0; overflow:hidden; }
+  body.shell{ background:transparent !important; }
+  body.browser{ background:radial-gradient(120% 90% at 50% 0%, var(--em-bg2), var(--em-bg1) 45%, var(--em-bg0)); }
+  /* ---------- Giriş ---------- */
+  #login{ position:fixed; inset:0; display:grid; place-items:center; padding:12px; }
+  .login-card{ width:min(400px,100%); max-height:100%; overflow:auto; text-align:center; background:linear-gradient(170deg,#0e2a3d,#07131f); border:1px solid var(--em-stroke); border-radius:26px; padding:18px 20px; box-shadow:0 20px 60px rgba(0,0,0,.6); position:relative; }
+  .login-card .lg-logo{ width:170px; margin:0 auto; display:block; filter:drop-shadow(0 10px 24px rgba(0,0,0,.6)); cursor:pointer; }
+  .qr{ background:#fff; border-radius:18px; padding:12px; width:236px; height:236px; margin:10px auto; display:grid; place-items:center; }
+  .qr img, .qr svg{ width:212px; height:212px; image-rendering:pixelated; }
+  .win-ctl{ position:absolute; top:10px; right:10px; display:flex; gap:4px; }
+  .win-ctl button{ width:30px; height:30px; border-radius:50%; border:1px solid var(--em-stroke); background:rgba(255,255,255,.06); color:#fff; cursor:pointer; }
+  /* ---------- Uygulama ---------- */
+  #app{ position:fixed; inset:0; display:flex; }
+  #app.side-right{ flex-direction:row-reverse; }
+  #app.side-top{ flex-direction:column; }
+  #bar{ width:var(--bar); flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; overflow-y:auto; overflow-x:hidden;
+    background:linear-gradient(180deg,#0d2c3f,#07131f); border:1px solid rgba(18,162,106,.45); border-radius:22px; box-shadow:0 10px 30px rgba(0,0,0,.55); scrollbar-width:none; }
+  #bar::-webkit-scrollbar{ display:none; }
+  .side-top #bar{ width:100%; height:var(--bar); flex-direction:row; overflow-x:auto; overflow-y:hidden; padding:6px 10px; }
+  .bar-logo{ width:74px; cursor:pointer; filter:drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+  .side-top .bar-logo{ width:auto; height:80px; }
+  .bb{ width:80px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 2px; border:0; border-radius:14px; background:transparent; color:var(--em-text); cursor:pointer; font:600 .66rem 'Space Grotesk',sans-serif; position:relative; }
+  .bb .ic{ font-size:1.6rem; line-height:1; }
+  .bb:hover{ background:rgba(255,255,255,.07); }
+  .bb.on{ background:linear-gradient(135deg,var(--em-green),var(--em-green2)); box-shadow:0 4px 14px var(--em-green-glow); }
+  .bb .badge{ position:absolute; top:2px; right:8px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--em-danger); font-size:.62rem; display:grid; place-items:center; }
+  .side-top .bb{ width:72px; }
+  .bar-sep{ width:60%; height:1px; background:var(--em-stroke); margin:3px 0; flex-shrink:0; }
+  .side-top .bar-sep{ width:1px; height:60%; margin:0 3px; }
+  .ring{ --p:0; width:58px; height:58px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--em-copper) calc(var(--p)*360deg), rgba(255,255,255,.1) 0); position:relative; }
+  .ring::before{ content:""; position:absolute; inset:6px; border-radius:50%; background:#0a1c2b; }
+  .ring span{ position:relative; font:800 .72rem 'Space Grotesk',sans-serif; text-align:center; line-height:1.05; }
+  .ring.full{ animation:evo-plat 1.4s infinite; }
+  #panel{ flex:1; min-width:0; min-height:0; margin:0 8px; display:flex; flex-direction:column; background:linear-gradient(170deg,#0e2a3d,#07131f); border:1px solid var(--em-stroke); border-radius:22px; box-shadow:0 14px 40px rgba(0,0,0,.55); overflow:hidden; }
+  .side-top #panel{ margin:8px 0 0; }
+  body.shell #panel.closed{ display:none; }
+  body.browser #panel.closed .p-body{ display:grid; place-items:center; }
+  .p-head{ display:flex; align-items:center; gap:10px; padding:14px 16px 10px; border-bottom:1px solid var(--em-stroke); }
+  .p-head h2{ margin:0; flex:1; font:700 1.15rem 'Cinzel',serif; }
+  .p-head .x{ width:34px; height:34px; border-radius:50%; border:1px solid var(--em-stroke); background:rgba(255,255,255,.06); color:#fff; cursor:pointer; font-size:1rem; }
+  .p-body{ flex:1; overflow:auto; padding:14px 16px 18px; }
+  .p-body h3{ font:700 1rem 'Cinzel',serif; margin:14px 0 8px; }
+  .cls-name{ font-size:.78rem; color:var(--em-muted); }
+  /* Liste satırları */
+  .srow{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid transparent; margin-bottom:5px; }
+  .srow .nm{ flex:1; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .srow .meta{ font-size:.75rem; color:var(--em-muted); }
+  .seg{ display:inline-flex; border-radius:999px; overflow:hidden; border:1px solid var(--em-stroke); flex-shrink:0; }
+  .seg button{ border:0; background:transparent; color:var(--em-muted); padding:6px 9px; font:600 .75rem 'Space Grotesk',sans-serif; cursor:pointer; }
+  .seg button.on{ color:#fff; }
+  .seg button.on.v-var, .seg button.on.v-done{ background:var(--em-green2); }
+  .seg button.on.v-devamsiz, .seg button.on.v-missed{ background:#9b2c3a; }
+  .seg button.on.v-izinli, .seg button.on.v-absent{ background:#3a4f86; }
+  .seg button.on.v-raporlu{ background:#6b4a9b; }
+  .stu-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); gap:8px; }
+  .stu{ padding:10px 8px; border-radius:14px; background:rgba(255,255,255,.05); border:1px solid var(--em-stroke); cursor:pointer; text-align:center; font:inherit; color:inherit; }
+  .stu:hover{ border-color:var(--em-green); }
+  .stu .n{ font-weight:700; font-size:.9rem; line-height:1.2; overflow-wrap:anywhere; }
+  .stu .e{ font-size:.8rem; color:#ffd9bf; margin-top:4px; }
+  .stu .c{ font-size:.7rem; color:var(--em-muted); }
+  .stu.absent{ opacity:.45; }
+  .beh{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px; }
+  .beh button{ display:flex; align-items:center; gap:6px; text-align:left; padding:9px 10px; border-radius:12px; border:1px solid var(--em-stroke); background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font:600 .8rem 'Inter',sans-serif; }
+  .beh button b{ margin-left:auto; }
+  .beh button.p{ border-color:rgba(61,220,132,.4); } .beh button.p b{ color:var(--em-ok); }
+  .beh button.m{ border-color:rgba(255,93,108,.4); } .beh button.m b{ color:var(--em-danger); }
+  .beh button:active{ transform:scale(.97); }
+  table.tbl{ width:100%; border-collapse:collapse; font-size:.85rem; }
+  table.tbl td, table.tbl th{ padding:6px 8px; border-bottom:1px solid var(--em-stroke); text-align:left; }
+  table.tbl tr.err td{ color:#ffc2c9; }
+  .bigtime{ font:800 clamp(3rem, 12vw, 7rem) 'Space Grotesk',monospace; text-align:center; letter-spacing:.02em; margin:8px 0; font-variant-numeric:tabular-nums; }
+  .bigtime.alarm{ color:var(--em-danger); animation:evo-plat .6s infinite; }
+  .present-only{ display:none; }
+  body.present .present-only{ display:block; }
+  #wheel{ display:block; margin:0 auto; max-width:100%; }
+  .wheel-wrap{ position:relative; width:min(440px,100%); margin:0 auto; }
+  .wheel-wrap::after{ content:"▼"; position:absolute; top:-8px; left:50%; transform:translateX(-50%); font-size:2rem; color:var(--em-copper); text-shadow:0 2px 6px #000; }
+  .winner{ text-align:center; font:800 1.8rem 'Cinzel',serif; min-height:2.4rem; margin-top:8px; }
+  .classep{ width:220px; height:220px; margin:10px auto; }
+  .classep span{ font-size:1.6rem; }
+  .classep::before{ inset:14px; }
+  /* Tahtada büyük gösterim (present modu) */
+  body.present #app{ display:none; }
+  #present{ position:fixed; inset:0; display:none; padding:16px; }
+  body.present #present{ display:flex; }
+  #present .pv{ flex:1; background:linear-gradient(170deg,#0e2a3d,#07131f); border:1px solid var(--em-stroke); border-radius:26px; box-shadow:0 20px 70px rgba(0,0,0,.7); display:flex; flex-direction:column; overflow:hidden; }
+  #present .pv-body{ flex:1; overflow:auto; padding:20px 26px; }
+  #present .reward-row{ font-size:1.35rem; padding:14px 18px; }
+  #present .reward-row .sym{ font-size:2.6rem; }
+  .emodal-back{ z-index:2000; }
+</style>
+</head>
+<body class="evo-body">
+  <div id="login"></div>
+  <div id="app" class="hidden"><nav id="bar"></nav><section id="panel" class="closed"><div class="p-head"><h2 id="p-title"></h2><button class="x" id="p-close" title="Kapat">✕</button></div><div class="p-body" id="p-body"></div></section></div>
+  <div id="present"><div class="pv"><div class="p-head"><h2 id="pv-title"></h2><button class="x" id="pv-close">✕</button></div><div class="pv-body" id="pv-body"></div></div></div>
+<script src="evomyth/board.js"></script>
+</body>
+</html>

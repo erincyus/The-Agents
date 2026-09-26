@@ -493,6 +493,7 @@ function adminCreateTeacherSubmit(){
       if(maxClasses !== null) update.maxClasses = maxClasses;
       // Badge Bank kaydı henüz yoksa otomatik 0 sınıfla oluştur (varsa dokunma)
       if(val[existingUid].bbMaxClasses === undefined) update.bbMaxClasses = 0;
+      if(val[existingUid].evMaxClasses === undefined) update.evMaxClasses = 0; // Evomyth kaydı yoksa 0 sınıfla
       return db.ref('admin/teachers/'+existingUid).update(update).then(function(){
         emailEl.value=''; nameEl.value=''; pwEl.value=''; if(maxClassesEl) maxClassesEl.value=''; if(schoolEl) schoolEl.value='';
         alert('Bu e-posta zaten kayıtlı bir hesaba aitti — şifresi değişmedi, sadece The Agents için izin verilen sınıf sayısı güncellendi: '+email);
@@ -511,6 +512,7 @@ function adminCreateTeacherSubmit(){
         record.ccMaxClasses = maxClasses;
         record.wnMaxClasses = maxClasses; // Who's Next? için de aynı başlangıç sınıf sayısı
         record.bbMaxClasses = 0; // Badge Bank: otomatik 0 sınıf (yönetici BadgeBank.html#admin panelinden açar)
+        record.evMaxClasses = 0; // Evomyth: otomatik 0 sınıf (Uygulama İzinleri ya da Evomyth.html#admin'den açılır)
         return db.ref('admin/teachers/'+newUid).set(record);
       });
     }).then(function(){
@@ -581,11 +583,13 @@ function adminSavePerms(uid){
   const cc = read('permCC_'+uid, true, 'ClassClans');
   const wn = read('permWN_'+uid, true, "Who's Next?");
   const bb = read('permBB_'+uid, false, 'Badge Bank');
-  const firstErr = [ta, cc, wn, bb].find(function(x){ return x.err; });
+  const ev = read('permEV_'+uid, false, 'Evomyth');
+  const firstErr = [ta, cc, wn, bb, ev].find(function(x){ return x.err; });
   if(firstErr){ alert(firstErr.err); return; }
   const bbSusp = document.getElementById('permBBSusp_'+uid);
   const before = AdminState.teachers[uid] || {};
-  const update = { maxClasses: ta.v, ccMaxClasses: cc.v, wnMaxClasses: wn.v, bbMaxClasses: bb.v, bbSuspended: !!(bbSusp && bbSusp.checked) };
+  const evSusp = document.getElementById('permEVSusp_'+uid);
+  const update = { maxClasses: ta.v, ccMaxClasses: cc.v, wnMaxClasses: wn.v, bbMaxClasses: bb.v, bbSuspended: !!(bbSusp && bbSusp.checked), evMaxClasses: ev.v, evSuspended: !!(evSusp && evSusp.checked) };
   const bbChanged = Number(before.bbMaxClasses||0) !== bb.v || !!before.bbSuspended !== update.bbSuspended;
   db.ref('admin/teachers/'+uid).update(update).then(function(){
     if(!bbChanged && (!bbIsActive(Object.assign({}, before, update)) || AdminState.bbCerts[uid])) return 'same';
@@ -626,8 +630,8 @@ function adminInspectClass(code){
 
 // ================= EXCEL İLE TOPLU ÖĞRETMEN EKLEME =================
 const BULK_COLUMNS = ['E-posta', 'Ad Soyad', 'Kurum Adı', 'Şifre',
-  'The Agents Sınıf Sayısı', 'ClassClans Sınıf Sayısı', "Who's Next? Sınıf Sayısı", 'Badge Bank Sınıf Sayısı'];
-const BULK_APPS = [['maxClasses','The Agents'], ['ccMaxClasses','ClassClans'], ['wnMaxClasses',"Who's Next?"], ['bbMaxClasses','Badge Bank']];
+  'The Agents Sınıf Sayısı', 'ClassClans Sınıf Sayısı', "Who's Next? Sınıf Sayısı", 'Badge Bank Sınıf Sayısı', 'Evomyth Sınıf Sayısı'];
+const BULK_APPS = [['maxClasses','The Agents'], ['ccMaxClasses','ClassClans'], ['wnMaxClasses',"Who's Next?"], ['bbMaxClasses','Badge Bank'], ['evMaxClasses','Evomyth']];
 
 function bulkNorm(s){
   return String(s == null ? '' : s).toLocaleLowerCase('tr')
@@ -638,6 +642,7 @@ function bulkNorm(s){
 function bulkHeaderKey(h){
   const n = bulkNorm(h);
   if(!n) return null;
+  if(n.includes('evomyth')) return 'evMaxClasses';
   if(n.includes('agents')) return 'maxClasses';
   if(n.includes('clans')) return 'ccMaxClasses';
   if(n.includes('next')) return 'wnMaxClasses';
@@ -678,11 +683,12 @@ function adminDownloadBulkTemplate(){
     ['ClassClans Sınıf Sayısı', 'Hayır', 'Aynı kural.'],
     ["Who's Next? Sınıf Sayısı", 'Hayır', 'Aynı kural.'],
     ['Badge Bank Sınıf Sayısı', 'Hayır', 'Aynı kural, ancak Badge Bank için "sınırsız" yazılamaz; bir sayı yazın.'],
+    ['Evomyth Sınıf Sayısı', 'Hayır', 'Aynı kural; Evomyth için de "sınırsız" yazılamaz. 0 = öğretmen Evomyth tahtasını açamaz ve sınıf oluşturamaz.'],
     [],
     ['ÖRNEK (bu sayfadaki satırlar sisteme yüklenmez)'],
     BULK_COLUMNS,
-    ['ayse.yilmaz@ornekokul.k12.tr', 'Ayşe Yılmaz', 'Atatürk Ortaokulu', 'Gizli123', 1, 1, 1, 1],
-    ['mehmet.kaya@ornekokul.k12.tr', 'Mehmet Kaya', 'Atatürk Ortaokulu', 'Parola456', 2, 0, 'sınırsız', 0],
+    ['ayse.yilmaz@ornekokul.k12.tr', 'Ayşe Yılmaz', 'Atatürk Ortaokulu', 'Gizli123', 1, 1, 1, 1, 1],
+    ['mehmet.kaya@ornekokul.k12.tr', 'Mehmet Kaya', 'Atatürk Ortaokulu', 'Parola456', 2, 0, 'sınırsız', 0, 2],
   ];
   const wsHelp = XLSX.utils.aoa_to_sheet(help);
   wsHelp['!cols'] = [{ wch:30 }, { wch:22 }, { wch:90 }, { wch:14 }, { wch:22 }, { wch:22 }, { wch:22 }, { wch:22 }];
@@ -732,6 +738,7 @@ function adminBulkFile(input){
           else if(p.given) row.limits[k] = p.v;
         });
         if(row.limits.bbMaxClasses === null) row.errors.push('Badge Bank için "sınırsız" yazılamaz, sayı yazın');
+        if(row.limits.evMaxClasses === null) row.errors.push('Evomyth için "sınırsız" yazılamaz, sayı yazın');
         row.existingUid = byEmail[email] || null;
         if(!row.existingUid){
           if(!row.name) row.errors.push('Ad Soyad boş');
@@ -783,7 +790,7 @@ async function adminBulkRun(){
         uid = cred.user.uid;
         await secAuth.signOut();
         const rec = { email: row.email, displayName: row.name || row.email, school: row.school, suspended:false, createdAt: Date.now(),
-          classCodes:{}, maxClasses:0, ccMaxClasses:0, wnMaxClasses:0, bbMaxClasses:0 };
+          classCodes:{}, maxClasses:0, ccMaxClasses:0, wnMaxClasses:0, bbMaxClasses:0, evMaxClasses:0 };
         BULK_APPS.forEach(function([k]){
           if(!(k in row.limits)) return;
           if(row.limits[k] === null) delete rec[k]; else rec[k] = row.limits[k]; // alan yok = sınırsız
@@ -853,7 +860,7 @@ function adminBulkSectionHtml(){
     <div class="mt-4 text-xs mono text-[var(--ink-dim)]">DOSYA: ${adminEsc(b.fileName)} · ${b.rows.length} satır · <span style="color:var(--cyber)">${cnt.new} yeni</span> · <span style="color:var(--gold-soft)">${cnt.update} mevcut</span>${cnt.error ? ` · <span style="color:var(--danger)">${cnt.error} hatalı</span>` : ''}</div>
     <div class="mt-2 overflow-x-auto" style="max-height:420px;overflow-y:auto">
       <table class="w-full text-xs">
-        <thead><tr class="text-left text-[var(--ink-dim)]"><th class="p-1">Satır</th><th class="p-1">E-posta</th><th class="p-1">Ad Soyad</th><th class="p-1">Kurum</th><th class="p-1" title="The Agents / ClassClans / Who's Next? / Badge Bank">TA/CC/WN/BB</th><th class="p-1">Durum</th></tr></thead>
+        <thead><tr class="text-left text-[var(--ink-dim)]"><th class="p-1">Satır</th><th class="p-1">E-posta</th><th class="p-1">Ad Soyad</th><th class="p-1">Kurum</th><th class="p-1" title="The Agents / ClassClans / Who's Next? / Badge Bank / Evomyth">TA/CC/WN/BB/EV</th><th class="p-1">Durum</th></tr></thead>
         <tbody>${b.rows.map(function(r){ return `<tr class="border-t border-white/10 align-top">
           <td class="p-1 mono">${r.line}</td><td class="p-1 mono">${adminEsc(r.email)}</td><td class="p-1">${adminEsc(r.name)}</td><td class="p-1">${adminEsc(r.school)}</td>
           <td class="p-1 mono">${BULK_APPS.map(function([k]){ return limCell(r, k); }).join(' / ')}</td><td class="p-1">${statusCell(r)}</td></tr>`; }).join('')}</tbody>
@@ -987,11 +994,11 @@ function viewAdminPanel(){
       </div>` : ''}
       <div class="mt-2">
         <button class="btn btn-ghost px-2 py-1 text-xs" onclick="AdminState.permsTeacher = AdminState.permsTeacher==='${uid}' ? null : '${uid}'; render();">
-          🎮 Uygulama İzinleri — TA: ${adminLimitText(t.maxClasses)} · CC: ${adminLimitText(t.ccMaxClasses)} · WN: ${adminLimitText(t.wnMaxClasses)} · BB: ${bbLimit === 0 ? 'Yok (0)' : bbLimit}${t.bbSuspended ? ' (askıda)' : ''} ${permsOpen?'▲':'▼'}
+          🎮 Uygulama İzinleri — TA: ${adminLimitText(t.maxClasses)} · CC: ${adminLimitText(t.ccMaxClasses)} · WN: ${adminLimitText(t.wnMaxClasses)} · BB: ${bbLimit === 0 ? 'Yok (0)' : bbLimit}${t.bbSuspended ? ' (askıda)' : ''} · EV: ${Number(t.evMaxClasses || 0) === 0 ? 'Yok (0)' : Number(t.evMaxClasses)}${t.evSuspended ? ' (askıda)' : ''} ${permsOpen?'▲':'▼'}
         </button>
         ${permsOpen ? `
         <div class="mt-2 p-3 rounded" style="background:rgba(255,255,255,0.04)">
-          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
             ${permInput('permTA_'+uid, '🕵️ THE AGENTS', t.maxClasses, 'Açtığı sınıf: '+classCodes.length+' · Boş = sınırsız, 0 = kapalı', true)}
             ${permInput('permCC_'+uid, '🏹 CLASSCLANS', t.ccMaxClasses, 'Boş = sınırsız, 0 = kapalı', true)}
             ${permInput('permWN_'+uid, "🎯 WHO'S NEXT?", t.wnMaxClasses, 'Boş = sınırsız, 0 = kapalı', true)}
@@ -999,6 +1006,10 @@ function viewAdminPanel(){
               ${permInput('permBB_'+uid, '🏅 BADGE BANK', bbLimit, '0 = kapalı (sınırsız seçeneği yok)', false)}
               <label class="text-xs flex items-center gap-2 mt-1"><input id="permBBSusp_${uid}" type="checkbox" ${t.bbSuspended ? 'checked' : ''}> Yalnızca Badge Bank'te askıya al</label>
               <div class="text-[11px] mt-1">Tahta: ${bbStatus}</div>
+            </div>
+            <div>
+              ${permInput('permEV_'+uid, '🐉 EVOMYTH', Number(t.evMaxClasses || 0), '0 = kapalı (tahtayı açamaz, sınıf oluşturamaz)', false)}
+              <label class="text-xs flex items-center gap-2 mt-1"><input id="permEVSusp_${uid}" type="checkbox" ${t.evSuspended ? 'checked' : ''}> Yalnızca Evomyth'te askıya al</label>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2 mt-3">

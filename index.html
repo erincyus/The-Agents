@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- Sürüm: 2026-09-25 — menüde Sınıf Araçları ve Oynanış & Kurallar bağlantıları bulunur; dört panel: The Agents, ClassClans, Who's Next?, Badge Bank -->
+<!-- Sürüm: 2026-09-26 — menüde Sınıf Araçları ve Oynanış & Kurallar bağlantıları bulunur; beş panel: The Agents, ClassClans, Who's Next?, Badge Bank, Evomyth -->
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TheGamifyClass.com | Educational Gamification</title>
-<meta name="description" content="Educational Gamification – The Agents, ClassClans, Who's Next? &amp; Badge Bank. Sınıfın için hazırlanmış dört oyunlaştırma dünyası.">
+<meta name="description" content="Educational Gamification – The Agents, ClassClans, Who's Next?, Badge Bank &amp; Evomyth. Sınıfın için hazırlanmış beş oyunlaştırma dünyası.">
 <link rel="icon" href="assets/site_logo.png" type="image/png">
 <link rel="apple-touch-icon" id="appleTouchIconLink" href="assets/site_logo.png">
 <link rel="manifest" id="manifestLink" href="">
@@ -47,6 +47,14 @@
     --bb-red:#ff4757;
     --bb-text:#eef1ff;
     --bb-muted:#a4acd6;
+
+    --ev-bg1:#05131b;
+    --ev-bg2:#0d3a2b;
+    --ev-green:#12a26a;
+    --ev-copper:#e0915f;
+    --ev-silver:#dfe6ee;
+    --ev-text:#eef6f2;
+    --ev-muted:#a9c2b8;
   }
 
   *{ box-sizing:border-box; }
@@ -338,9 +346,10 @@
   .panel--badge{
     background:radial-gradient(120% 140% at 70% 20%, var(--bb-bg2), var(--bb-bg1) 66%);
     color:var(--bb-text);
-    clip-path:polygon(var(--sk) 0, 100% 0, 100% 100%, 0 100%);
+    clip-path:polygon(var(--sk) 0, 100% 0, calc(100% - var(--sk)) 100%, 0 100%);
     margin-left:calc(-1 * (var(--sk) + var(--ov)));
     padding-left:calc(var(--sk) + 24px);
+    padding-right:calc(var(--sk) + 24px);
   }
   .panel--badge::before{
     content:"";
@@ -376,6 +385,48 @@
     box-shadow:0 8px 24px rgba(79,143,247,0.22);
   }
 
+  /* Evomyth panel */
+  .panel--evomyth{
+    background:radial-gradient(120% 140% at 30% 20%, var(--ev-bg2), var(--ev-bg1) 66%);
+    color:var(--ev-text);
+    clip-path:polygon(var(--sk) 0, 100% 0, 100% 100%, 0 100%);
+    margin-left:calc(-1 * (var(--sk) + var(--ov)));
+    padding-left:calc(var(--sk) + 24px);
+  }
+  .panel--evomyth::before{
+    content:"";
+    position:absolute; inset:0;
+    background:
+      radial-gradient(220px 220px at 85% 12%, rgba(224,145,95,0.16), transparent 70%),
+      radial-gradient(240px 240px at 12% 88%, rgba(18,162,106,0.18), transparent 70%);
+  }
+  .panel--evomyth .panel-logo{ filter:drop-shadow(0 8px 22px rgba(0,0,0,0.5)); }
+  .panel--evomyth h2{
+    font-family:'Cinzel', serif;
+    font-weight:700;
+    font-size:2.05rem;
+    letter-spacing:1px;
+    margin:0;
+    background:linear-gradient(180deg, #ffffff 10%, var(--ev-silver) 45%, #8fa3b3 90%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    filter:drop-shadow(0 0 14px rgba(18,162,106,0.45));
+  }
+  .panel--evomyth h3{
+    font-family:'Inter', sans-serif;
+    font-weight:500;
+    font-size:0.95rem;
+    color:var(--ev-muted);
+    margin:6px 0 0;
+  }
+  .panel--evomyth .panel-desc{ color:var(--ev-muted); }
+  .panel--evomyth .panel-cta{
+    background:linear-gradient(90deg, var(--ev-green), var(--ev-copper));
+    color:#fff;
+    box-shadow:0 8px 24px rgba(18,162,106,0.25);
+  }
+
   /* ---------- Footer ---------- */
   .site-footer{
     padding:22px 28px 28px;
@@ -389,14 +440,15 @@
   }
 
   /* ---------- Responsive ---------- */
-  /* Dört panel yan yana sığmadığında (geniş olmayan ekranlar) alt alta dizilir */
-  @media (max-width: 1200px){
+  /* Beş panel yan yana sığmadığında (geniş olmayan ekranlar) alt alta dizilir */
+  @media (max-width: 1400px){
     .panels{ --sk:36px; --ov:4px; flex-direction:column; min-height:auto; }
-    .panel, .panel--agents, .panel--clans, .panel--whos, .panel--badge{ padding:56px 26px; margin-left:0; }
+    .panel, .panel--agents, .panel--clans, .panel--whos, .panel--badge, .panel--evomyth{ padding:56px 26px; margin-left:0; }
     .panel--agents{ clip-path:polygon(0 0, 100% 0, 100% calc(100% - var(--sk)), 0 100%); }
     .panel--clans{ clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
     .panel--whos{ clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
-    .panel--badge{ clip-path:polygon(0 var(--sk), 100% 0, 100% 100%, 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
+    .panel--badge{ clip-path:polygon(0 var(--sk), 100% 0, 100% calc(100% - var(--sk)), 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
+    .panel--evomyth{ clip-path:polygon(0 var(--sk), 100% 0, 100% 100%, 0 100%); margin-top:calc(-1 * (var(--sk) + var(--ov))); }
   }
   @media (max-width: 480px){
     .site-header{ padding:14px 18px; }
@@ -430,7 +482,7 @@
     <div class="hero">
       <img class="hero-logo" src="assets/site_logo.png" alt="TheGamifyClass.com logosu">
       <h1>Hangi göreve çıkıyorsun?</h1>
-      <p>Sınıfın için hazırlanan dört farklı oyunlaştırma dünyasından birini seç. Hepsi görevler, puanlar, rozetler ve sürprizlerle dolu.</p>
+      <p>Sınıfın için hazırlanan beş farklı oyunlaştırma dünyasından birini seç. Hepsi görevler, puanlar, rozetler ve sürprizlerle dolu.</p>
     </div>
   </section>
 
@@ -475,6 +527,16 @@
       </div>
     </a>
 
+    <a class="panel panel--evomyth" href="Evomyth.html">
+      <div class="panel-inner">
+        <img class="panel-logo" src="assets/evomyth_logo.png" alt="Evomyth oyun logosu">
+        <h2>Evomyth</h2>
+        <h3>Görevleri tamamla, Evoletlerini evrimleştir</h3>
+        <p class="panel-desc">Ödevini yap, mitolojik Evoletler kazan! EP biriktirip Evoletlerini Temel'den Mega Pantheon Guard'a evrimleştir, MythBattle Arena'da sınıf arkadaşlarınla kapış ve 6 kişilik takımla üç başlı ejderha Yelbegen'e karşı Semruk'u kurtar.</p>
+        <span class="panel-cta">Panteon'a Gir</span>
+      </div>
+    </a>
+
   </section>
 
   <footer class="site-footer">
@@ -487,7 +549,7 @@
 const pwaManifest = {
   name: "TheGamifyClass.com",
   short_name: "GamifyClass",
-  description: "Eğitimde oyunlaştırma portalı: The Agents, ClassClans, Who's Next? ve Badge Bank",
+  description: "Eğitimde oyunlaştırma portalı: The Agents, ClassClans, Who's Next?, Badge Bank ve Evomyth",
   start_url: "./index.html",
   scope: "./",
   display: "standalone",
